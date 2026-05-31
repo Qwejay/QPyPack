@@ -221,6 +221,7 @@ class PackingThread(QThread):
         os.environ["NUITKA_ACCEPT_DOWNLOADS"] = "yes"
         
         engine = self.params['engine']
+        pip_idx = self.params.get('pip_index_url', '').strip() or "https://pypi.tuna.tsinghua.edu.cn/simple"
         try:
             self.progress.emit("[预处理] 清理遗留缓存...")
             robust_rmtree(Path.cwd() / "build")
@@ -251,17 +252,18 @@ class PackingThread(QThread):
                 engine_pkg = "cx_Freeze"
             else:
                 engine_pkg = "pyinstaller"
-            self.run_cmd_realtime([python_exe, "-m", "pip", "install", "-U", "pip", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", "-q"])
-            self.run_cmd_realtime([python_exe, "-m", "pip", "install", engine_pkg, "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", "-q"])
+            self.progress.emit(f"[环境配置] 正在通过镜像源 {pip_idx} 部署依赖包...")
+            self.run_cmd_realtime([python_exe, "-m", "pip", "install", "-U", "pip", "-i", pip_idx, "-q"])
+            self.run_cmd_realtime([python_exe, "-m", "pip", "install", engine_pkg, "-i", pip_idx, "-q"])
             if engine == "PyInstaller":
-                self.run_cmd_realtime([python_exe, "-m", "pip", "install", "pillow", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", "-q"])
+                self.run_cmd_realtime([python_exe, "-m", "pip", "install", "pillow", "-i", pip_idx, "-q"])
             
             # 依赖解析
             if self.params.get('use_reqs'):
                 req_file = script_dir / "requirements.txt"
                 if req_file.exists():
                     self.progress.emit(f"[依赖解析] 同步工程内 {req_file.name}...")
-                    self.run_cmd_realtime([python_exe, "-m", "pip", "install", "-r", str(req_file), "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"])
+                    self.run_cmd_realtime([python_exe, "-m", "pip", "install", "-r", str(req_file), "-i", pip_idx])
                 else:
                     self.progress.emit("[依赖解析] 未找到 requirements.txt，执行 AST 静态扫描...")
                     try:
@@ -289,7 +291,7 @@ class PackingThread(QThread):
                             for pkg in third_party:
                                 if self._is_cancelled: break
                                 self.progress.emit(f"[自动同步] 正在安装 {pkg}...")
-                                self.run_cmd_realtime([python_exe, "-m", "pip", "install", pkg, "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", "-q"])
+                                self.run_cmd_realtime([python_exe, "-m", "pip", "install", pkg, "-i", pip_idx, "-q"])
                     except Exception as e:
                         self.progress.emit(f"[扫描异常] {e}")
 
@@ -446,7 +448,7 @@ class MainWindow(QMainWindow):
         self._load_window_icon()
 
     def init_style(self):
-        self.setWindowTitle("PyPack 1.0.0- 自动化构建工具")
+        self.setWindowTitle("PyPack 1.0.1 - 自动化构建工具")
         self.setStyleSheet("""
             QMainWindow { background-color: #fdfdfd; }
             QLabel { color: #343a40; font-size: 9pt; }
@@ -696,6 +698,13 @@ class MainWindow(QMainWindow):
         form.setSpacing(5)
         form.setContentsMargins(0, 0, 0, 0)
 
+        # PIP 源配置（修改马上通过 QSettings 保存，在打包时生效）
+        self.pip_source_edit = QLineEdit()
+        self.pip_source_edit.setPlaceholderText("默认: https://pypi.tuna.tsinghua.edu.cn/simple")
+        self.pip_source_edit.setText(self.settings.value("pip_index_url", "https://pypi.tuna.tsinghua.edu.cn/simple"))
+        self.pip_source_edit.textChanged.connect(lambda text: self.settings.setValue("pip_index_url", text))
+        form.addRow("PIP 镜像源:", self.pip_source_edit)
+
         self.hidden_edit = QLineEdit()
         self.hidden_edit.setPlaceholderText("例如: pandas, PyQt5 (逗号分隔)")
         scan_btn = QPushButton("AST 扫描")
@@ -727,7 +736,7 @@ class MainWindow(QMainWindow):
         info_lay = QFormLayout()
         info_lay.setContentsMargins(8, 8, 8, 8)
         info_lay.setSpacing(5)
-        self.ver_ver = QLineEdit("1.0.0")
+        self.ver_ver = QLineEdit("1.0.1")
         self.ver_comp = QLineEdit("Developer Studio")
         self.ver_desc = QLineEdit("Windows Executable Application")
         info_lay.addRow("版本序列:", self.ver_ver)
@@ -890,7 +899,8 @@ class MainWindow(QMainWindow):
             'version_file': str(version_file) if version_file else None,
             'ver_comp': self.ver_comp.text() if engine != "cx_Freeze" else "",
             'ver_desc': self.ver_desc.text() if engine != "cx_Freeze" else "",
-            'ver_ver': self.ver_ver.text() if engine != "cx_Freeze" else ""
+            'ver_ver': self.ver_ver.text() if engine != "cx_Freeze" else "",
+            'pip_index_url': self.pip_source_edit.text().strip()
         }
 
         self.log.clear()
