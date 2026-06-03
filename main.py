@@ -372,7 +372,8 @@ class PackingThread(QThread):
                     if d:
                         parts = d.split(':', 1)
                         if len(parts) == 2:
-                            cmd.extend(["--include-data-files", f"{parts[0]}={parts[1]}"])
+                            # 修复：Nuitka 要求 --include-data-files 参数必须是完整字符串（由 = 拼接），不可分离
+                            cmd.append(f"--include-data-files={parts[0]}={parts[1]}")
                         else:
                             self.progress.emit(f"[警告] 附加资源格式错误，应为 src:dest，忽略: {d}")
 
@@ -463,7 +464,7 @@ class MainWindow(QMainWindow):
         self._load_window_icon()
 
     def init_style(self):
-        self.setWindowTitle("PyPack 1.0.2 - 自动化构建工具")
+        self.setWindowTitle("PyPack 1.0.1 - 自动化构建工具")
         self.setStyleSheet("""
             QMainWindow { background-color: #fdfdfd; }
             QLabel { color: #343a40; font-size: 9pt; }
