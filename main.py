@@ -191,8 +191,9 @@ class PackingThread(QThread):
         if self.process:
             try:
                 if os.name == "nt":
-                    # 在 Windows 下终止整个子进程树，防止编译器残留锁死文件
-                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], capture_output=True)
+                    # 在 Windows 下终止整个子进程树，防止编译器残留锁死文件 (增加 creationflags 隐藏结束进程的黑框)
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], 
+                                   capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
                     self.process.kill()
             except:
@@ -201,10 +202,19 @@ class PackingThread(QThread):
     def run_cmd_realtime(self, cmd, cwd=None):
         if self._is_cancelled: return False
         try:
-            self.process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, encoding='utf-8', errors='replace', cwd=cwd
-            )
+            kwargs = {
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.STDOUT,
+                "text": True,
+                "encoding": 'utf-8',
+                "errors": 'replace',
+                "cwd": cwd
+            }
+            # Windows 系统下静默执行，隐藏 CMD 黑窗口
+            if os.name == 'nt':
+                kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+            self.process = subprocess.Popen(cmd, **kwargs)
             while True:
                 line = self.process.stdout.readline()
                 if not line and self.process.poll() is not None:
@@ -230,7 +240,7 @@ class PackingThread(QThread):
             script_path = self.params['script_path']
             script_dir = Path(script_path).parent
             if "OneDrive" in str(script_path):
-                self.progress.emit("[警告] 工程位于 OneDrive 同同步目录中，文件可能被锁定导致构建失败，建议将工程迁移至本地路径。")
+                self.progress.emit("[警告] 工程位于 OneDrive 同步目录中，文件可能被锁定导致构建失败，建议将工程迁移至本地路径。")
             
             # 虚拟环境
             if self.params['use_venv']:
@@ -327,8 +337,13 @@ class PackingThread(QThread):
                     if imp: cmd.extend(["--hidden-import", imp])
                 for d in self.params.get('add_data', '').split(','):
                     d = d.strip()
-                    if d: cmd.extend(["--add-data", d])
-
+                    if d:
+                        # 兼容 PyPack 统一的 ':' 语法，自动转换为 Windows PyInstaller 所需的 ';'
+                        if os.name == 'nt' and ':' in d:
+                            parts = d.rsplit(':', 1) # 从右拆分，防止破坏 C:\ 盘符
+                            if len(parts) == 2:
+                                d = f"{parts[0]};{parts[1]}"
+                        cmd.extend(["--add-data", d])
             elif engine == "Nuitka":
                 self.temp_out_dir = Path(tempfile.mkdtemp(prefix="nuitka_out_"))
                 cmd = [python_exe, "-m", "nuitka", "--remove-output", "--assume-yes-for-downloads",
@@ -448,7 +463,7 @@ class MainWindow(QMainWindow):
         self._load_window_icon()
 
     def init_style(self):
-        self.setWindowTitle("PyPack 1.0.1 - 自动化构建工具")
+        self.setWindowTitle("PyPack 1.0.2 - 自动化构建工具")
         self.setStyleSheet("""
             QMainWindow { background-color: #fdfdfd; }
             QLabel { color: #343a40; font-size: 9pt; }
