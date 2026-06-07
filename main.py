@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PyPack 2.0 -  自动化构建工具
+PyPack 2.1 -  自动化构建工具
 支持引擎: PyInstaller / Nuitka / cx_Freeze
 """
 
@@ -951,9 +951,15 @@ class PackingThread(QThread):
             if engine == "PyInstaller":
                 self.temp_workpath = Path(tempfile.mkdtemp(prefix="pypack_build_")).resolve()
                 cmd = [python_exe, "-m", "PyInstaller", "--clean", "-y", f"--workpath={self.temp_workpath.as_posix()}", f"--name={app_name}"]
-                if self.params.get('onefile'): cmd.append("--onefile")
-                else: cmd.append("--onedir")
-                if self.params.get('noconsole'): cmd.append("--noconsole")
+                if self.params.get('onefile'): 
+                    cmd.append("--onefile")
+                    if os.name == "nt":
+                        cmd.append(f"--windows-onefile-tempdir-spec=%LOCALAPPDATA%\\{app_name}_Env")
+                else: 
+                    cmd.append("--standalone")
+                
+                if self.params.get('noconsole'): cmd.append("--windows-console-mode=disable")
+
                 
                 if icon_path: 
                     cmd.extend(["--icon", icon_path])
@@ -1092,7 +1098,7 @@ class MainWindow(QMainWindow):
         self.init_ui()
 
     def init_style(self):
-        self.setWindowTitle("PyPack 2.0")
+        self.setWindowTitle("PyPack 2.1")
         self.setMinimumSize(580, 520)
         self.resize(600, 560)
         
