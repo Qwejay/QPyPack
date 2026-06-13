@@ -1,16 +1,17 @@
-# PyPack
+# QPyPack
 
-PyPack 是一个为 Python 开发者设计的图形化打包配置工具。它将复杂的命令行打包流程（支持 **PyInstaller**、**Nuitka** 和 **cx_Freeze**）转化为直观、简易的 GUI 界面操作，无需记忆繁琐的终端命令，即可快速生成可执行文件（.exe）。
+QPyPack 是一个为 Python 开发者设计的图形化打包配置工具。它将复杂的命令行打包流程（支持 **PyInstaller**、**Nuitka** 和 **cx_Freeze**）转化为直观、简易的 GUI 界面操作，无需记忆繁琐的终端命令，即可快速生成可执行文件（.exe）。
 
 <p align="center">
-<img width="904" height="887" alt="image" src="https://github.com/user-attachments/assets/abe4c3ea-ccfe-41ab-9dd5-c99a882d69d4" />
-<img width="904" height="887" alt="image" src="https://github.com/user-attachments/assets/7a9ceed9-e070-4036-aabc-3b37bc13e036" />
+<img width="904" height="887" alt="image" src="https://github.com/user-attachments/assets/0f7831a2-68fc-460c-a5a2-75b39e36a7af" />
+<img width="904" height="887" alt="image" src="https://github.com/user-attachments/assets/ce50d3a0-95df-4773-bd56-763701bfd16a" />
+
 </p>
 
 ---
 ## 核心设计：让打包变简单
 
-为了解决传统命令行打包参数多、依赖易冲突、配置繁琐的问题，PyPack 2.0 围绕“易用性”进行了重新设计：
+为了解决传统命令行打包参数多、依赖易冲突、配置繁琐的问题，QPyPack 2.0 围绕“易用性”进行了重新设计：
 
 ### 1. 极简的交互流程
 * **拖拽即装载**：无需手动输入路径，直接将您的 `.py` 源代码文件拖入软件窗口，即可自动识别并准备构建。
@@ -31,6 +32,14 @@ PyPack 是一个为 Python 开发者设计的图形化打包配置工具。它�
 
 ---
 ### Changelog
+2.2
+* 更名为 QPyPack，规范目录结构for PyPI，优化内部沙盒与临时文件命名规范。
+* 超时守护 (Watchdog)：引入看门狗机制，为关键打包步骤设置超时限制，防止因网络问题导致构建无限期挂起。
+* 依赖推导优化：pipreqs 原生支持国内镜像站重定向加速，并增加 15 秒超时自愈，失败时自动降级为本地纯静态 AST 解析。
+* 智能命名输出：自动解析脚本版本，预设输出文件名为 {Name}_{Version} 格式（例如：QPyPack_2.2.0.exe）。
+* 编译兼容扩展：Nuitka 编译模式新增对 PyQt6、PySide、NumPy、Matplotlib 等常用插件的自适应识别。
+* 细节打磨：改进日志高频刷新滚动体验，优化版本信息元数据抓取退级逻辑。
+
 2.1
 * Nuitka单文件打包解压路径修改为%LOCALAPPDATA%
 * 增加建构失败动画
@@ -51,11 +60,13 @@ PyPack 是一个为 Python 开发者设计的图形化打包配置工具。它�
 3. **开始构建**：返回主界面点击“开始构建”，并在下方展开的控制台中实时查看打包进度。
 
 ---
-
-## 系统要求
-
-* **支持系统**：Windows (推荐), macOS, Linux
-* **Python 环境**：Python 3.8+ 
-* **基础依赖**：只需在您的本地系统提前安装好 `PyQt5` 即可运行：
-  ```bash
-  pip install PyQt5
+### 启动应用
+Python >=3.8 环境中执行以下命令启动程序。
+```bash
+pip install qpypack
+```
+```bash
+qpypack
+```
+### 或者使用打包好的二进制文件直接运行
+[GitHub Releases 下载链接](https://github.com/Qwejay/PyPack/releases)
