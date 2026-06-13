@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __app_name__ = "QPyPack"
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "自动化 Python 脚本打包构建工具"
@@ -18,6 +18,7 @@ import stat
 import ast
 import locale
 import math
+import threading
 from pathlib import Path
 
 os.environ["QT_LOGGING_RULES"] = "qt.text.font.db=false"
@@ -238,7 +239,7 @@ class TargetIconWidget(QWidget):
     def start_failure(self):
         self.stop_building()
         self.success_effect.setBlurRadius(40)
-        self.success_effect.setColor(QColor(217, 48, 37, 180)) # 红色警告发光
+        self.success_effect.setColor(QColor(217, 48, 37, 180))
         self.shake_anim.start()
         
     def reset(self):
@@ -761,7 +762,7 @@ class SettingsPanel(QWidget):
         if not script_path: return QMessageBox.warning(self, "提示", "请先在主界面加载脚本！")
         try:
             raw = Path(script_path).read_bytes()
-            if b"__CLOUDSYNC_ENC__" in raw[:1024]: return QMessageBox.critical(self, "错误", "脚本被云盘加密，请解密！")
+            if b"__CLOUDSYNC_ENC__" in raw[:1024]: return QMessageBox.warning(self, "错误", "脚本被云盘加密，请解密！")
             try: code = raw.decode('utf-8-sig')
             except: code = raw.decode('gbk', errors='ignore')
             
@@ -779,7 +780,7 @@ class SettingsPanel(QWidget):
             hidden = [m for m in hidden if m not in STD_LIBS]
             self.hidden_edit.setText(','.join(hidden))
             QMessageBox.information(self, "扫描完成", f"捕获到 {len(hidden)} 项依赖。")
-        except Exception as e: QMessageBox.critical(self, "错误", f"扫描失败: {e}")
+        except Exception as e: QMessageBox.warning(self, "错误", f"扫描失败: {e}")
 
     def add_resource(self):
         choice = QMessageBox.question(self, "添加资源", "Yes=文件, No=文件夹", QMessageBox.Yes | QMessageBox.No)
@@ -827,13 +828,32 @@ class PackingThread(QThread):
                 else: self.process.kill()
             except: pass
 
-    def run_cmd(self, cmd, cwd=None):
+    def run_cmd(self, cmd, cwd=None, timeout=None):
         if self._is_cancelled: return False
+        
+        timer = None
+        is_timeout = [False]
+        
         try:
             kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "cwd": cwd, "text": True, "errors": "replace"}
             if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
             
             self.process = subprocess.Popen(cmd, **kwargs)
+            
+            if timeout:
+                def kill_proc():
+                    is_timeout[0] = True
+                    try:
+                        if os.name == "nt":
+                            subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], 
+                                           capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                        else:
+                            self.process.kill()
+                    except:
+                        pass
+                timer = threading.Timer(timeout, kill_proc)
+                timer.start()
+
             for line in self.process.stdout:
                 if self._is_cancelled:
                     self.process.terminate()
@@ -841,10 +861,18 @@ class PackingThread(QThread):
                 self.progress.emit(line.strip())
             
             self.process.wait()
+            
+            if is_timeout[0]:
+                self.progress.emit(f"[提示] 该步骤执行超时 ({timeout}秒)，已自动跳过并进入下一步...")
+                return False
+                
             return self.process.returncode == 0
         except Exception as e:
             self.progress.emit(f"[系统异常] 进程执行失败: {e}")
             return False
+        finally:
+            if timer:
+                timer.cancel()
 
     def sanitize_script(self, orig_path: Path):
         try:
@@ -877,7 +905,7 @@ class PackingThread(QThread):
 
             if self.params['use_venv']:
                 self.progress.emit("[环境] 初始化虚拟隔离沙盒...")
-                self.venv_dir = Path(tempfile.mkdtemp(prefix="QPyPack_env_")).resolve()
+                self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
                 if not self.run_cmd([get_python_executable(), "-m", "venv", self.venv_dir.as_posix()]):
                     return self.finished.emit(False, "虚拟环境初始化失败。")
                 python_exe = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
@@ -892,6 +920,8 @@ class PackingThread(QThread):
             self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + core_pkgs + pip_args)
             
             req_success = False
+            
+            # 1. 优先尝试部署 requirements.txt
             if self.params.get('use_reqs'):
                 req_file = script_dir / "requirements.txt"
                 if req_file.exists():
@@ -901,22 +931,49 @@ class PackingThread(QThread):
                         if b"__CLOUDSYNC_ENC__" in raw_req[:1024]: raise ValueError("文件被锁定")
                         try: req_content = raw_req.decode('utf-8-sig')
                         except: req_content = raw_req.decode(locale.getpreferredencoding(), errors='ignore')
-                        temp_req = script_dir / "QPyPack_temp_reqs.txt"
+                        temp_req = script_dir / "pypack_temp_reqs.txt"
                         temp_req.write_text(req_content, encoding='utf-8')
                         if self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_req.as_posix()] + pip_args):
                             req_success = True
                         temp_req.unlink(missing_ok=True)
                     except Exception as e: self.progress.emit(f"[警告] {e}")
+
+            # 2. requirements.txt 未能成功解决依赖，则启用 pipreqs（带镜像站原生参数及 15 秒超时自愈）
             if self.params.get('use_pipreqs') and not req_success:
                 self.progress.emit("[依赖] 执行 pipreqs 深度推导...")
                 self.run_cmd([python_exe, "-m", "pip", "install", "pipreqs", "-q"] + pip_args)
-                temp_pipreqs = script_dir / "QPyPack_pipreqs_out.txt"
-                self.run_cmd([python_exe, "-m", "pipreqs.pipreqs", script_dir.as_posix(), "--encoding", "utf-8", "--force", "--savepath", temp_pipreqs.as_posix()])
-                if temp_pipreqs.exists():
-                    if self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args): req_success = True
-                    temp_pipreqs.unlink(missing_ok=True)
+                temp_pipreqs = script_dir / "pypack_pipreqs_out.txt"
+                
+                pypi_server = None
+                if pip_idx:
+                    pypi_server = re.sub(r'/simple/?$', '/pypi', pip_idx.strip(), flags=re.I).rstrip('/')
+                
+                pipreqs_cmd = [
+                    python_exe, "-m", "pipreqs.pipreqs", 
+                    script_dir.as_posix(), 
+                    "--encoding", "utf-8", 
+                    "--force", 
+                    "--savepath", temp_pipreqs.as_posix()
+                ]
+                
+                if pypi_server:
+                    pipreqs_cmd.extend(["--pypi-server", pypi_server])
+                    self.progress.emit(f"[依赖] pipreqs 已重定向至本地镜像接口: {pypi_server}")
+                
+                if self.run_cmd(pipreqs_cmd, timeout=15):
+                    if temp_pipreqs.exists():
+                        if self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args): 
+                            req_success = True
+                        temp_pipreqs.unlink(missing_ok=True)
+                else:
+                    self.progress.emit("[提示] pipreqs 深度解析超时或失败，转为本地 AST 解析...")
+                    if temp_pipreqs.exists():
+                        try: temp_pipreqs.unlink()
+                        except: pass
+
+            # 3. 如果以上方案均未成功解决依赖，则采用本地纯静态 AST 降级解析兜底
             if not req_success and (self.params.get('use_reqs') or self.params.get('use_pipreqs')):
-                self.progress.emit("[依赖] 执行 AST 语法树降级解析...")
+                self.progress.emit("[依赖] 正在启用 AST 本地语法树解析机制兜底...")
                 try:
                     code = build_script_path.read_text(encoding='utf-8', errors='ignore')
                     third_party = set()
@@ -942,7 +999,7 @@ class PackingThread(QThread):
             icon_path = Path(self.params['icon']).resolve().as_posix() if self.params.get('icon') else None
 
             if engine == "PyInstaller":
-                self.temp_workpath = Path(tempfile.mkdtemp(prefix="QPyPack_build_")).resolve()
+                self.temp_workpath = Path(tempfile.mkdtemp(prefix="qpypack_build_")).resolve()
                 cmd = [python_exe, "-m", "PyInstaller", "--clean", "-y", f"--workpath={self.temp_workpath.as_posix()}", f"--name={app_name}"]
                 
                 if self.params.get('onefile'): 
@@ -998,8 +1055,19 @@ class PackingThread(QThread):
                     if self.params.get('ver_ver'): cmd.append(f"--file-version={self.params['ver_ver']}")
                     
                 try:
-                    if 'PyQt5' in build_script_path.read_text(encoding='utf-8', errors='ignore'):
+                    script_text = build_script_path.read_text(encoding='utf-8', errors='ignore')
+                    if 'PyQt5' in script_text:
                         cmd.append("--enable-plugin=pyqt5")
+                    elif 'PyQt6' in script_text:
+                        cmd.append("--enable-plugin=pyqt6")
+                    elif 'PySide2' in script_text:
+                        cmd.append("--enable-plugin=pyside2")
+                    elif 'PySide6' in script_text:
+                        cmd.append("--enable-plugin=pyside6")
+                    elif 'numpy' in script_text:
+                        cmd.append("--enable-plugin=numpy")
+                    elif 'matplotlib' in script_text:
+                        cmd.append("--enable-plugin=matplotlib")
                 except: pass
                 
                 for imp in self.params.get('hidden_imports', '').split(','):
@@ -1068,7 +1136,7 @@ class PackingThread(QThread):
                 self.progress.emit("[清理] 抹除环境与沙盒...")
                 for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir]:
                     if p and p.exists(): robust_rmtree(p)
-                
+                    
                 cwd = Path.cwd().resolve()
                 app_name = self.params.get('app_name', 'app')
                 robust_rmtree(cwd / "dist")
@@ -1272,27 +1340,49 @@ class MainWindow(QMainWindow):
         except: pass
 
         self.script_path = path
-        self.settings_panel.name_edit.setText(Path(path).stem)
+        
+        # 智能元数据预设逻辑
+        app_name = Path(path).stem
+        version = ""
+        author = "My Studio"
+        desc = "Python Executable"
         
         try:
             content = Path(path).read_text(encoding='utf-8', errors='ignore')
             
+            # 解析版本
             v_match = re.search(r'^(?:__version__|VERSION|version)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
-            if v_match: self.settings_panel.ver_ver.setText(v_match.group(1))
+            if v_match: 
+                version = v_match.group(1)
+                self.settings_panel.ver_ver.setText(version)
                 
-            c_match = re.search(r'^(?:__author__|__company__|AUTHOR)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
-            if c_match: self.settings_panel.ver_comp.setText(c_match.group(1))
+            # 解析发行公司（无company则降级尝试绑定author）
+            c_match = re.search(r'^(?:__company__|COMPANY)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
+            if c_match: 
+                author = c_match.group(1)
+            else:
+                a_match = re.search(r'^(?:__author__|AUTHOR)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
+                if a_match: author = a_match.group(1)
+            self.settings_panel.ver_comp.setText(author)
                 
+            # 解析名称
             n_match = re.search(r'^(?:__title__|__app_name__|APP_NAME)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
             if n_match: 
-                self.settings_panel.name_edit.setText(n_match.group(1))
+                app_name = n_match.group(1)
                 
+            # 解析描述
             d_match = re.search(r'^(?:__description__|DESCRIPTION)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
             if d_match: 
-                self.settings_panel.ver_desc.setText(d_match.group(1))
+                desc = d_match.group(1)
+                self.settings_panel.ver_desc.setText(desc)
 
         except: pass
         
+        # 拼装生成带版本后缀的默认文件名
+        default_output_name = f"{app_name}_{version}" if version else app_name
+        self.settings_panel.name_edit.setText(default_output_name)
+        
+        # 图标自动配对
         script_dir = Path(path).parent
         auto_icon = None
         
@@ -1333,13 +1423,12 @@ class MainWindow(QMainWindow):
         version_file = None
         if engine == "PyInstaller" and sp.ver_ver.text().strip():
             try:
-                # 动态计算 Windows PE 需要的物理版本格式 (四位整数元组)
                 v_str = sp.ver_ver.text().strip()
                 v_nums = re.findall(r'\d+', v_str)
                 v_tuple = ",".join((v_nums + ['0', '0', '0', '0'])[:4])
                 
                 content = f'''VSVersionInfo(ffi=FixedFileInfo(filevers=({v_tuple}),prodvers=({v_tuple}),mask=0x3f,flags=0x0,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('CompanyName','{sp.ver_comp.text()}'),StringStruct('FileDescription','{sp.ver_desc.text()}'),StringStruct('FileVersion','{v_str}'),StringStruct('ProductVersion','{v_str}'),StringStruct('OriginalFilename','{app_name}.exe')])])])'''
-                version_file = Path(tempfile.gettempdir()) / f"QPyPack_{app_name}_version.txt"
+                version_file = Path(tempfile.gettempdir()) / f"qpypack_{app_name}_version.txt"
                 version_file.write_text(content, encoding='utf-8')
             except: pass
 
@@ -1414,10 +1503,10 @@ class MainWindow(QMainWindow):
 
     def append_log(self, msg):
         self.log.append(msg)
-        self.log.moveCursor(QTextCursor.End)
+        self.log.ensureCursorVisible()
 
 
-if __name__ == "__main__":
+def main():
     if hasattr(Qt, 'HighDpiScaleFactorRoundingPolicy'):
         QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
@@ -1429,3 +1518,6 @@ if __name__ == "__main__":
     win = MainWindow()
     win.show()
     sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()

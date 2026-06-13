@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qpypack"
+version = "2.2.0"
+description = "A modern graphical packaging config tool for PyInstaller, Nuitka, and cx_Freeze."
+readme = "README.md"
+authors = [
+    { name = "QwejayHuang" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+]
+
+dependencies = [
+    "PyQt5>=5.15.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/qwejay/QPyPack"
+
+[project.scripts]
+qpypack = "qpypack.main:main"
+
+[tool.setuptools.package-data]
+qpypack = ["icon.ico"]
