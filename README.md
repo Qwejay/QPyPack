@@ -3,8 +3,9 @@
 QPyPack 是一个为 Python 开发者设计的图形化打包配置工具。它将复杂的命令行打包流程（支持 **PyInstaller**、**Nuitka** 和 **cx_Freeze**）转化为直观、简易的 GUI 界面操作，无需记忆繁琐的终端命令，即可快速生成可执行文件（.exe）。
 
 <p align="center">
-<img width="904" height="887" alt="image" src="https://github.com/user-attachments/assets/abe4c3ea-ccfe-41ab-9dd5-c99a882d69d4" />
-<img width="904" height="887" alt="image" src="https://github.com/user-attachments/assets/7a9ceed9-e070-4036-aabc-3b37bc13e036" />
+<img width="904" height="887" alt="image" src="https://github.com/user-attachments/assets/0f7831a2-68fc-460c-a5a2-75b39e36a7af" />
+<img width="904" height="887" alt="image" src="https://github.com/user-attachments/assets/ce50d3a0-95df-4773-bd56-763701bfd16a" />
+
 </p>
 
 ---
