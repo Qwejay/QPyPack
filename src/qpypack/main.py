@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 __app_name__ = "QPyPack"
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 __author__ = "QwejayHuang"
-__company__ = "Qwesoft"
+__company__ = "QwejayHuang"
 __description__ = "自动化 Python 脚本打包构建工具"
 
 import sys
@@ -21,22 +21,25 @@ import math
 import threading
 from pathlib import Path
 
+if os.name == 'nt':
+    import winreg
+
 os.environ["QT_LOGGING_RULES"] = "qt.text.font.db=false"
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
 
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
+from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
                              QPushButton, QLabel, QLineEdit, QFileDialog, QCheckBox,
                              QComboBox, QFrame, QStackedLayout, QFormLayout, QTextEdit, 
                              QGraphicsOpacityEffect, QGroupBox, QGridLayout, QTabWidget,
                              QMessageBox, QInputDialog, QFileIconProvider, QSizePolicy, QScrollArea,
                              QGraphicsDropShadowEffect)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QFileInfo, QVariantAnimation, QTimer, QPointF, QRectF, QRect
-from PyQt5.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen
-from PyQt5.QtSvg import QSvgRenderer
+from PySide6.QtCore import Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QFileInfo, QVariantAnimation, QTimer, QPointF, QRectF, QRect
+from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen
+from PySide6.QtSvg import QSvgRenderer
 
 MATERIAL_ICONS = {
-    'settings': 'M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z',
+    'settings': 'M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z',
     'refresh': 'M17.65,6.35C16.2,4.9,14.21,4,12,4c-4.42,0-7.99,3.58-7.99,8s3.57,8,7.99,8c3.73,0,6.84-2.55,7.73-6h-2.08 c-0.82,2.33-3.04,4-5.65,4c-3.31,0-6-2.69-6-6s2.69-6,6-6c1.66,0,3.14,0.69,4.22,1.78L13,11h7V4L17.65,6.35z',
     'play': 'M8 5v14l11-7z',
     'stop': 'M6 6h12v12H6z',
@@ -54,11 +57,12 @@ MATERIAL_ICONS = {
 def get_svg_icon(name, color="#5F6368", size=24):
     path_data = MATERIAL_ICONS.get(name, "")
     svg_str = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="{size}" height="{size}"><path fill="{color}" d="{path_data}"/></svg>'
-    renderer = QSvgRenderer(svg_str.encode('utf-8'))
+    renderer = QSvgRenderer()
+    renderer.load(svg_str.encode('utf-8'))
     pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.transparent)
+    pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     renderer.render(painter)
     painter.end()
     return QIcon(pixmap)
@@ -69,7 +73,7 @@ def get_svg_pixmap(name, color="#5F6368", size=64):
 
 def get_stdlib_names():
     libs = {'os', 'sys', 're', 'math', 'time', 'datetime', 'json', 'urllib', 'sqlite3', 'csv', 
-            'subprocess', 'shutil', 'threading', 'multprocessing', 'queue', 'socket', 
+            'subprocess', 'shutil', 'threading', 'multiprocessing', 'queue', 'socket', 
             'collections', 'itertools', 'functools', 'random', 'hashlib', 'base64', 
             'binascii', 'xml', 'logging', 'argparse', 'typing', 'pathlib', 'traceback', 
             'warnings', 'tempfile', 'platform', 'zipfile', 'tarfile', 'gzip', 'bz2', 
@@ -80,18 +84,116 @@ def get_stdlib_names():
 STD_LIBS = get_stdlib_names()
 KNOWN_MAPPINGS = {
     'win32com': 'pywin32', 'win32api': 'pywin32', 'win32con': 'pywin32', 'win32gui': 'pywin32',
-    'cv2': 'opencv-python', 'PIL': 'pillow', 'bs4': 'beautifulsoup4', 'sklearn': 'scikit-learn',
+    'cv2': 'opencv-python', 'PIL': 'pillow', 'Pillow': 'pillow', 'bs4': 'beautifulsoup4', 'sklearn': 'scikit-learn',
     'yaml': 'pyyaml', 'fitz': 'pymupdf', 'dotenv': 'python-dotenv'
 }
 
 def get_resource_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+        base_path = sys._MEIPASS
+    elif '__compiled__' in globals():
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+def find_system_python():
+    """全方位、深层次、抗毒化的核心级 Python 环境嗅探探针"""
+    candidates = []
+    
+    for name in ('python', 'python3', 'pythonw'):
+        p = shutil.which(name)
+        if p: candidates.append(p)
+        
+    if os.name == 'nt':
+        try:
+            py = shutil.which("py")
+            if py:
+                clean_env = os.environ.copy()
+                clean_env.pop("PYTHONHOME", None)
+                clean_env.pop("PYTHONPATH", None)
+                proc = subprocess.Popen(
+                    [py, "-c", "import sys; print(sys.executable)"], 
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+                    text=True, env=clean_env, creationflags=subprocess.CREATE_NO_WINDOW
+                )
+                out, _ = proc.communicate(timeout=3)
+                if out and os.path.exists(out.strip()): 
+                    candidates.append(out.strip())
+        except: pass
+        
+        try:
+            for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+                try:
+                    with winreg.OpenKey(hive, r"SOFTWARE\Python\PythonCore") as core_key:
+                        for i in range(winreg.QueryInfoKey(core_key)[0]):
+                            sub = winreg.EnumKey(core_key, i)
+                            try:
+                                with winreg.OpenKey(core_key, rf"{sub}\InstallPath") as pkey:
+                                    path = winreg.QueryValueEx(pkey, "")[0]
+                                    exe = os.path.join(path, "python.exe")
+                                    if os.path.exists(exe): candidates.append(exe)
+                            except: pass
+                except: pass
+        except: pass
+        
+        search_paths = [
+            os.environ.get("LOCALAPPDATA", "") + r"\Programs\Python",
+            os.environ.get("PROGRAMFILES", "") + r"\Python",
+            os.environ.get("PROGRAMFILES(X86)", "") + r"\Python",
+            r"C:\Python", r"C:\Program Files\Python", r"C:\Program Files (x86)\Python"
+        ]
+        for base in search_paths:
+            if base and os.path.exists(base):
+                try:
+                    for d in os.listdir(base):
+                        if d.lower().startswith("python"):
+                            exe = os.path.join(base, d, "python.exe")
+                            if os.path.exists(exe): candidates.append(exe)
+                except: pass
+        
+        user_profile = os.environ.get("USERPROFILE", "")
+        if user_profile:
+            for c_dir in ("miniconda3", "anaconda3", "Miniconda3", "Anaconda3"):
+                for base in (user_profile, "C:\\", "D:\\"):
+                    exe = os.path.join(base, c_dir, "python.exe")
+                    if os.path.exists(exe): candidates.append(exe)
+
+    for cand in candidates:
+        cand = os.path.normpath(cand)
+        if not os.path.exists(cand): continue
+        
+        if os.name == 'nt' and "WindowsApps" in cand:
+            try:
+                if os.path.getsize(cand) == 0: continue
+            except: continue
+            
+        clean_env = os.environ.copy()
+        clean_env.pop("PYTHONHOME", None)
+        clean_env.pop("PYTHONPATH", None)
+        
+        try:
+            flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            proc = subprocess.run(
+                [cand, "-V"], capture_output=True, env=clean_env, 
+                creationflags=flags, timeout=3
+            )
+            if proc.returncode == 0:
+                return cand
+        except:
+            continue
+            
+    return "python"
 
 def get_python_executable():
-    if getattr(sys, 'frozen', False): return shutil.which("python") or shutil.which("python3") or "python"
-    return sys.executable
+    if getattr(sys, 'frozen', False) or '__compiled__' in globals():
+        return find_system_python()
+        
+    exe_name = Path(sys.executable).name.lower()
+    if exe_name in ('python.exe', 'python3.exe', 'pythonw.exe', 'python', 'python3'):
+        return sys.executable
+        
+    return find_system_python()
 
 def remove_readonly(func, path, exc_info):
     try: os.chmod(path, stat.S_IWRITE); func(path)
@@ -117,11 +219,11 @@ class AnimatedButton(QPushButton):
         self.animation_group = QParallelAnimationGroup()
         self.pos_anim = QPropertyAnimation(self, b"geometry")
         self.pos_anim.setDuration(150)
-        self.pos_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self.pos_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         
         self.op_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
         self.op_anim.setDuration(200)
-        self.op_anim.setEasingCurve(QEasingCurve.InOutCubic)
+        self.op_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
         
         self.is_hovered = False
 
@@ -161,7 +263,7 @@ class TargetIconWidget(QWidget):
         self.pulse_value = 0
         
         self.anim_timer = QTimer(self)
-        self.anim_timer.setInterval(16) # ~60fps
+        self.anim_timer.setInterval(16)
         self.anim_timer.timeout.connect(self._update_frame)
         
         self.success_effect = QGraphicsDropShadowEffect(self)
@@ -176,7 +278,7 @@ class TargetIconWidget(QWidget):
         self.burst_anim.setLoopCount(1)
         self.burst_anim.setStartValue(0.0)
         self.burst_anim.setEndValue(1.0)
-        self.burst_anim.setEasingCurve(QEasingCurve.OutQuad)
+        self.burst_anim.setEasingCurve(QEasingCurve.Type.OutQuad)
         self.burst_anim.valueChanged.connect(self._animate_burst)
 
         self.shake_offset = 0
@@ -272,8 +374,8 @@ class TargetIconWidget(QWidget):
             return
             
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         
         center = self.rect().center()
         center_x = center.x() + int(self.shake_offset)
@@ -284,7 +386,7 @@ class TargetIconWidget(QWidget):
             radius = (self.current_size / 2) + 12
             pen = QPen(QColor(26, 115, 232, 200))
             pen.setWidth(4)
-            pen.setCapStyle(Qt.RoundCap)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
             
             rect = QRectF(center_x - radius, center.y() - radius, radius * 2, radius * 2)
@@ -298,7 +400,7 @@ class TargetIconWidget(QWidget):
             
             if self.burst_value < 1.0:
                 alpha = int(255 * (1.0 - self.burst_value))
-                painter.setPen(Qt.NoPen)
+                painter.setPen(Qt.PenStyle.NoPen)
                 
                 painter.setBrush(QColor(26, 115, 232, alpha))
                 burst_radius_1 = (self.current_size / 2) + 10 + self.burst_value * 40
@@ -324,20 +426,20 @@ class TargetIconWidget(QWidget):
             draw_size, 
             draw_size
         )
-        scaled_pix = self.pixmap.scaled(draw_size, draw_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        scaled_pix = self.pixmap.scaled(draw_size, draw_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
         painter.drawPixmap(pix_rect, scaled_pix)
         painter.end()
 
 
 class DropArea(QFrame):
-    fileDropped = pyqtSignal(str)
+    fileDropped = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("DropArea") 
         self.setAcceptDrops(True)
-        self.setFrameStyle(QFrame.NoFrame)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setFrameStyle(QFrame.Shape.NoFrame)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("""
             #DropArea { background-color: #f8f9fa; border: 2px dashed #dadce0; border-radius: 12px; }
             #DropArea:hover { background-color: #f1f3f4; border: 2px dashed #bdc1c6; }
@@ -371,14 +473,14 @@ class DropArea(QFrame):
         layout.addSpacing(18)
         
         self.label = QLabel("将脚本(.py)拖拽至此处\n或 点击浏览")
-        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
         layout.addWidget(self.label)
         
         layout.addSpacing(8)
         
         self.sub_label = QLabel("智能解析工程依赖、附件及隐藏模块")
-        self.sub_label.setAlignment(Qt.AlignCenter)
+        self.sub_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sub_label.setStyleSheet("QLabel { background: transparent; color: #9AA0A6; font-size: 13px; border: none; }")
         layout.addWidget(self.sub_label)
         
@@ -399,7 +501,7 @@ class DropArea(QFrame):
             self.fileDropped.emit(urls[0].toLocalFile())
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             fp, _ = QFileDialog.getOpenFileName(self, "选择 Python 源代码文件", "", "Python Scripts (*.py)")
             if fp: self.fileDropped.emit(fp)
 
@@ -524,7 +626,7 @@ class SettingsPanel(QWidget):
         
         self.btn_save = AnimatedButton(" 保存并返回工作区")
         self.btn_save.setFixedHeight(44)
-        self.btn_save.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_save.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_save.setIcon(get_svg_icon('check', "white"))
         self.btn_save.setStyleSheet(self.parent_win.primary_btn_style)
         self.btn_save.clicked.connect(self.parent_win.show_main)
@@ -543,7 +645,7 @@ class SettingsPanel(QWidget):
     def build_basic_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet("background: transparent;")
         
         content = QWidget()
@@ -553,12 +655,12 @@ class SettingsPanel(QWidget):
         
         grp_core = QGroupBox("核心参数")
         form_core = QFormLayout(grp_core)
-        form_core.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form_core.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form_core.setContentsMargins(15, 20, 15, 15)
         form_core.setVerticalSpacing(12)
         
         self.engine_combo = QComboBox()
-        self.engine_combo.addItems(["PyInstaller", "Nuitka", "cx_Freeze"])
+        self.engine_combo.addItems(["PyInstaller", "Nuitka"])
         self.engine_combo.currentIndexChanged.connect(self.on_engine_changed)
         form_core.addRow("构建引擎:", self.engine_combo)
         
@@ -610,7 +712,7 @@ class SettingsPanel(QWidget):
     def build_env_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet("background: transparent;")
         
         content = QWidget()
@@ -620,14 +722,14 @@ class SettingsPanel(QWidget):
         
         grp_env = QGroupBox("隔离与网络")
         form_env = QFormLayout(grp_env)
-        form_env.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form_env.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form_env.setContentsMargins(15, 20, 15, 15)
         form_env.setVerticalSpacing(12)
         
         self.pip_source_edit = QLineEdit("https://pypi.tuna.tsinghua.edu.cn/simple")
         form_env.addRow("PIP 镜像:", self.pip_source_edit)
         
-        self.venv_check = QCheckBox("启用独立虚拟环境 (推荐，保证依赖纯净)")
+        self.venv_check = QCheckBox("启用独立打包环境")
         self.venv_check.setChecked(True)
         form_env.addRow("", self.venv_check)
         lay.addWidget(grp_env)
@@ -647,7 +749,7 @@ class SettingsPanel(QWidget):
         dep_lay.addLayout(grid_dep)
 
         form_dep = QFormLayout()
-        form_dep.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form_dep.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.hidden_edit = QLineEdit()
         self.hidden_edit.setPlaceholderText("例如: pandas, PyQt5 (逗号分隔)")
         btn_scan = QPushButton("AST 扫描")
@@ -670,7 +772,7 @@ class SettingsPanel(QWidget):
     def build_adv_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet("background: transparent;")
         
         content = QWidget()
@@ -680,12 +782,12 @@ class SettingsPanel(QWidget):
         
         grp_res = QGroupBox("附加资源与优化")
         form_res = QFormLayout(grp_res)
-        form_res.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form_res.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form_res.setContentsMargins(15, 20, 15, 15)
         form_res.setVerticalSpacing(12)
         
         self.add_data_edit = QLineEdit()
-        self.add_data_edit.setPlaceholderText("例如: data/*:data (跨平台自动处理路径)")
+        self.add_data_edit.setPlaceholderText("例如: data/model.bin:data")
         btn_add = QPushButton("添加...")
         btn_add.setProperty("class", "ToolBtn")
         btn_add.clicked.connect(self.add_resource)
@@ -694,7 +796,7 @@ class SettingsPanel(QWidget):
         h_res.addWidget(btn_add)
         form_res.addRow("附加资源:", h_res)
         
-        self.upx_check = QCheckBox("启用 UPX 压缩优化 (仅 PyInstaller)")
+        self.upx_check = QCheckBox("启用 PyInstaller UPX")
         form_res.addRow("", self.upx_check)
         lay.addWidget(grp_res)
         lay.addStretch()
@@ -707,7 +809,7 @@ class SettingsPanel(QWidget):
     def build_meta_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet("background: transparent;")
         
         content = QWidget()
@@ -717,7 +819,7 @@ class SettingsPanel(QWidget):
         
         self.grp_meta = QGroupBox("版本元数据 (Metadata)")
         meta_form = QFormLayout(self.grp_meta)
-        meta_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        meta_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         meta_form.setContentsMargins(15, 20, 15, 15)
         meta_form.setVerticalSpacing(12)
         
@@ -729,7 +831,7 @@ class SettingsPanel(QWidget):
         meta_form.addRow("文件描述:", self.ver_desc)
         lay.addWidget(self.grp_meta)
         
-        tip = QLabel("注：仅 PyInstaller 和 Nuitka 引擎支持写入 EXE 版本信息。")
+        tip = QLabel("注：写入 EXE 版本信息可提升系统识别度。")
         tip.setStyleSheet("color: #9AA0A6; font-size: 12px; font-weight: normal; background: transparent;")
         lay.addWidget(tip)
         lay.addStretch()
@@ -741,15 +843,13 @@ class SettingsPanel(QWidget):
 
     def on_engine_changed(self):
         engine = self.engine_combo.currentText()
-        self.onefile_check.setVisible(engine in ("PyInstaller", "Nuitka"))
         self.upx_check.setVisible(engine == "PyInstaller")
-        self.tabs.setTabEnabled(3, engine != "cx_Freeze")
 
     def update_icon_preview(self, path):
         if path and Path(path).exists():
             pixmap = QPixmap(path)
             if not pixmap.isNull():
-                self.icon_preview.setPixmap(pixmap.scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.icon_preview.setPixmap(pixmap.scaled(28, 28, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
                 return
         self.icon_preview.clear()
 
@@ -783,8 +883,8 @@ class SettingsPanel(QWidget):
         except Exception as e: QMessageBox.warning(self, "错误", f"扫描失败: {e}")
 
     def add_resource(self):
-        choice = QMessageBox.question(self, "添加资源", "Yes=文件, No=文件夹", QMessageBox.Yes | QMessageBox.No)
-        if choice == QMessageBox.Yes:
+        choice = QMessageBox.question(self, "添加资源", "Yes=文件, No=文件夹", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if choice == QMessageBox.StandardButton.Yes:
             files, _ = QFileDialog.getOpenFileNames(self, "选择文件", "", "All Files (*)")
             for f in files:
                 f = Path(f).resolve().as_posix()
@@ -808,8 +908,8 @@ class SettingsPanel(QWidget):
 
 # ======================== 核心构建引擎 ========================
 class PackingThread(QThread):
-    progress = pyqtSignal(str)
-    finished = pyqtSignal(bool, str)
+    progress = Signal(str)
+    finished = Signal(bool, str)
 
     def __init__(self, params):
         super().__init__()
@@ -834,8 +934,13 @@ class PackingThread(QThread):
         timer = None
         is_timeout = [False]
         
+        clean_env = os.environ.copy()
+        clean_env.pop("PYTHONHOME", None)
+        clean_env.pop("PYTHONPATH", None)
+        
         try:
-            kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "cwd": cwd, "text": True, "errors": "replace"}
+            kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "cwd": cwd, 
+                      "text": True, "errors": "replace", "env": clean_env}
             if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
             
             self.process = subprocess.Popen(cmd, **kwargs)
@@ -867,6 +972,13 @@ class PackingThread(QThread):
                 return False
                 
             return self.process.returncode == 0
+        except FileNotFoundError as e:
+            cmd_name = cmd[0] if isinstance(cmd, list) and cmd else str(cmd)
+            if "python" in str(cmd_name).lower():
+                self.progress.emit(f"[环境缺失] 无法找到系统宿主 Python。请确保您已正确安装 Python 并添加至系统 PATH。")
+            else:
+                self.progress.emit(f"[系统异常] 找不到可执行程序: {cmd_name}。详细报错: {e}")
+            return False
         except Exception as e:
             self.progress.emit(f"[系统异常] 进程执行失败: {e}")
             return False
@@ -892,7 +1004,7 @@ class PackingThread(QThread):
         ext = ".exe" if os.name == "nt" else ""
 
         try:
-            self.progress.emit("[清理] 初始化构建管线...")
+            self.progress.emit("[清理] 初始化构建空间...")
             robust_rmtree(Path.cwd() / "build")
             robust_rmtree(Path.cwd() / "dist")
             
@@ -903,25 +1015,49 @@ class PackingThread(QThread):
             if not build_script_path and err_msg: return self.finished.emit(False, f"[安全拦截] {err_msg}")
             script_posix = build_script_path.as_posix()
 
+            script_imports = set()
+            required_pkgs_normalized = set()
+            try:
+                code_text = build_script_path.read_text(encoding='utf-8', errors='ignore')
+                try:
+                    for node in ast.walk(ast.parse(code_text)):
+                        if isinstance(node, ast.Import):
+                            for alias in node.names: script_imports.add(alias.name.split('.')[0])
+                        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                            script_imports.add(node.module.split('.')[0])
+                except:
+                    script_imports = set(re.findall(r'^\s*(?:from|import)\s+([a-zA-Z0-9_]+)', code_text, re.M))
+                
+                required_pkgs_normalized = {KNOWN_MAPPINGS.get(m, m).lower().replace('_', '-') for m in script_imports if m not in STD_LIBS}
+            except Exception as e:
+                self.progress.emit(f"[依赖预检] 解析依赖失败: {e}")
+
+            system_python_exe = get_python_executable()
+            self.progress.emit(f"[环境] Python: {system_python_exe}")
+
             if self.params['use_venv']:
-                self.progress.emit("[环境] 初始化虚拟隔离沙盒...")
+                self.progress.emit("[环境] 初始化独立打包环境...")
                 self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
-                if not self.run_cmd([get_python_executable(), "-m", "venv", self.venv_dir.as_posix()]):
-                    return self.finished.emit(False, "虚拟环境初始化失败。")
+                if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
+                    return self.finished.emit(False, "虚拟环境初始化失败。这通常是因为您的 Python 环境被精简或已损坏。")
                 python_exe = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
-            else: python_exe = Path(get_python_executable()).resolve().as_posix()
+            else: 
+                python_exe = system_python_exe
 
             pip_args = ["-i", pip_idx] if pip_idx else []
-            engine_pkg = "nuitka[onefile]" if engine == "Nuitka" else "cx_Freeze" if engine == "cx_Freeze" else "pyinstaller"
+            engine_pkg = "nuitka" if engine == "Nuitka" else "pyinstaller"
             
             self.progress.emit(f"[环境] 下载核心组件...")
             core_pkgs = [engine_pkg]
-            if engine == "PyInstaller": core_pkgs.append("pillow")
+            if engine == "PyInstaller": 
+                core_pkgs.append("pillow")
+            elif engine == "Nuitka":
+                core_pkgs.append("zstandard")
+                
             self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + core_pkgs + pip_args)
             
             req_success = False
             
-            # 1. 优先尝试部署 requirements.txt
             if self.params.get('use_reqs'):
                 req_file = script_dir / "requirements.txt"
                 if req_file.exists():
@@ -938,9 +1074,9 @@ class PackingThread(QThread):
                         temp_req.unlink(missing_ok=True)
                     except Exception as e: self.progress.emit(f"[警告] {e}")
 
-            # 2. requirements.txt 未能成功解决依赖，则启用 pipreqs（带镜像站原生参数及 15 秒超时自愈）
             if self.params.get('use_pipreqs') and not req_success:
                 self.progress.emit("[依赖] 执行 pipreqs 深度推导...")
+                
                 self.run_cmd([python_exe, "-m", "pip", "install", "pipreqs", "-q"] + pip_args)
                 temp_pipreqs = script_dir / "pypack_pipreqs_out.txt"
                 
@@ -962,33 +1098,33 @@ class PackingThread(QThread):
                 
                 if self.run_cmd(pipreqs_cmd, timeout=15):
                     if temp_pipreqs.exists():
+                        pipreqs_incomplete = False
+                        try:
+                            pipreqs_text = temp_pipreqs.read_text(encoding='utf-8', errors='ignore').lower().replace('_', '-')
+                            for pkg in required_pkgs_normalized:
+                                if not re.search(r'\b' + re.escape(pkg) + r'\b', pipreqs_text):
+                                    pipreqs_incomplete = True
+                                    self.progress.emit(f"[警告] pipreqs 未能成功匹配装载该模块: {pkg}")
+                        except:
+                            pipreqs_incomplete = True
+
                         if self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args): 
-                            req_success = True
+                            if not pipreqs_incomplete:
+                                req_success = True
+                            else:
+                                self.progress.emit("[依赖] 检测到部分核心模块漏报，准备进入本地解析...")
                         temp_pipreqs.unlink(missing_ok=True)
                 else:
-                    self.progress.emit("[提示] pipreqs 深度解析超时或失败，转为本地 AST 解析...")
-                    if temp_pipreqs.exists():
-                        try: temp_pipreqs.unlink()
-                        except: pass
+                    self.progress.emit("[提示] pipreqs 深度解析超时或失败...")
 
-            # 3. 如果以上方案均未成功解决依赖，则采用本地纯静态 AST 降级解析兜底
             if not req_success and (self.params.get('use_reqs') or self.params.get('use_pipreqs')):
-                self.progress.emit("[依赖] 正在启用 AST 本地语法树解析机制兜底...")
+                self.progress.emit("[依赖] 正在启用 AST 本地语法树解析...")
                 try:
-                    code = build_script_path.read_text(encoding='utf-8', errors='ignore')
-                    third_party = set()
-                    try:
-                        for node in ast.walk(ast.parse(code)):
-                            if isinstance(node, ast.Import):
-                                for alias in node.names: third_party.add(alias.name.split('.')[0])
-                            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                                third_party.add(node.module.split('.')[0])
-                    except: third_party = set(re.findall(r'^\s*(?:from|import)\s+([a-zA-Z0-9_]+)', code, re.M))
-                    
-                    pkgs_to_install = [KNOWN_MAPPINGS.get(m, m) for m in third_party if m not in STD_LIBS]
+                    pkgs_to_install = [KNOWN_MAPPINGS.get(m, m) for m in script_imports if m not in STD_LIBS]
                     if pkgs_to_install:
                         self.progress.emit(f"[依赖] 同步外部模块: {', '.join(pkgs_to_install)}")
-                        self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + pkgs_to_install + pip_args)
+                        if not self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + pkgs_to_install + pip_args):
+                            self.progress.emit("[警告] 部分外部依赖在沙盒中安装失败，这可能导致最终打包的 EXE 运行报错！")
                 except Exception as e: self.progress.emit(f"[异常] {e}")
 
             if self._is_cancelled: return self.finished.emit(False, "构建已被中断。")
@@ -1000,20 +1136,16 @@ class PackingThread(QThread):
 
             if engine == "PyInstaller":
                 self.temp_workpath = Path(tempfile.mkdtemp(prefix="qpypack_build_")).resolve()
-                cmd = [python_exe, "-m", "PyInstaller", "--clean", "-y", f"--workpath={self.temp_workpath.as_posix()}", f"--name={app_name}"]
+                cmd = [python_exe, "-m", "PyInstaller", "--clean", "--noconfirm", f"--workpath={self.temp_workpath.as_posix()}", f"--name={app_name}"]
                 
-                if self.params.get('onefile'): 
-                    cmd.append("--onefile")
-                else: 
-                    cmd.append("--onedir")
+                if self.params['onefile']: cmd.append("--onefile")
+                else: cmd.append("--onedir")
                 
-                if self.params.get('noconsole'): 
-                    cmd.append("--noconsole")
+                if self.params['noconsole']: cmd.append("--noconsole")
 
                 if icon_path: 
                     cmd.extend(["--icon", icon_path])
-                    sep = ';' if os.name == 'nt' else ':'
-                    cmd.extend(["--add-data", f"{icon_path}{sep}."])
+                    cmd.extend(["--add-data", f"{icon_path}{os.pathsep}."])
                     
                 if self.params.get('version_file') and os.name == "nt": cmd.extend(["--version-file", self.params['version_file']])
                 if self.params.get('upx'):
@@ -1025,11 +1157,9 @@ class PackingThread(QThread):
                 for d in self.params.get('add_data', '').split(','):
                     d = d.strip()
                     if d:
-                        d = d.replace('\\', '/')
-                        if os.name == 'nt' and ':' in d and ';' not in d:
-                            parts = d.rsplit(':', 1)
-                            if len(parts) == 2: d = f"{parts[0]};{parts[1]}"
-                        cmd.extend(["--add-data", d])
+                        parts = d.rsplit(':', 1)
+                        if len(parts) == 2:
+                            cmd.extend(["--add-data", f"{parts[0].strip()}{os.pathsep}{parts[1].strip()}"])
                         
             elif engine == "Nuitka":
                 self.temp_out_dir = Path(tempfile.mkdtemp(prefix="nuitka_out_")).resolve()
@@ -1038,68 +1168,50 @@ class PackingThread(QThread):
                 
                 cmd.append(f"--jobs={os.cpu_count() or 4}")
                 
-                if self.params.get('onefile'): cmd.append("--onefile")
+                if self.params['onefile']: cmd.append("--onefile")
                 else: cmd.append("--standalone")
-                if self.params.get('noconsole'): cmd.append("--windows-console-mode=disable")
+                
+                if self.params['noconsole']: cmd.append("--windows-console-mode=disable")
                 
                 if icon_path: 
                     if os.name == "nt":
                         cmd.append(f"--windows-icon-from-ico={icon_path}")
                     elif sys.platform == "darwin" and icon_path.endswith(".icns"):
                         cmd.append(f"--macos-app-icon={icon_path}")
-                    cmd.append(f"--include-data-files={icon_path}={Path(icon_path).name}")
+                    cmd.append(f"--include-data-files={Path(icon_path).resolve().as_posix()}={Path(icon_path).name}")
                     
                 if os.name == "nt":
                     if self.params.get('ver_comp'): cmd.append(f"--company-name={self.params['ver_comp']}")
                     if self.params.get('ver_desc'): cmd.append(f"--product-name={self.params['ver_desc']}")
                     if self.params.get('ver_ver'): cmd.append(f"--file-version={self.params['ver_ver']}")
                     
-                try:
-                    script_text = build_script_path.read_text(encoding='utf-8', errors='ignore')
-                    if 'PyQt5' in script_text:
-                        cmd.append("--enable-plugin=pyqt5")
-                    elif 'PyQt6' in script_text:
-                        cmd.append("--enable-plugin=pyqt6")
-                    elif 'PySide2' in script_text:
-                        cmd.append("--enable-plugin=pyside2")
-                    elif 'PySide6' in script_text:
-                        cmd.append("--enable-plugin=pyside6")
-                    elif 'numpy' in script_text:
-                        cmd.append("--enable-plugin=numpy")
-                    elif 'matplotlib' in script_text:
-                        cmd.append("--enable-plugin=matplotlib")
-                except: pass
+                cmd.append("--enable-plugin=anti-bloat")
+                
+                if 'PyQt5' in script_imports: cmd.append("--enable-plugin=pyqt5")
+                elif 'PyQt6' in script_imports: cmd.append("--enable-plugin=pyqt6")
+                elif 'PySide2' in script_imports: cmd.append("--enable-plugin=pyside2")
+                elif 'PySide6' in script_imports: cmd.append("--enable-plugin=pyside6")
+                
+                if 'numpy' in script_imports: cmd.append("--enable-plugin=numpy")
+                if 'matplotlib' in script_imports: cmd.append("--enable-plugin=matplotlib")
+                if 'tkinter' in script_imports: cmd.append("--enable-plugin=tk-inter")
                 
                 for imp in self.params.get('hidden_imports', '').split(','):
                     if imp.strip(): cmd.append(f"--include-module={imp.strip()}")
-                for d in self.params.get('add_data', '').split(','):
-                    d = d.strip()
-                    if d:
-                        d = d.replace('\\', '/')
-                        parts = d.split(':', 1)
-                        if len(parts) == 2: 
-                            cmd.append(f"--include-data-files={parts[0]}={parts[1]}")
-                            
-            elif engine == "cx_Freeze":
-                cmd = [python_exe, "-m", "cx_Freeze", script_posix, f"--target-dir=dist/{app_name}", f"--target-name={app_name}{ext}"]
-                if self.params.get('noconsole'): cmd.append("--base=Win32GUI")
-                else: cmd.append("--base=Console")
                 
-                add_data_list = []
-                if icon_path: 
-                    cmd.extend(["--icon", icon_path])
-                    add_data_list.append(f"{icon_path}={Path(icon_path).name}")
-                for imp in self.params.get('hidden_imports', '').split(','):
-                    if imp.strip(): cmd.extend(["--include-modules", imp.strip()])
                 for d in self.params.get('add_data', '').split(','):
                     d = d.strip()
                     if d:
-                        d = d.replace('\\', '/')
-                        parts = d.split(':', 1)
-                        if len(parts) == 2: add_data_list.append(f"{parts[0]}={parts[1]}")
-                if add_data_list: cmd.append(f"--include-files={','.join(add_data_list)}")
+                        parts = d.rsplit(':', 1)
+                        if len(parts) == 2:
+                            src_path = Path(parts[0].strip())
+                            dst_path = parts[1].strip()
+                            if src_path.is_dir():
+                                cmd.append(f"--include-data-dir={src_path.resolve().as_posix()}={dst_path}")
+                            else:
+                                cmd.append(f"--include-data-files={src_path.resolve().as_posix()}={dst_path}")
 
-            if engine in ["PyInstaller", "Nuitka"]: cmd.append(script_posix)
+            cmd.append(script_posix)
 
             success = self.run_cmd(cmd, cwd=Path.cwd().resolve().as_posix())
             if self._is_cancelled: return self.finished.emit(False, "构建已被中断。")
@@ -1108,7 +1220,6 @@ class PackingThread(QThread):
             cwd = Path.cwd().resolve()
             if engine == "PyInstaller": src_out = cwd / "dist" / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
             elif engine == "Nuitka": src_out = self.temp_out_dir / (f"{app_name}{ext}" if self.params['onefile'] else f"{app_name}.dist")
-            elif engine == "cx_Freeze": src_out = cwd / "dist" / app_name
 
             final_out = script_dir / src_out.name
             if success and src_out.exists():
@@ -1132,7 +1243,7 @@ class PackingThread(QThread):
                 try: build_script_path.unlink()
                 except: pass
                 
-            if self.params.get('clean_all'):
+            if self.params['clean_all']:
                 self.progress.emit("[清理] 抹除环境与沙盒...")
                 for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir]:
                     if p and p.exists(): robust_rmtree(p)
@@ -1231,7 +1342,7 @@ class MainWindow(QMainWindow):
 
         self.btn_main = AnimatedButton("")
         self.btn_main.setFixedHeight(44)
-        self.btn_main.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_main.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_main.clicked.connect(self.on_main_btn_clicked)
         btn_layout.addWidget(self.btn_main)
 
@@ -1325,7 +1436,7 @@ class MainWindow(QMainWindow):
     def _animate_switch(self, target_widget):
         self.anim = QPropertyAnimation(self.stacked_layout.currentWidget(), b"geometry")
         self.anim.setDuration(250)
-        self.anim.setEasingCurve(QEasingCurve.OutCubic)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.anim.setStartValue(self.stacked_layout.currentWidget().geometry())
         self.stacked_layout.setCurrentWidget(target_widget)
         self.anim.setEndValue(target_widget.geometry())
@@ -1341,7 +1452,6 @@ class MainWindow(QMainWindow):
 
         self.script_path = path
         
-        # 智能元数据预设逻辑
         app_name = Path(path).stem
         version = ""
         author = "My Studio"
@@ -1350,13 +1460,11 @@ class MainWindow(QMainWindow):
         try:
             content = Path(path).read_text(encoding='utf-8', errors='ignore')
             
-            # 解析版本
             v_match = re.search(r'^(?:__version__|VERSION|version)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
             if v_match: 
                 version = v_match.group(1)
                 self.settings_panel.ver_ver.setText(version)
                 
-            # 解析发行公司（无company则降级尝试绑定author）
             c_match = re.search(r'^(?:__company__|COMPANY)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
             if c_match: 
                 author = c_match.group(1)
@@ -1365,12 +1473,10 @@ class MainWindow(QMainWindow):
                 if a_match: author = a_match.group(1)
             self.settings_panel.ver_comp.setText(author)
                 
-            # 解析名称
             n_match = re.search(r'^(?:__title__|__app_name__|APP_NAME)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
             if n_match: 
                 app_name = n_match.group(1)
                 
-            # 解析描述
             d_match = re.search(r'^(?:__description__|DESCRIPTION)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
             if d_match: 
                 desc = d_match.group(1)
@@ -1378,11 +1484,9 @@ class MainWindow(QMainWindow):
 
         except: pass
         
-        # 拼装生成带版本后缀的默认文件名
         default_output_name = f"{app_name}_{version}" if version else app_name
         self.settings_panel.name_edit.setText(default_output_name)
         
-        # 图标自动配对
         script_dir = Path(path).parent
         auto_icon = None
         
@@ -1436,7 +1540,7 @@ class MainWindow(QMainWindow):
             'engine': engine,
             'script_path': self.script_path,
             'app_name': app_name,
-            'onefile': sp.onefile_check.isChecked() if engine != "cx_Freeze" else False,
+            'onefile': sp.onefile_check.isChecked(),
             'noconsole': sp.noconsole_check.isChecked(),
             'icon': sp.icon_edit.text().strip(),
             'use_reqs': sp.reqs_check.isChecked(),
@@ -1447,9 +1551,9 @@ class MainWindow(QMainWindow):
             'use_venv': sp.venv_check.isChecked(),
             'clean_all': sp.clean_all_check.isChecked(),
             'version_file': version_file.as_posix() if version_file else None,
-            'ver_comp': sp.ver_comp.text() if engine != "cx_Freeze" else "",
-            'ver_desc': sp.ver_desc.text() if engine != "cx_Freeze" else "",
-            'ver_ver': sp.ver_ver.text() if engine != "cx_Freeze" else "",
+            'ver_comp': sp.ver_comp.text(),
+            'ver_desc': sp.ver_desc.text(),
+            'ver_ver': sp.ver_ver.text(),
             'pip_index_url': sp.pip_source_edit.text().strip()
         }
 
@@ -1507,17 +1611,12 @@ class MainWindow(QMainWindow):
 
 
 def main():
-    if hasattr(Qt, 'HighDpiScaleFactorRoundingPolicy'):
-        QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-        
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setFont(QFont("Microsoft YaHei", 9))
     win = MainWindow()
     win.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
