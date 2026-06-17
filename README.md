@@ -32,6 +32,14 @@ QPyPack 是一个为 Python 开发者设计的图形化打包配置工具。它�
 ---
 ### Changelog
 
+**2.3.5**
+* **防漏包机制**：彻底废弃极易误判的短路判定，重构依赖拉取架构为“三重绝对安全网”（Requirements -> Pipreqs -> AST源码强扫）。即使前置分析工具漏报，最终的 AST 保底扫描也会强行抓取 `PySide6` 等核心隐式库并塞入沙盒，彻底终结漏包闪退问题。
+* **工作区“零污染”改造**：贯彻绝对纯净的构建理念。将 `QPyPack.ini` 配置文件平滑迁移至全局系统路径（`~/.qpypack/config.ini`），并将所有 AST 缓存、依赖清单等中间产物全部转移至操作系统 `Temp` 目录，确保不留任何垃圾文件污染用户的工程代码区。
+* **构建日志工程化规范**：全面重构控制台与 UI 日志的输出文案，引入规范化的 CI/CD 生命周期状态标签（如 `[Init]`, `[Env]`, `[Deps]`, `[Build]`, `[Pack]`），大幅提升状态诊断的清晰度与专业性。
+* **虚拟环境沙盒智能自愈**：在分配独立隔离的 venv 打包沙盒后，首个初始化动作变更为静默自动升级 `pip`，彻底压制并清除了因老旧模块引发的大段黄色警告乱码。
+* **核心 BUG 修复**：精准修复了因底层 `configparser` 映射字典降级读取失败，导致抛出 `'dict' object has no attribute 'lower'` 的致命性系统崩溃问题。
+* **优化日志表述**：调整了日志输出文字的语言表述，现在更加专业化。
+
 **2.3.0**
 * **UI框架重构**：由 PyQt5 升级至 PySide6。优化了现代高分屏（High-DPI）下的文字与图标缩放表现。
 * **精简架构**：移除 `cx_Freeze` 打包引擎，专注打磨更现代、更高效的 PyInstaller 与 Nuitka 双核心引擎。
@@ -84,3 +92,13 @@ qpypack
 ### 预编译版本下载
 若不想配置 Python 环境，可直接下载打包好的独立可执行文件：
 [GitHub Releases 下载链接](https://github.com/Qwejay/PyPack/releases)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=Qwejay%2FQPyPack&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&legend=top-left" />
+ </picture>
+</a>
