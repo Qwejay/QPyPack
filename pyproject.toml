@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qpypack"
-version = "2.3.0"
+version = "2.3.5"
 description = "A modern graphical packaging config tool for PyInstaller, Nuitka."
 readme = "README.md"
 authors = [
@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "PyQt5>=5.15.0",
+    "PySide6>=6.0.0",
 ]
 
 [project.urls]

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __app_name__ = "QPyPack"
-__version__ = "2.3.0"
+__version__ = "2.3.5"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "自动化 Python 脚本打包构建工具"
@@ -15,10 +15,11 @@ import tempfile
 import re
 import time
 import stat
-import ast
+import json
 import locale
 import math
 import threading
+import configparser
 from pathlib import Path
 
 if os.name == 'nt':
@@ -54,6 +55,81 @@ MATERIAL_ICONS = {
     'close': 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
 }
 
+_CONFIG_DIR = Path.home() / ".qpypack"
+_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_FILE = (_CONFIG_DIR / "config.ini").as_posix()
+
+DEFAULT_MAPPINGS = {
+    'win32com': 'pywin32', 'win32api': 'pywin32', 'win32con': 'pywin32', 'win32gui': 'pywin32',
+    'win32clipboard': 'pywin32', 'win32print': 'pywin32', 'win32file': 'pywin32', 'win32security': 'pywin32',
+    'cv2': 'opencv-python', 'PIL': 'pillow', 'Pillow': 'pillow', 'bs4': 'beautifulsoup4', 'sklearn': 'scikit-learn',
+    'yaml': 'pyyaml', 'fitz': 'pymupdf', 'dotenv': 'python-dotenv'
+}
+
+def load_config():
+    config = configparser.ConfigParser()
+    if not os.path.exists(CONFIG_FILE):
+        config['Mappings'] = DEFAULT_MAPPINGS
+        config['Settings'] = {
+            'engine': 'PyInstaller', 'pip_index': 'https://pypi.tuna.tsinghua.edu.cn/simple',
+            'onefile': 'True', 'noconsole': 'True', 'clean_all': 'True',
+            'auto_icon': 'True', 'use_venv': 'True', 'use_reqs': 'True',
+            'use_pipreqs': 'True', 'upx': 'False'
+        }
+        try:
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+                config.write(f)
+        except: pass
+    else:
+        config.read(CONFIG_FILE, encoding='utf-8')
+        if 'Mappings' not in config: config['Mappings'] = DEFAULT_MAPPINGS
+        if 'Settings' not in config: config['Settings'] = {}
+    return config
+
+def save_config(config):
+    try:
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            config.write(f)
+    except: pass
+
+def is_cloud_locked(filepath):
+    try:
+        with open(filepath, 'rb') as f:
+            return b"__CLOUDSYNC_ENC__" in f.read(1024)
+    except:
+        return False
+
+def extract_imports_via_ast(script_path, python_exe):
+    code_snippet = (
+        "import ast, sys, json, re\n"
+        "try:\n"
+        "    with open(sys.argv[1], 'rb') as f: raw = f.read()\n"
+        "    code = raw.decode('utf-8-sig') if raw.startswith(b'\\xef\\xbb\\xbf') else raw.decode('utf-8', errors='ignore')\n"
+        "    imports = set()\n"
+        "    for node in ast.walk(ast.parse(code)):\n"
+        "        if isinstance(node, ast.Import): imports.update(a.name.split('.')[0] for a in node.names)\n"
+        "        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module: imports.add(node.module.split('.')[0])\n"
+        "    print('__QPYPACK_RES__:' + json.dumps(list(imports)))\n"
+        "except:\n"
+        "    try:\n"
+        "        m = re.findall(r'^\\s*(?:from|import)\\s+([a-zA-Z0-9_]+)', code, re.M)\n"
+        "        print('__QPYPACK_RES__:' + json.dumps(list(set(m))))\n"
+        "    except: print('__QPYPACK_RES__:[]')\n"
+    )
+    try:
+        env = os.environ.copy()
+        env.pop("PYTHONHOME", None)
+        env.pop("PYTHONPATH", None)
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        proc = subprocess.run([python_exe, "-c", code_snippet, script_path], 
+                              capture_output=True, text=True, env=env, creationflags=flags)
+        m = re.search(r'__QPYPACK_RES__:(.*)', proc.stdout)
+        if m:
+            return set(json.loads(m.group(1).strip()))
+        return set()
+    except:
+        return set()
+
 def get_svg_icon(name, color="#5F6368", size=24):
     path_data = MATERIAL_ICONS.get(name, "")
     svg_str = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="{size}" height="{size}"><path fill="{color}" d="{path_data}"/></svg>'
@@ -70,23 +146,30 @@ def get_svg_icon(name, color="#5F6368", size=24):
 def get_svg_pixmap(name, color="#5F6368", size=64):
     return get_svg_icon(name, color, size).pixmap(size, size)
 
-
 def get_stdlib_names():
     libs = {'os', 'sys', 're', 'math', 'time', 'datetime', 'json', 'urllib', 'sqlite3', 'csv', 
             'subprocess', 'shutil', 'threading', 'multiprocessing', 'queue', 'socket', 
             'collections', 'itertools', 'functools', 'random', 'hashlib', 'base64', 
             'binascii', 'xml', 'logging', 'argparse', 'typing', 'pathlib', 'traceback', 
             'warnings', 'tempfile', 'platform', 'zipfile', 'tarfile', 'gzip', 'bz2', 
-            'lzma', 'hmac', 'ssl', 'email', 'http', 'uuid', 'io', 'contextlib', 'winreg'}
+            'lzma', 'hmac', 'ssl', 'email', 'http', 'uuid', 'io', 'contextlib', 'winreg',
+            'concurrent', 'ctypes', 'dataclasses', 'enum', 'importlib', 'inspect',
+            'pickle', 'copy', 'ast', 'asyncio', 'calendar', 'configparser',
+            'curses', 'decimal', 'difflib', 'getopt', 'getpass', 'glob', 'html',
+            'mimetypes', 'numbers', 'operator', 'pdb', 'pprint', 'profile', 'pstats',
+            'runpy', 'sched', 'secrets', 'selectors', 'shelve', 'shlex',
+            'signal', 'site', 'smtpd', 'smtplib', 'sndhdr', 'socketserver',
+            'stat', 'statistics', 'string', 'struct', 'symtable', 'sysconfig',
+            'syslog', 'tabnanny', 'telnetlib', 'termios', 'future',
+            'textwrap', 'timeit', 'tkinter', 'token', 'tokenize', 'trace',
+            'tracemalloc', 'tty', 'turtle', 'turtledemo', 'types',
+            'unittest', 'uu', 'venv', 'wave', '__future__',
+            'weakref', 'webbrowser', 'winsound', 'wsgiref', 'xdrlib',
+            'xmlrpc', 'zipapp', 'zipimport', 'zlib', 'zoneinfo'}
     if sys.version_info >= (3, 10): libs.update(sys.stdlib_module_names)
     return libs
 
 STD_LIBS = get_stdlib_names()
-KNOWN_MAPPINGS = {
-    'win32com': 'pywin32', 'win32api': 'pywin32', 'win32con': 'pywin32', 'win32gui': 'pywin32',
-    'cv2': 'opencv-python', 'PIL': 'pillow', 'Pillow': 'pillow', 'bs4': 'beautifulsoup4', 'sklearn': 'scikit-learn',
-    'yaml': 'pyyaml', 'fitz': 'pymupdf', 'dotenv': 'python-dotenv'
-}
 
 def get_resource_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
@@ -98,7 +181,6 @@ def get_resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 def find_system_python():
-    """全方位、深层次、抗毒化的核心级 Python 环境嗅探探针"""
     candidates = []
     
     for name in ('python', 'python3', 'pythonw'):
@@ -472,14 +554,14 @@ class DropArea(QFrame):
         
         layout.addSpacing(18)
         
-        self.label = QLabel("将脚本(.py)拖拽至此处\n或 点击浏览")
+        self.label = QLabel("将 Python 脚本 (.py) 拖拽至此处\n或 点击浏览文件")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
         layout.addWidget(self.label)
         
         layout.addSpacing(8)
         
-        self.sub_label = QLabel("智能解析工程依赖、附件及隐藏模块")
+        self.sub_label = QLabel("智能解析工程依赖、静态附件及隐藏模块树")
         self.sub_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sub_label.setStyleSheet("QLabel { background: transparent; color: #9AA0A6; font-size: 13px; border: none; }")
         layout.addWidget(self.sub_label)
@@ -517,12 +599,12 @@ class DropArea(QFrame):
             
         self.icon_widget.set_file_pixmap(pixmap, 88)
             
-        self.label.setText(f"已加载：{filename}")
+        self.label.setText(f"文件已加载：{filename}")
         self.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
-        self.sub_label.setText("准备就绪，随时可开始构建")
+        self.sub_label.setText("系统准备就绪，随时可启动构建引擎")
 
     def start_build_anim(self):
-        self.sub_label.setText("正在执行模块提取与打包...")
+        self.sub_label.setText("构建引擎运行中：正在执行模块分析与环境封装...")
         self.icon_widget.start_building()
 
     def stop_build_anim(self):
@@ -545,24 +627,24 @@ class DropArea(QFrame):
             
         self.icon_widget.start_success()
             
-        self.label.setText("构建完成！")
+        self.label.setText("构建任务圆满完成！")
         self.label.setStyleSheet("QLabel { background: transparent; color: #1E8E3E; font-size: 20px; font-weight: bold; border: none; }")
-        self.sub_label.setText("可打开目录查看或重置工作区")
+        self.sub_label.setText("您可以打开输出目录查看产物，或重置工作区")
 
     def show_failure(self):
         size = 128
         self.icon_widget.set_custom_pixmap(get_svg_pixmap('close', color="#D93025", size=size), size)
         self.icon_widget.start_failure()
         
-        self.label.setText("构建失败！")
+        self.label.setText("构建任务异常中断！")
         self.label.setStyleSheet("QLabel { background: transparent; color: #D93025; font-size: 20px; font-weight: bold; border: none; }")
-        self.sub_label.setText("请检查下方的日志诊断报告")
+        self.sub_label.setText("请查阅下方的执行日志报告以进行问题排查")
         
     def reset(self):
         self.icon_widget.reset()
-        self.label.setText("将脚本(.py)拖拽至此处\n或 点击浏览")
+        self.label.setText("将 Python 脚本 (.py) 拖拽至此处\n或 点击浏览文件")
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
-        self.sub_label.setText("智能解析工程依赖、附件及隐藏模块")
+        self.sub_label.setText("智能解析工程依赖、静态附件及隐藏模块树")
 
 
 # ======================== 设置面板 ========================
@@ -589,6 +671,7 @@ class SettingsPanel(QWidget):
             QTabBar::tab:hover:!selected { background: #e8eaed; }
         """)
         self.init_ui()
+        self.load_from_config()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -629,7 +712,7 @@ class SettingsPanel(QWidget):
         self.btn_save.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_save.setIcon(get_svg_icon('check', "white"))
         self.btn_save.setStyleSheet(self.parent_win.primary_btn_style)
-        self.btn_save.clicked.connect(self.parent_win.show_main)
+        self.btn_save.clicked.connect(self.parent_win.save_settings_and_return)
         btn_lay.addWidget(self.btn_save)
 
         self.btn_back = AnimatedButton("")
@@ -641,6 +724,37 @@ class SettingsPanel(QWidget):
         btn_lay.addWidget(self.btn_back)
         
         layout.addLayout(btn_lay)
+
+    def load_from_config(self):
+        config = load_config()
+        if 'Settings' in config:
+            s = config['Settings']
+            self.engine_combo.setCurrentText(s.get('engine', 'PyInstaller'))
+            self.onefile_check.setChecked(s.getboolean('onefile', True))
+            self.noconsole_check.setChecked(s.getboolean('noconsole', True))
+            self.clean_all_check.setChecked(s.getboolean('clean_all', True))
+            self.auto_icon_check.setChecked(s.getboolean('auto_icon', True))
+            self.pip_source_edit.setText(s.get('pip_index', 'https://pypi.tuna.tsinghua.edu.cn/simple'))
+            self.venv_check.setChecked(s.getboolean('use_venv', True))
+            self.reqs_check.setChecked(s.getboolean('use_reqs', True))
+            self.pipreqs_check.setChecked(s.getboolean('use_pipreqs', True))
+            self.upx_check.setChecked(s.getboolean('upx', False))
+
+    def save_to_config(self):
+        config = load_config()
+        if 'Settings' not in config: config['Settings'] = {}
+        s = config['Settings']
+        s['engine'] = self.engine_combo.currentText()
+        s['onefile'] = str(self.onefile_check.isChecked())
+        s['noconsole'] = str(self.noconsole_check.isChecked())
+        s['clean_all'] = str(self.clean_all_check.isChecked())
+        s['auto_icon'] = str(self.auto_icon_check.isChecked())
+        s['pip_index'] = self.pip_source_edit.text().strip()
+        s['use_venv'] = str(self.venv_check.isChecked())
+        s['use_reqs'] = str(self.reqs_check.isChecked())
+        s['use_pipreqs'] = str(self.pipreqs_check.isChecked())
+        s['upx'] = str(self.upx_check.isChecked())
+        save_config(config)
 
     def build_basic_tab(self):
         scroll = QScrollArea()
@@ -689,13 +803,9 @@ class SettingsPanel(QWidget):
         grid_mode.setVerticalSpacing(15)
         
         self.onefile_check = QCheckBox("单文件模式 (OneFile)")
-        self.onefile_check.setChecked(True)
         self.noconsole_check = QCheckBox("隐藏控制台 (GUI模式)")
-        self.noconsole_check.setChecked(True)
         self.clean_all_check = QCheckBox("编译后自动清理缓存")
-        self.clean_all_check.setChecked(True)
         self.auto_icon_check = QCheckBox("自动匹配同目录图标")
-        self.auto_icon_check.setChecked(True)
         
         grid_mode.addWidget(self.onefile_check, 0, 0)
         grid_mode.addWidget(self.noconsole_check, 0, 1)
@@ -726,11 +836,10 @@ class SettingsPanel(QWidget):
         form_env.setContentsMargins(15, 20, 15, 15)
         form_env.setVerticalSpacing(12)
         
-        self.pip_source_edit = QLineEdit("https://pypi.tuna.tsinghua.edu.cn/simple")
+        self.pip_source_edit = QLineEdit()
         form_env.addRow("PIP 镜像:", self.pip_source_edit)
         
         self.venv_check = QCheckBox("启用独立打包环境")
-        self.venv_check.setChecked(True)
         form_env.addRow("", self.venv_check)
         lay.addWidget(grp_env)
 
@@ -741,9 +850,7 @@ class SettingsPanel(QWidget):
 
         grid_dep = QGridLayout()
         self.reqs_check = QCheckBox("优先读取 requirements.txt")
-        self.reqs_check.setChecked(True)
         self.pipreqs_check = QCheckBox("启用 pipreqs 深度代码分析")
-        self.pipreqs_check.setChecked(True)
         grid_dep.addWidget(self.reqs_check, 0, 0)
         grid_dep.addWidget(self.pipreqs_check, 0, 1)
         dep_lay.addLayout(grid_dep)
@@ -859,28 +966,18 @@ class SettingsPanel(QWidget):
 
     def auto_scan_hidden(self):
         script_path = self.parent_win.script_path
-        if not script_path: return QMessageBox.warning(self, "提示", "请先在主界面加载脚本！")
-        try:
-            raw = Path(script_path).read_bytes()
-            if b"__CLOUDSYNC_ENC__" in raw[:1024]: return QMessageBox.warning(self, "错误", "脚本被云盘加密，请解密！")
-            try: code = raw.decode('utf-8-sig')
-            except: code = raw.decode('gbk', errors='ignore')
+        if not script_path: return QMessageBox.warning(self, "构建约束", "请先加载有效的 Python 源代码文件！")
+        if is_cloud_locked(script_path):
+            return QMessageBox.warning(self, "I/O 错误", "目标脚本处于云盘加密或锁定状态，请解密后重试。")
             
-            hidden = set()
-            try:
-                tree = ast.parse(code)
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.Import):
-                        for alias in node.names: hidden.add(alias.name.split('.')[0])
-                    elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                        hidden.add(node.module.split('.')[0])
-            except:
-                hidden = set(re.findall(r'^\s*(?:from|import)\s+([a-zA-Z0-9_]+)', code, re.M))
-
+        try:
+            python_exe = get_python_executable()
+            hidden = extract_imports_via_ast(script_path, python_exe)
             hidden = [m for m in hidden if m not in STD_LIBS]
             self.hidden_edit.setText(','.join(hidden))
-            QMessageBox.information(self, "扫描完成", f"捕获到 {len(hidden)} 项依赖。")
-        except Exception as e: QMessageBox.warning(self, "错误", f"扫描失败: {e}")
+            QMessageBox.information(self, "AST 分析完成", f"语法树解析成功，共定位到 {len(hidden)} 项非标准库依赖。")
+        except Exception as e: 
+            QMessageBox.warning(self, "分析异常", f"AST 语法树解析过程中发生异常: {e}")
 
     def add_resource(self):
         choice = QMessageBox.question(self, "添加资源", "Yes=文件, No=文件夹", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -959,40 +1056,45 @@ class PackingThread(QThread):
                 timer = threading.Timer(timeout, kill_proc)
                 timer.start()
 
+            buffer = []
+            last_emit = time.time()
             for line in self.process.stdout:
                 if self._is_cancelled:
                     self.process.terminate()
                     return False
-                self.progress.emit(line.strip())
+                buffer.append(line.strip())
+                if len(buffer) >= 15 or (time.time() - last_emit) > 0.1:
+                    self.progress.emit('\n'.join(buffer))
+                    buffer.clear()
+                    last_emit = time.time()
             
+            if buffer:
+                self.progress.emit('\n'.join(buffer))
+                
             self.process.wait()
             
             if is_timeout[0]:
-                self.progress.emit(f"[提示] 该步骤执行超时 ({timeout}秒)，已自动跳过并进入下一步...")
+                self.progress.emit(f"[System] 子进程执行超时 (>{timeout}s)，已自动中断并继续执行后续流水线...")
                 return False
                 
             return self.process.returncode == 0
         except FileNotFoundError as e:
             cmd_name = cmd[0] if isinstance(cmd, list) and cmd else str(cmd)
             if "python" in str(cmd_name).lower():
-                self.progress.emit(f"[环境缺失] 无法找到系统宿主 Python。请确保您已正确安装 Python 并添加至系统 PATH。")
+                self.progress.emit(f"[Error] 宿主环境异常：无法定位 Python 解释器，请检查系统环境变量配置。")
             else:
-                self.progress.emit(f"[系统异常] 找不到可执行程序: {cmd_name}。详细报错: {e}")
+                self.progress.emit(f"[Error] 进程调用失败：缺失系统指令或程序 \"{cmd_name}\" ({e})")
             return False
         except Exception as e:
-            self.progress.emit(f"[系统异常] 进程执行失败: {e}")
+            self.progress.emit(f"[Error] 子进程执行发生系统级异常: {e}")
             return False
         finally:
             if timer:
                 timer.cancel()
 
     def sanitize_script(self, orig_path: Path):
-        try:
-            raw = orig_path.read_bytes()
-            if b"__CLOUDSYNC_ENC__" in raw[:1024]: 
-                return None, False, "目标脚本被云盘锁定加密！"
-        except Exception:
-            pass
+        if is_cloud_locked(orig_path):
+            return None, False, "目标脚本处于云盘加密或锁定状态，请解密后重试。"
         return orig_path, False, ""
 
     def run(self):
@@ -1004,7 +1106,7 @@ class PackingThread(QThread):
         ext = ".exe" if os.name == "nt" else ""
 
         try:
-            self.progress.emit("[清理] 初始化构建空间...")
+            self.progress.emit("[Init] 正在初始化工作区并清理历史残留数据...")
             robust_rmtree(Path.cwd() / "build")
             robust_rmtree(Path.cwd() / "dist")
             
@@ -1012,124 +1114,98 @@ class PackingThread(QThread):
             script_dir = script_path.parent
             
             build_script_path, is_temp, err_msg = self.sanitize_script(script_path)
-            if not build_script_path and err_msg: return self.finished.emit(False, f"[安全拦截] {err_msg}")
+            if not build_script_path and err_msg: return self.finished.emit(False, f"[Error] I/O 异常: {err_msg}")
             script_posix = build_script_path.as_posix()
 
-            script_imports = set()
-            required_pkgs_normalized = set()
-            try:
-                code_text = build_script_path.read_text(encoding='utf-8', errors='ignore')
-                try:
-                    for node in ast.walk(ast.parse(code_text)):
-                        if isinstance(node, ast.Import):
-                            for alias in node.names: script_imports.add(alias.name.split('.')[0])
-                        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                            script_imports.add(node.module.split('.')[0])
-                except:
-                    script_imports = set(re.findall(r'^\s*(?:from|import)\s+([a-zA-Z0-9_]+)', code_text, re.M))
-                
-                required_pkgs_normalized = {KNOWN_MAPPINGS.get(m, m).lower().replace('_', '-') for m in script_imports if m not in STD_LIBS}
-            except Exception as e:
-                self.progress.emit(f"[依赖预检] 解析依赖失败: {e}")
-
             system_python_exe = get_python_executable()
-            self.progress.emit(f"[环境] Python: {system_python_exe}")
+            self.progress.emit(f"[Env] 宿主解释器路径: {system_python_exe}")
 
+            script_imports = set()
+            try:
+                script_imports = extract_imports_via_ast(script_posix, system_python_exe)
+            except Exception as e:
+                self.progress.emit(f"[Warn] 源码 AST 预处理异常: {e}")
+
+            pip_args = ["-i", pip_idx] if pip_idx else []
+            
             if self.params['use_venv']:
-                self.progress.emit("[环境] 初始化独立打包环境...")
+                self.progress.emit("[Env] 正在分配独立隔离的虚拟环境 (Virtual Environment)...")
                 self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
                 if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
-                    return self.finished.emit(False, "虚拟环境初始化失败。这通常是因为您的 Python 环境被精简或已损坏。")
+                    return self.finished.emit(False, "[Error] 虚拟环境(venv)创建失败。宿主 Python 环境可能存在内核文件缺失或权限受限。")
                 python_exe = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
+                
+                self.progress.emit("[Env] 正在同步并升级 Pip 构建工具链...")
+                self.run_cmd([python_exe, "-m", "pip", "install", "--upgrade", "pip", "-q"] + pip_args)
             else: 
                 python_exe = system_python_exe
 
-            pip_args = ["-i", pip_idx] if pip_idx else []
             engine_pkg = "nuitka" if engine == "Nuitka" else "pyinstaller"
             
-            self.progress.emit(f"[环境] 下载核心组件...")
+            self.progress.emit(f"[Env] 正在配置基础构建引擎 ({engine_pkg} & 核心支持库)...")
             core_pkgs = [engine_pkg]
             if engine == "PyInstaller": 
                 core_pkgs.append("pillow")
             elif engine == "Nuitka":
                 core_pkgs.append("zstandard")
-                
             self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + core_pkgs + pip_args)
-            
-            req_success = False
-            
+                      
             if self.params.get('use_reqs'):
                 req_file = script_dir / "requirements.txt"
                 if req_file.exists():
-                    self.progress.emit("[依赖] 部署 requirements.txt...")
+                    self.progress.emit("[Deps] 阶段 1/3: 正在读取并部署清单依赖 (requirements.txt)...")
                     try:
+                        if is_cloud_locked(req_file): raise ValueError("清单文件被安全锁定")
                         raw_req = req_file.read_bytes()
-                        if b"__CLOUDSYNC_ENC__" in raw_req[:1024]: raise ValueError("文件被锁定")
                         try: req_content = raw_req.decode('utf-8-sig')
                         except: req_content = raw_req.decode(locale.getpreferredencoding(), errors='ignore')
-                        temp_req = script_dir / "pypack_temp_reqs.txt"
+                        
+                        temp_req = Path(tempfile.gettempdir()) / f"qpypack_temp_reqs_{int(time.time())}.txt"
                         temp_req.write_text(req_content, encoding='utf-8')
-                        if self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_req.as_posix()] + pip_args):
-                            req_success = True
+                        self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_req.as_posix()] + pip_args)
                         temp_req.unlink(missing_ok=True)
-                    except Exception as e: self.progress.emit(f"[警告] {e}")
+                    except Exception as e: self.progress.emit(f"[Warn] 清单解析或网络请求异常: {e}")
 
-            if self.params.get('use_pipreqs') and not req_success:
-                self.progress.emit("[依赖] 执行 pipreqs 深度推导...")
-                
+            if self.params.get('use_pipreqs'):
+                self.progress.emit("[Deps] 阶段 2/3: 正在启动深度依赖分析 (Pipreqs)...")
                 self.run_cmd([python_exe, "-m", "pip", "install", "pipreqs", "-q"] + pip_args)
-                temp_pipreqs = script_dir / "pypack_pipreqs_out.txt"
+                temp_pipreqs = Path(tempfile.gettempdir()) / f"qpypack_pipreqs_{int(time.time())}.txt"
                 
                 pypi_server = None
                 if pip_idx:
                     pypi_server = re.sub(r'/simple/?$', '/pypi', pip_idx.strip(), flags=re.I).rstrip('/')
                 
                 pipreqs_cmd = [
-                    python_exe, "-m", "pipreqs.pipreqs", 
-                    script_dir.as_posix(), 
-                    "--encoding", "utf-8", 
-                    "--force", 
-                    "--savepath", temp_pipreqs.as_posix()
+                    python_exe, "-m", "pipreqs.pipreqs", script_dir.as_posix(), 
+                    "--encoding", "utf-8", "--force", "--savepath", temp_pipreqs.as_posix()
                 ]
-                
-                if pypi_server:
+                if pypi_server: 
                     pipreqs_cmd.extend(["--pypi-server", pypi_server])
-                    self.progress.emit(f"[依赖] pipreqs 已重定向至本地镜像接口: {pypi_server}")
+                    self.progress.emit(f"[Deps] 依赖分析镜像地址: {pypi_server}")
                 
-                if self.run_cmd(pipreqs_cmd, timeout=15):
-                    if temp_pipreqs.exists():
-                        pipreqs_incomplete = False
-                        try:
-                            pipreqs_text = temp_pipreqs.read_text(encoding='utf-8', errors='ignore').lower().replace('_', '-')
-                            for pkg in required_pkgs_normalized:
-                                if not re.search(r'\b' + re.escape(pkg) + r'\b', pipreqs_text):
-                                    pipreqs_incomplete = True
-                                    self.progress.emit(f"[警告] pipreqs 未能成功匹配装载该模块: {pkg}")
-                        except:
-                            pipreqs_incomplete = True
+                if self.run_cmd(pipreqs_cmd, timeout=15) and temp_pipreqs.exists():
+                    self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args)
+                    temp_pipreqs.unlink(missing_ok=True)
 
-                        if self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args): 
-                            if not pipreqs_incomplete:
-                                req_success = True
-                            else:
-                                self.progress.emit("[依赖] 检测到部分核心模块漏报，准备进入本地解析...")
-                        temp_pipreqs.unlink(missing_ok=True)
-                else:
-                    self.progress.emit("[提示] pipreqs 深度解析超时或失败...")
+            config = load_config()
+            known_mappings = DEFAULT_MAPPINGS.copy()
+            if 'Mappings' in config:
+                for k, v in config['Mappings'].items():
+                    known_mappings[k] = v
+            
+            ast_pkgs = [known_mappings.get(m, m) for m in script_imports if m not in STD_LIBS]
+            
+            if ast_pkgs:
+                self.progress.emit(f"[Deps] 阶段 3/3: 启动 AST 源码扫描...")
+                self.progress.emit(f"==> [Deps] 正在对齐隐式依赖项: {', '.join(ast_pkgs)}")
+                if not self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + ast_pkgs + pip_args):
+                    self.progress.emit("[Warn] 批量依赖同步存在冲突，正在降级为逐项安全安装模式...")
+                    for pkg in ast_pkgs:
+                        self.run_cmd([python_exe, "-m", "pip", "install", "-q", pkg] + pip_args)
 
-            if not req_success and (self.params.get('use_reqs') or self.params.get('use_pipreqs')):
-                self.progress.emit("[依赖] 正在启用 AST 本地语法树解析...")
-                try:
-                    pkgs_to_install = [KNOWN_MAPPINGS.get(m, m) for m in script_imports if m not in STD_LIBS]
-                    if pkgs_to_install:
-                        self.progress.emit(f"[依赖] 同步外部模块: {', '.join(pkgs_to_install)}")
-                        if not self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + pkgs_to_install + pip_args):
-                            self.progress.emit("[警告] 部分外部依赖在沙盒中安装失败，这可能导致最终打包的 EXE 运行报错！")
-                except Exception as e: self.progress.emit(f"[异常] {e}")
+            if self._is_cancelled: return self.finished.emit(False, "[System] 构建任务已被用户主动终止。")
 
-            if self._is_cancelled: return self.finished.emit(False, "构建已被中断。")
-
-            self.progress.emit(f"[编译] 启动 {engine} 封装引擎...")
+            self.progress.emit(f"[Build] 正在初始化 {engine} 编译引擎，执行可执行程序生成任务...")
             cmd = []
             app_name = self.params['app_name']
             icon_path = Path(self.params['icon']).resolve().as_posix() if self.params.get('icon') else None
@@ -1214,9 +1290,9 @@ class PackingThread(QThread):
             cmd.append(script_posix)
 
             success = self.run_cmd(cmd, cwd=Path.cwd().resolve().as_posix())
-            if self._is_cancelled: return self.finished.emit(False, "构建已被中断。")
+            if self._is_cancelled: return self.finished.emit(False, "[System] 构建任务已被用户主动终止。")
 
-            self.progress.emit("[收尾] 归档可执行文件...")
+            self.progress.emit("[Pack] 编译阶段完成，正在提取并归档最终可执行产物...")
             cwd = Path.cwd().resolve()
             if engine == "PyInstaller": src_out = cwd / "dist" / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
             elif engine == "Nuitka": src_out = self.temp_out_dir / (f"{app_name}{ext}" if self.params['onefile'] else f"{app_name}.dist")
@@ -1228,23 +1304,23 @@ class PackingThread(QThread):
                         if final_out.is_dir(): shutil.rmtree(final_out, ignore_errors=True)
                         else: final_out.unlink(missing_ok=True)
                     shutil.move(src_out.as_posix(), final_out.as_posix())
-                except Exception as e: self.progress.emit(f"[归档异常] 程序被占用: {e}")
-            else: self.progress.emit(f"[错误] 未找到程序: {src_out}")
+                except Exception as e: self.progress.emit(f"[Error] 产物转移异常，文件可能被系统防御机制拦截或占用: {e}")
+            else: self.progress.emit(f"[Error] 构建目标缺失，未能在沙盒中定位到有效产物: {src_out}")
 
             if success and final_out.exists(): 
-                self.progress.emit("[收尾] 执行收尾指令...")
-                self.finished.emit(True, f"[构建成功] 程序路径: {final_out.resolve().as_posix()}")
+                self.progress.emit("[Pack] 正在校验最终程序完整性...")
+                self.finished.emit(True, f"[Success] 构建结束！\n==> 输出路径: {final_out.resolve().as_posix()}")
             else: 
-                self.finished.emit(False, "[构建失败] 请检查日志。")
+                self.finished.emit(False, "[Failed] 构建任务异常中断，请参阅上方运行日志以排查错误。")
         except Exception as e:
-            self.finished.emit(False, f"[系统异常] {str(e)}")
+            self.finished.emit(False, f"[System Error] 发生未处理的严重错误: {str(e)}")
         finally:
             if is_temp and build_script_path and build_script_path.exists():
                 try: build_script_path.unlink()
                 except: pass
                 
             if self.params['clean_all']:
-                self.progress.emit("[清理] 抹除环境与沙盒...")
+                self.progress.emit("[Clean] 正在释放工作区，抹除虚拟环境与沙盒临时数据...")
                 for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir]:
                     if p and p.exists(): robust_rmtree(p)
                     
@@ -1433,6 +1509,10 @@ class MainWindow(QMainWindow):
     def show_main(self):
         self._animate_switch(self.main_panel)
 
+    def save_settings_and_return(self):
+        self.settings_panel.save_to_config()
+        self.show_main()
+
     def _animate_switch(self, target_widget):
         self.anim = QPropertyAnimation(self.stacked_layout.currentWidget(), b"geometry")
         self.anim.setDuration(250)
@@ -1444,11 +1524,10 @@ class MainWindow(QMainWindow):
 
     def on_script_selected(self, path):
         path = Path(path).resolve().as_posix()
-        try:
-            if b"__CLOUDSYNC_ENC__" in Path(path).read_bytes()[:1024]:
-                QMessageBox.critical(self, "加载失败", "脚本已被锁定！")
-                return
-        except: pass
+        
+        if is_cloud_locked(path):
+            QMessageBox.critical(self, "加载失败", "目标脚本处于云盘加密或锁定状态，请解密后重试。")
+            return
 
         self.script_path = path
         
@@ -1458,7 +1537,8 @@ class MainWindow(QMainWindow):
         desc = "Python Executable"
         
         try:
-            content = Path(path).read_text(encoding='utf-8', errors='ignore')
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read(10240)
             
             v_match = re.search(r'^(?:__version__|VERSION|version)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
             if v_match: 
@@ -1505,19 +1585,19 @@ class MainWindow(QMainWindow):
         
         if not self.log_container.isVisible(): self.toggle_log()
         self.log.clear()
-        self.append_log(f"已识别脚本: {path}")
+        self.append_log(f"[System] 源文件绑定成功: {path}")
         self.update_ui_state("ready")
 
     def cancel_pack(self):
         if self.thread and self.thread.isRunning():
             self.thread.cancel()
-            self.status_label.setText(" 状态: 已被用户终止")
+            self.status_label.setText(" 状态: 任务已被用户主动终止")
             self.drop_area.stop_build_anim()
             self.update_ui_state("ready")
 
     def start_pack(self):
         if not self.script_path or not Path(self.script_path).exists():
-            QMessageBox.warning(self, "提示", "请先加载需要打包的 Python 脚本！")
+            QMessageBox.warning(self, "构建约束", "请先加载有效的 Python 源代码文件！")
             return
 
         sp = self.settings_panel
