@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __app_name__ = "QPyPack"
-__version__ = "2.3.5"
+__version__ = "2.3.6"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "自动化 Python 脚本打包构建工具"
@@ -554,7 +554,7 @@ class DropArea(QFrame):
         
         layout.addSpacing(18)
         
-        self.label = QLabel("将 Python 脚本 (.py) 拖拽至此处\n或 点击浏览文件")
+        self.label = QLabel("将 Python 脚本 (.py/.pyw) 拖拽至此处\n或 点击浏览文件")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
         layout.addWidget(self.label)
@@ -568,10 +568,18 @@ class DropArea(QFrame):
         
         layout.addStretch(1)
 
+    def reset(self):
+        self.icon_widget.reset()
+        self.label.setText("将 Python 脚本 (.py/.pyw) 拖拽至此处\n或 点击浏览文件")
+        self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
+        self.sub_label.setText("智能解析工程依赖、静态附件及隐藏模块树")
+
     def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().hasUrls() and event.mimeData().urls()[0].toLocalFile().lower().endswith('.py'):
-            event.acceptProposedAction()
-            self.setStyleSheet("#DropArea { background-color: #E8F0FE; border: 2px dashed #1A73E8; border-radius: 12px; }")
+        if event.mimeData().hasUrls():
+            file_path = event.mimeData().urls()[0].toLocalFile().lower()
+            if file_path.endswith('.py') or file_path.endswith('.pyw'):
+                event.acceptProposedAction()
+                self.setStyleSheet("#DropArea { background-color: #E8F0FE; border: 2px dashed #1A73E8; border-radius: 12px; }")
 
     def dragLeaveEvent(self, event):
         self.setStyleSheet("#DropArea { background-color: #f8f9fa; border: 2px dashed #dadce0; border-radius: 12px; } #DropArea:hover { background-color: #f1f3f4; border: 2px dashed #bdc1c6; }")
@@ -579,12 +587,19 @@ class DropArea(QFrame):
     def dropEvent(self, event: QDropEvent):
         self.dragLeaveEvent(event)
         urls = event.mimeData().urls()
-        if urls and urls[0].toLocalFile().lower().endswith('.py'):
-            self.fileDropped.emit(urls[0].toLocalFile())
+        if urls:
+            file_path = urls[0].toLocalFile()
+            if file_path.lower().endswith(('.py', '.pyw')):
+                self.fileDropped.emit(file_path)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            fp, _ = QFileDialog.getOpenFileName(self, "选择 Python 源代码文件", "", "Python Scripts (*.py)")
+            fp, _ = QFileDialog.getOpenFileName(
+                self, 
+                "选择 Python 源代码文件", 
+                "", 
+                "Python Scripts (*.py *.pyw);;All Files (*)"
+            )
             if fp: self.fileDropped.emit(fp)
 
     def set_success(self, filename, custom_icon_path=None):
@@ -639,12 +654,6 @@ class DropArea(QFrame):
         self.label.setText("构建任务异常中断！")
         self.label.setStyleSheet("QLabel { background: transparent; color: #D93025; font-size: 20px; font-weight: bold; border: none; }")
         self.sub_label.setText("请查阅下方的执行日志报告以进行问题排查")
-        
-    def reset(self):
-        self.icon_widget.reset()
-        self.label.setText("将 Python 脚本 (.py) 拖拽至此处\n或 点击浏览文件")
-        self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
-        self.sub_label.setText("智能解析工程依赖、静态附件及隐藏模块树")
 
 
 # ======================== 设置面板 ========================
