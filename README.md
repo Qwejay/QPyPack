@@ -92,3 +92,13 @@ qpypack
 ### 预编译版本下载
 若不想配置 Python 环境，可直接下载打包好的独立可执行文件：
 [GitHub Releases 下载链接](https://github.com/Qwejay/PyPack/releases)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=Qwejay%2FQPyPack&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&legend=top-left" />
+ </picture>
+</a>
