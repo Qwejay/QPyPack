@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-__app_name__ = "QPyPack"
-__version__ = "2.3.6"
-__author__ = "QwejayHuang"
-__company__ = "QwejayHuang"
-__description__ = "自动化 Python 脚本打包构建工具"
-
 import sys
 import os
 import shutil
@@ -38,6 +29,12 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayo
 from PySide6.QtCore import Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QFileInfo, QVariantAnimation, QTimer, QPointF, QRectF, QRect
 from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen
 from PySide6.QtSvg import QSvgRenderer
+
+__app_name__ = "QPyPack"
+__version__ = "2.3.6"
+__author__ = "QwejayHuang"
+__company__ = "QwejayHuang"
+__description__ = "自动化 Python 脚本打包构建工具"
 
 MATERIAL_ICONS = {
     'settings': 'M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z',
@@ -96,12 +93,15 @@ def is_cloud_locked(filepath):
     try:
         with open(filepath, 'rb') as f:
             return b"__CLOUDSYNC_ENC__" in f.read(1024)
-    except:
+    except (PermissionError, OSError):
+        return True
+    except Exception:
         return False
 
 def extract_imports_via_ast(script_path, python_exe):
     code_snippet = (
         "import ast, sys, json, re\n"
+        "code = ''\n"
         "try:\n"
         "    with open(sys.argv[1], 'rb') as f: raw = f.read()\n"
         "    code = raw.decode('utf-8-sig') if raw.startswith(b'\\xef\\xbb\\xbf') else raw.decode('utf-8', errors='ignore')\n"
@@ -290,6 +290,25 @@ def robust_rmtree(path: Path, retries=15, delay=0.8):
         except: time.sleep(delay)
     return False
 
+def parse_add_data(add_data_str):
+    datas = []
+    for d in add_data_str.split(','):
+        d = d.strip()
+        if not d: continue
+        if ":" in d:
+            last_colon_idx = d.rfind(':')
+            if last_colon_idx > 1:
+                src_path = d[:last_colon_idx].strip()
+                dst_path = d[last_colon_idx+1:].strip()
+            else:
+                src_path = d.strip()
+                dst_path = "."
+        else:
+            src_path = d.strip()
+            dst_path = "."
+        datas.append((src_path, dst_path))
+    return datas
+
 
 class AnimatedButton(QPushButton):
     def __init__(self, text, parent=None):
@@ -330,6 +349,7 @@ class AnimatedButton(QPushButton):
             self.op_anim.setEndValue(1.0)
             self.animation_group.start()
         super().leaveEvent(event)
+
 
 class TargetIconWidget(QWidget):
     def __init__(self, parent=None):
@@ -568,12 +588,6 @@ class DropArea(QFrame):
         
         layout.addStretch(1)
 
-    def reset(self):
-        self.icon_widget.reset()
-        self.label.setText("将 Python 脚本 (.py/.pyw) 拖拽至此处\n或 点击浏览文件")
-        self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
-        self.sub_label.setText("智能解析工程依赖、静态附件及隐藏模块树")
-
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             file_path = event.mimeData().urls()[0].toLocalFile().lower()
@@ -654,9 +668,14 @@ class DropArea(QFrame):
         self.label.setText("构建任务异常中断！")
         self.label.setStyleSheet("QLabel { background: transparent; color: #D93025; font-size: 20px; font-weight: bold; border: none; }")
         self.sub_label.setText("请查阅下方的执行日志报告以进行问题排查")
+        
+    def reset(self):
+        self.icon_widget.reset()
+        self.label.setText("将 Python 脚本 (.py/.pyw) 拖拽至此处\n或 点击浏览文件")
+        self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
+        self.sub_label.setText("智能解析工程依赖、静态附件及隐藏模块树")
 
 
-# ======================== 设置面板 ========================
 class SettingsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1012,7 +1031,6 @@ class SettingsPanel(QWidget):
                     self.add_data_edit.setText(f"{curr}, {folder}:{dest}" if curr else f"{folder}:{dest}")
 
 
-# ======================== 核心构建引擎 ========================
 class PackingThread(QThread):
     progress = Signal(str)
     finished = Signal(bool, str)
@@ -1202,7 +1220,12 @@ class PackingThread(QThread):
                 for k, v in config['Mappings'].items():
                     known_mappings[k] = v
             
-            ast_pkgs = [known_mappings.get(m, m) for m in script_imports if m not in STD_LIBS]
+            local_files = {p.stem.lower() for p in script_dir.glob("*")}
+            ast_pkgs = [
+                known_mappings.get(m, m) 
+                for m in script_imports 
+                if m not in STD_LIBS and m.lower() not in local_files
+            ]
             
             if ast_pkgs:
                 self.progress.emit(f"[Deps] 阶段 3/3: 启动 AST 源码扫描...")
@@ -1239,12 +1262,9 @@ class PackingThread(QThread):
                 
                 for imp in self.params.get('hidden_imports', '').split(','):
                     if imp.strip(): cmd.extend(["--hidden-import", imp.strip()])
-                for d in self.params.get('add_data', '').split(','):
-                    d = d.strip()
-                    if d:
-                        parts = d.rsplit(':', 1)
-                        if len(parts) == 2:
-                            cmd.extend(["--add-data", f"{parts[0].strip()}{os.pathsep}{parts[1].strip()}"])
+                
+                for src, dst in parse_add_data(self.params.get('add_data', '')):
+                    cmd.extend(["--add-data", f"{src}{os.pathsep}{dst}"])
                         
             elif engine == "Nuitka":
                 self.temp_out_dir = Path(tempfile.mkdtemp(prefix="nuitka_out_")).resolve()
@@ -1284,17 +1304,12 @@ class PackingThread(QThread):
                 for imp in self.params.get('hidden_imports', '').split(','):
                     if imp.strip(): cmd.append(f"--include-module={imp.strip()}")
                 
-                for d in self.params.get('add_data', '').split(','):
-                    d = d.strip()
-                    if d:
-                        parts = d.rsplit(':', 1)
-                        if len(parts) == 2:
-                            src_path = Path(parts[0].strip())
-                            dst_path = parts[1].strip()
-                            if src_path.is_dir():
-                                cmd.append(f"--include-data-dir={src_path.resolve().as_posix()}={dst_path}")
-                            else:
-                                cmd.append(f"--include-data-files={src_path.resolve().as_posix()}={dst_path}")
+                for src, dst in parse_add_data(self.params.get('add_data', '')):
+                    src_path = Path(src)
+                    if src_path.is_dir():
+                        cmd.append(f"--include-data-dir={src_path.resolve().as_posix()}={dst}")
+                    else:
+                        cmd.append(f"--include-data-files={src_path.resolve().as_posix()}={dst}")
 
             cmd.append(script_posix)
 
@@ -1328,6 +1343,10 @@ class PackingThread(QThread):
                 try: build_script_path.unlink()
                 except: pass
                 
+            if self.params.get('version_file'):
+                try: Path(self.params['version_file']).unlink(missing_ok=True)
+                except: pass
+                
             if self.params['clean_all']:
                 self.progress.emit("[Clean] 正在释放工作区，抹除虚拟环境与沙盒临时数据...")
                 for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir]:
@@ -1339,10 +1358,8 @@ class PackingThread(QThread):
                 for p in ["build", "__pycache__", f"{app_name}.build", f"{app_name}.dist", f"{app_name}.onefile-build"]:
                     robust_rmtree(cwd / p)
                 Path(cwd / f"{app_name}.spec").unlink(missing_ok=True)
-                if self.params.get('version_file'): Path(self.params['version_file']).unlink(missing_ok=True)
 
 
-# ======================== 界面主窗口 ========================
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
