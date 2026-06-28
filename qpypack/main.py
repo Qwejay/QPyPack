@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayo
                              QComboBox, QFrame, QStackedLayout, QFormLayout, QTextEdit, 
                              QGraphicsOpacityEffect, QGroupBox, QGridLayout, QTabWidget,
                              QMessageBox, QInputDialog, QFileIconProvider, QSizePolicy, QScrollArea,
-                             QGraphicsDropShadowEffect)
+                             QGraphicsDropShadowEffect, QSpinBox)
 from PySide6.QtCore import Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QFileInfo, QVariantAnimation, QTimer, QPointF, QRectF, QRect
 from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen
 from PySide6.QtSvg import QSvgRenderer
@@ -48,7 +48,7 @@ MATERIAL_ICONS = {
     'package': 'M20,2H4C3,2,2,2.9,2,4v3.01C2,7.73,2.43,8.35,3,8.7V20c0,1.1,1.1,2,2,2h14c0.9,0,2-0.9,2-2V8.7c0.57-0.35,1-0.97,1-1.69V4 C22,2.9,21,2,20,2z M19,20H5V9h14V20z M20,7H4V4h16V7z M9,12h6v2H9V12z',
     'back': 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
     'info': 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z',
-    'python': 'M12.06,1.48c-3.14,0-3.52,0.67-3.52,0.67l-0.01,2.44h3.63v0.52H7.43C5.12,5.11,4.5,6.58,4.5,8.81c0,2.34,0.38,3.48,2.3,3.48 h1.14v-1.62c0-1.48,1.23-2.65,2.7-2.65h3.69c1.47,0,2.66-1.19,2.66-2.65V3.88C16.99,1.83,14.67,1.48,12.06,1.48z M10.22,2.83 c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C9.49,3.16,9.82,2.83,10.22,2.83z M16.71,9.89 v1.62c0,1.48-1.23,2.65-2.7,2.65H10.3c-1.47,0-2.66,1.19-2.66,2.65v1.49c0,2.05,2.32,2.41,4.92,2.41c3.14,0,3.52-0.67,3.52-0.67 l0.01-2.44h-3.63v-0.52h4.73c2.31,0,2.93-1.47,2.93-3.7c0-2.34-0.38-3.48-2.3-3.48H16.71z M13.88,18.96c0.41,0,0.73,0.33,0.73,0.74 c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C13.15,19.29,13.48,18.96,13.88,18.96z',
+    'python': 'M12.06,1.48c-3.14,0-3.52,0.67-3.52,0.67l-0.01,2.44h3.63v0.52H7.43C5.12,5.11,4.5,6.58,4.5,8.81c0,2.34,0.38,3.48,2.3,3.48 h1.14v-1.62c0-1.48,1.23-2.65,2.7-2.65h3.69c1.47,0,2.66-1.19,2.66-2.65V3.88C16.99,1.83,14.67,1.48,12.06,1.48z M10.22,2.83 c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C9.49,3.16,9.82,2.83,10.22,2.83z M16.71,9.89 v1.62c0,1.48-1.23,2.65-2.7,2.65H10.3c-1.47,0-2.66,1.19-2.66,2.65v1.49c0,2.05,2.32,2.41,4.92,2.41c3.14,0,3.52-0.67,3.52-0.67 l0.01-2.44h-3.63v-0.52h4.73c2.31,0,2.93-1.47,2.93-3.7c0-2.34-0.38-3.48-2.3-3.48H16.71z M13.88,18.96c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C13.15,19.29,13.48,18.96,13.88,18.96z',
     'close': 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
 }
 
@@ -71,7 +71,10 @@ def load_config():
             'engine': 'PyInstaller', 'pip_index': 'https://pypi.tuna.tsinghua.edu.cn/simple',
             'onefile': 'True', 'noconsole': 'True', 'clean_all': 'True',
             'auto_icon': 'True', 'use_venv': 'True', 'use_reqs': 'True',
-            'use_pipreqs': 'True', 'upx': 'False'
+            'use_pipreqs': 'True', 'upx': 'False', 'concise_log': 'True',
+            'cpu_cores': str(os.cpu_count() or 2), 'upx_path': '',
+            'exclude_modules': '', 'out_mode': '0', 'custom_out_dir': '',
+            'sound_notify': 'True', 'auto_save_log': 'False'
         }
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -81,6 +84,24 @@ def load_config():
         config.read(CONFIG_FILE, encoding='utf-8')
         if 'Mappings' not in config: config['Mappings'] = DEFAULT_MAPPINGS
         if 'Settings' not in config: config['Settings'] = {}
+        default_updates = {
+            'concise_log': 'True',
+            'cpu_cores': str(os.cpu_count() or 2),
+            'upx_path': '',
+            'exclude_modules': '',
+            'out_mode': '0',
+            'custom_out_dir': '',
+            'sound_notify': 'True',
+            'auto_save_log': 'False'
+        }
+        updated = False
+        for k, v in default_updates.items():
+            if k not in config['Settings']:
+                config['Settings'][k] = v
+                updated = True
+        if updated:
+            try: save_config(config)
+            except: pass
     return config
 
 def save_config(config):
@@ -308,6 +329,17 @@ def parse_add_data(add_data_str):
             dst_path = "."
         datas.append((src_path, dst_path))
     return datas
+
+def play_alert(success=True):
+    try:
+        if os.name == 'nt':
+            import winsound
+            winsound.MessageBeep(winsound.MB_OK if success else winsound.MB_ICONHAND)
+        else:
+            sys.stdout.write('\a')
+            sys.stdout.flush()
+    except:
+        pass
 
 
 class AnimatedButton(QPushButton):
@@ -687,12 +719,19 @@ class SettingsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_win = parent
+        
+        self.upx_check = None 
+        self.upx_path_container = None
+        self.app_scroll_area = None
+        self.form_dest = None
+        self.form_perf = None
+        
         self.setStyleSheet("""
             SettingsPanel { background-color: white; }
             QLabel { color: #3c4043; font-size: 13px; font-weight: bold; background: transparent; }
-            QComboBox, QLineEdit { color: #3c4043; font-size: 13px; padding: 6px 10px; border: 1px solid #dadce0; border-radius: 6px; background: #fff; min-height: 24px; }
-            QComboBox:hover, QLineEdit:hover { border-color: #bdc1c6; }
-            QComboBox:focus, QLineEdit:focus { border-color: #1A73E8; }
+            QComboBox, QLineEdit, QSpinBox { color: #3c4043; font-size: 13px; padding: 6px 10px; border: 1px solid #dadce0; border-radius: 6px; background: #fff; min-height: 24px; }
+            QComboBox:hover, QLineEdit:hover, QSpinBox:hover { border-color: #bdc1c6; }
+            QComboBox:focus, QLineEdit:focus, QSpinBox:focus { border-color: #1A73E8; }
             QGroupBox { border: 1px solid #e8eaed; border-radius: 8px; margin-top: 15px; padding-top: 15px; background-color: #f8f9fa; }
             QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; left: 15px; top: 0px; color: #1A73E8; font-weight: bold; font-size: 13px; padding: 0 5px; background: transparent; }
             QCheckBox { font-size: 13px; color: #3c4043; spacing: 8px; background: transparent; }
@@ -716,18 +755,18 @@ class SettingsPanel(QWidget):
         self.tabs = QTabWidget()
         self.tab_basic = QWidget()
         self.tab_env = QWidget()
-        self.tab_adv = QWidget()
         self.tab_meta = QWidget()
+        self.tab_app = QWidget()
         
-        self.tabs.addTab(self.tab_basic, get_svg_icon('package', "#1A73E8"), " 基础打包")
-        self.tabs.addTab(self.tab_env, get_svg_icon('python', "#1A73E8"), " 环境与依赖")
-        self.tabs.addTab(self.tab_adv, get_svg_icon('settings', "#1A73E8"), " 高级选项")
-        self.tabs.addTab(self.tab_meta, get_svg_icon('info', "#1A73E8"), " 版本信息")
+        self.tabs.addTab(self.tab_basic, get_svg_icon('package', "#1A73E8"), " 产物元数据")
+        self.tabs.addTab(self.tab_env, get_svg_icon('python', "#1A73E8"), " 编译控制")
+        self.tabs.addTab(self.tab_meta, get_svg_icon('info', "#1A73E8"), " 资源与沙盒")
+        self.tabs.addTab(self.tab_app, get_svg_icon('settings', "#1A73E8"), " 软件设置")
         
         self.build_basic_tab()
         self.build_env_tab()
-        self.build_adv_tab()
         self.build_meta_tab()
+        self.build_app_tab()
         layout.addWidget(self.tabs)
         
         btn_lay = QHBoxLayout()
@@ -773,7 +812,20 @@ class SettingsPanel(QWidget):
             self.venv_check.setChecked(s.getboolean('use_venv', True))
             self.reqs_check.setChecked(s.getboolean('use_reqs', True))
             self.pipreqs_check.setChecked(s.getboolean('use_pipreqs', True))
-            self.upx_check.setChecked(s.getboolean('upx', False))
+            
+            if self.upx_check:
+                self.upx_check.setChecked(s.getboolean('upx', False))
+                self.on_upx_toggled(self.upx_check.isChecked())
+            self.upx_path_edit.setText(s.get('upx_path', ''))
+            self.cores_spin.setValue(s.getint('cpu_cores', os.cpu_count() or 2))
+            self.exclude_edit.setText(s.get('exclude_modules', ''))
+            self.out_mode_combo.setCurrentIndex(int(s.get('out_mode', '0')))
+            self.out_dir_edit.setText(s.get('custom_out_dir', ''))
+            self.on_out_mode_changed(self.out_mode_combo.currentIndex())
+            
+            self.concise_log_check.setChecked(s.getboolean('concise_log', True))
+            self.sound_notify_check.setChecked(s.getboolean('sound_notify', True))
+            self.auto_save_log_check.setChecked(s.getboolean('auto_save_log', False))
 
     def save_to_config(self):
         config = load_config()
@@ -788,7 +840,16 @@ class SettingsPanel(QWidget):
         s['use_venv'] = str(self.venv_check.isChecked())
         s['use_reqs'] = str(self.reqs_check.isChecked())
         s['use_pipreqs'] = str(self.pipreqs_check.isChecked())
-        s['upx'] = str(self.upx_check.isChecked())
+        if self.upx_check:
+            s['upx'] = str(self.upx_check.isChecked())
+        s['upx_path'] = self.upx_path_edit.text().strip()
+        s['cpu_cores'] = str(self.cores_spin.value())
+        s['exclude_modules'] = self.exclude_edit.text().strip()
+        s['out_mode'] = str(self.out_mode_combo.currentIndex())
+        s['custom_out_dir'] = self.out_dir_edit.text().strip()
+        s['concise_log'] = str(self.concise_log_check.isChecked())
+        s['sound_notify'] = str(self.sound_notify_check.isChecked())
+        s['auto_save_log'] = str(self.auto_save_log_check.isChecked())
         save_config(config)
 
     def build_basic_tab(self):
@@ -807,11 +868,6 @@ class SettingsPanel(QWidget):
         form_core.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form_core.setContentsMargins(15, 20, 15, 15)
         form_core.setVerticalSpacing(12)
-        
-        self.engine_combo = QComboBox()
-        self.engine_combo.addItems(["PyInstaller", "Nuitka"])
-        self.engine_combo.currentIndexChanged.connect(self.on_engine_changed)
-        form_core.addRow("构建引擎:", self.engine_combo)
         
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("留空则与入口脚本同名")
@@ -832,21 +888,31 @@ class SettingsPanel(QWidget):
         form_core.addRow("应用图标:", h_icon)
         lay.addWidget(grp_core)
 
-        grp_mode = QGroupBox("输出模式与行为")
+        grp_mode = QGroupBox("打包模式")
         grid_mode = QGridLayout(grp_mode)
         grid_mode.setContentsMargins(15, 20, 15, 15)
         grid_mode.setVerticalSpacing(15)
         
         self.onefile_check = QCheckBox("单文件模式 (OneFile)")
         self.noconsole_check = QCheckBox("隐藏控制台 (GUI模式)")
-        self.clean_all_check = QCheckBox("编译后自动清理缓存")
-        self.auto_icon_check = QCheckBox("自动匹配同目录图标")
         
         grid_mode.addWidget(self.onefile_check, 0, 0)
         grid_mode.addWidget(self.noconsole_check, 0, 1)
-        grid_mode.addWidget(self.clean_all_check, 1, 0)
-        grid_mode.addWidget(self.auto_icon_check, 1, 1)
         lay.addWidget(grp_mode)
+        
+        self.grp_meta = QGroupBox("版本元数据 (Metadata)")
+        meta_form = QFormLayout(self.grp_meta)
+        meta_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        meta_form.setContentsMargins(15, 20, 15, 15)
+        meta_form.setVerticalSpacing(12)
+        
+        self.ver_ver = QLineEdit("1.0.0")
+        self.ver_comp = QLineEdit("My Studio")
+        self.ver_desc = QLineEdit("Python Executable")
+        meta_form.addRow("版本序列:", self.ver_ver)
+        meta_form.addRow("发行公司:", self.ver_comp)
+        meta_form.addRow("文件描述:", self.ver_desc)
+        lay.addWidget(self.grp_meta)
         
         lay.addStretch() 
         scroll.setWidget(content)
@@ -865,18 +931,26 @@ class SettingsPanel(QWidget):
         lay = QVBoxLayout(content)
         lay.setContentsMargins(15, 15, 15, 15)
         
-        grp_env = QGroupBox("隔离与网络")
-        form_env = QFormLayout(grp_env)
-        form_env.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form_env.setContentsMargins(15, 20, 15, 15)
-        form_env.setVerticalSpacing(12)
+        grp_engine = QGroupBox("编译器引擎")
+        form_engine = QFormLayout(grp_engine)
+        form_engine.setContentsMargins(15, 20, 15, 15)
+        form_engine.setVerticalSpacing(12)
         
-        self.pip_source_edit = QLineEdit()
-        form_env.addRow("PIP 镜像:", self.pip_source_edit)
+        self.engine_combo = QComboBox()
+        self.engine_combo.addItems(["PyInstaller", "Nuitka"])
+        self.engine_combo.currentIndexChanged.connect(self.on_engine_changed)
+        form_engine.addRow("构建引擎选择:", self.engine_combo)
+        lay.addWidget(grp_engine)
+
+        grp_modules = QGroupBox("精细化模块过滤")
+        form_mod = QFormLayout(grp_modules)
+        form_mod.setContentsMargins(15, 20, 15, 15)
+        form_mod.setVerticalSpacing(12)
         
-        self.venv_check = QCheckBox("启用独立打包环境")
-        form_env.addRow("", self.venv_check)
-        lay.addWidget(grp_env)
+        self.exclude_edit = QLineEdit()
+        self.exclude_edit.setPlaceholderText("例如: tkinter, matplotlib (排除打包，减少体积)")
+        form_mod.addRow("屏蔽指定模块:", self.exclude_edit)
+        lay.addWidget(grp_modules)
 
         grp_dep = QGroupBox("包与依赖分析机制")
         dep_lay = QVBoxLayout(grp_dep)
@@ -886,6 +960,7 @@ class SettingsPanel(QWidget):
         grid_dep = QGridLayout()
         self.reqs_check = QCheckBox("优先读取 requirements.txt")
         self.pipreqs_check = QCheckBox("启用 pipreqs 深度代码分析")
+        
         grid_dep.addWidget(self.reqs_check, 0, 0)
         grid_dep.addWidget(self.pipreqs_check, 0, 1)
         dep_lay.addLayout(grid_dep)
@@ -902,49 +977,12 @@ class SettingsPanel(QWidget):
         h_hid.addWidget(btn_scan)
         form_dep.addRow("隐式依赖:", h_hid)
         dep_lay.addLayout(form_dep)
-        
         lay.addWidget(grp_dep)
+        
         lay.addStretch()
         
         scroll.setWidget(content)
         main_lay = QVBoxLayout(self.tab_env)
-        main_lay.setContentsMargins(0,0,0,0)
-        main_lay.addWidget(scroll)
-
-    def build_adv_tab(self):
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent;")
-        
-        content = QWidget()
-        content.setStyleSheet("background: white;")
-        lay = QVBoxLayout(content)
-        lay.setContentsMargins(15, 15, 15, 15)
-        
-        grp_res = QGroupBox("附加资源与优化")
-        form_res = QFormLayout(grp_res)
-        form_res.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form_res.setContentsMargins(15, 20, 15, 15)
-        form_res.setVerticalSpacing(12)
-        
-        self.add_data_edit = QLineEdit()
-        self.add_data_edit.setPlaceholderText("例如: data/model.bin:data")
-        btn_add = QPushButton("添加...")
-        btn_add.setProperty("class", "ToolBtn")
-        btn_add.clicked.connect(self.add_resource)
-        h_res = QHBoxLayout()
-        h_res.addWidget(self.add_data_edit)
-        h_res.addWidget(btn_add)
-        form_res.addRow("附加资源:", h_res)
-        
-        self.upx_check = QCheckBox("启用 PyInstaller UPX")
-        form_res.addRow("", self.upx_check)
-        lay.addWidget(grp_res)
-        lay.addStretch()
-        
-        scroll.setWidget(content)
-        main_lay = QVBoxLayout(self.tab_adv)
         main_lay.setContentsMargins(0,0,0,0)
         main_lay.addWidget(scroll)
 
@@ -959,23 +997,36 @@ class SettingsPanel(QWidget):
         lay = QVBoxLayout(content)
         lay.setContentsMargins(15, 15, 15, 15)
         
-        self.grp_meta = QGroupBox("版本元数据 (Metadata)")
-        meta_form = QFormLayout(self.grp_meta)
-        meta_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        meta_form.setContentsMargins(15, 20, 15, 15)
-        meta_form.setVerticalSpacing(12)
+        grp_res = QGroupBox("附加资源归档")
+        form_res = QFormLayout(grp_res)
+        form_res.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form_res.setContentsMargins(15, 20, 15, 15)
+        form_res.setVerticalSpacing(12)
         
-        self.ver_ver = QLineEdit("1.0.0")
-        self.ver_comp = QLineEdit("My Studio")
-        self.ver_desc = QLineEdit("Python Executable")
-        meta_form.addRow("版本序列:", self.ver_ver)
-        meta_form.addRow("发行公司:", self.ver_comp)
-        meta_form.addRow("文件描述:", self.ver_desc)
-        lay.addWidget(self.grp_meta)
+        self.add_data_edit = QLineEdit()
+        self.add_data_edit.setPlaceholderText("例如: data/model.bin:data")
+        btn_add = QPushButton("添加...")
+        btn_add.setProperty("class", "ToolBtn")
+        btn_add.clicked.connect(self.add_resource)
+        h_res = QHBoxLayout()
+        h_res.addWidget(self.add_data_edit)
+        h_res.addWidget(btn_add)
+        form_res.addRow("附加资源:", h_res)
+        lay.addWidget(grp_res)
+
+        grp_env = QGroupBox("执行环境隔离")
+        form_env = QFormLayout(grp_env)
+        form_env.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form_env.setContentsMargins(15, 20, 15, 15)
+        form_env.setVerticalSpacing(12)
         
-        tip = QLabel("注：写入 EXE 版本信息可提升系统识别度。")
-        tip.setStyleSheet("color: #9AA0A6; font-size: 12px; font-weight: normal; background: transparent;")
-        lay.addWidget(tip)
+        self.pip_source_edit = QLineEdit()
+        form_env.addRow("PIP 镜像:", self.pip_source_edit)
+        
+        self.venv_check = QCheckBox("启用独立沙盒打包环境 (Venv)")
+        form_env.addRow("", self.venv_check)
+        lay.addWidget(grp_env)
+        
         lay.addStretch()
         
         scroll.setWidget(content)
@@ -983,9 +1034,137 @@ class SettingsPanel(QWidget):
         main_lay.setContentsMargins(0,0,0,0)
         main_lay.addWidget(scroll)
 
+    def build_app_tab(self):
+        self.app_scroll_area = QScrollArea()
+        self.app_scroll_area.setWidgetResizable(True)
+        self.app_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.app_scroll_area.setStyleSheet("background: transparent;")
+        
+        content = QWidget()
+        content.setStyleSheet("background: white;")
+        lay = QVBoxLayout(content)
+        lay.setContentsMargins(15, 15, 15, 15)
+        
+        # 编译资源限制组
+        self.form_perf = QFormLayout()
+        grp_perf = QGroupBox("编译资源限制与压缩优化")
+        grp_perf.setLayout(self.form_perf)
+        self.form_perf.setContentsMargins(15, 20, 15, 15)
+        self.form_perf.setVerticalSpacing(12)
+        
+        self.cores_spin = QSpinBox()
+        self.cores_spin.setRange(1, os.cpu_count() or 4)
+        self.cores_spin.setValue(os.cpu_count() or 2)
+        self.form_perf.addRow("并发编译线程数:", self.cores_spin)
+        
+        self.upx_check = QCheckBox("启用 PyInstaller UPX 压缩优化")
+        self.upx_check.toggled.connect(self.on_upx_toggled)
+        self.form_perf.addRow("", self.upx_check)
+        
+        self.upx_path_edit = QLineEdit()
+        self.upx_path_edit.setPlaceholderText("留空则在全局环境或当前目录下自动定位 UPX...")
+        self.btn_upx_path = QPushButton("选择...")
+        self.btn_upx_path.setProperty("class", "ToolBtn")
+        self.btn_upx_path.clicked.connect(self.select_upx_path)
+        
+        self.upx_path_container = QWidget()
+        self.upx_path_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.upx_path_container.setMinimumHeight(32)
+        h_upx = QHBoxLayout(self.upx_path_container)
+        h_upx.setContentsMargins(0, 0, 0, 0)
+        h_upx.setSpacing(6)
+        h_upx.addWidget(self.upx_path_edit)
+        h_upx.addWidget(self.btn_upx_path)
+        self.form_perf.addRow("自定义 UPX 目录:", self.upx_path_container)
+        lay.addWidget(grp_perf)
+        
+        # 产物保存路径策略组
+        self.form_dest = QFormLayout()
+        grp_dest = QGroupBox("构建产物保存路径")
+        grp_dest.setLayout(self.form_dest)
+        self.form_dest.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        self.form_dest.setContentsMargins(15, 20, 15, 15)
+        self.form_dest.setVerticalSpacing(12)
+        
+        self.out_mode_combo = QComboBox()
+        self.out_mode_combo.addItems(["默认路径 (保存在源脚本所在同目录)", "保存到自定义输出目录"])
+        self.out_mode_combo.currentIndexChanged.connect(self.on_out_mode_changed)
+        self.form_dest.addRow("保存位置模式:", self.out_mode_combo)
+        
+        self.out_dir_edit = QLineEdit()
+        self.out_dir_edit.setPlaceholderText("选择自定义输出保存路径...")
+        self.out_dir_edit.setMinimumWidth(150)
+        self.btn_out_dir = QPushButton("浏览...")
+        self.btn_out_dir.setFixedWidth(75)
+        self.btn_out_dir.setProperty("class", "ToolBtn")
+        self.btn_out_dir.clicked.connect(self.select_out_dir)
+        
+        self.out_dir_container = QWidget()
+        self.out_dir_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.out_dir_container.setMinimumHeight(32)
+        h_out_dir = QHBoxLayout(self.out_dir_container)
+        h_out_dir.setContentsMargins(0, 0, 0, 0)
+        h_out_dir.setSpacing(6)
+        h_out_dir.addWidget(self.out_dir_edit)
+        h_out_dir.addWidget(self.btn_out_dir)
+        self.form_dest.addRow("自定义目录路径:", self.out_dir_container)
+        lay.addWidget(grp_dest)
+
+        # 偏好控制与反馈组
+        grp_app = QGroupBox("偏好习惯与通知反馈")
+        grid_app = QGridLayout(grp_app)
+        grid_app.setContentsMargins(15, 20, 15, 15)
+        grid_app.setVerticalSpacing(15)
+        
+        self.concise_log_check = QCheckBox("启用简洁日志模式 (自动屏蔽警告与垃圾调试信息)")
+        self.clean_all_check = QCheckBox("编译结束后自动清理临时缓存文件目录")
+        self.auto_icon_check = QCheckBox("自动匹配入口脚本同目录下的同名ico图标")
+        self.sound_notify_check = QCheckBox("编译构建任务结束时发出声音反馈提示")
+        self.auto_save_log_check = QCheckBox("打包结束后自动在目标输出目录导出运行日志 (.log)")
+        
+        grid_app.addWidget(self.concise_log_check, 0, 0)
+        grid_app.addWidget(self.clean_all_check, 1, 0)
+        grid_app.addWidget(self.auto_icon_check, 2, 0)
+        grid_app.addWidget(self.sound_notify_check, 3, 0)
+        grid_app.addWidget(self.auto_save_log_check, 4, 0)
+        lay.addWidget(grp_app)
+        
+        lay.addStretch()
+        
+        self.app_scroll_area.setWidget(content)
+        main_lay = QVBoxLayout(self.tab_app)
+        main_lay.setContentsMargins(0,0,0,0)
+        main_lay.addWidget(self.app_scroll_area)
+
     def on_engine_changed(self):
-        engine = self.engine_combo.currentText()
-        self.upx_check.setVisible(engine == "PyInstaller")
+        if getattr(self, 'upx_check', None) is not None and getattr(self, 'form_perf', None) is not None:
+            engine = self.engine_combo.currentText()
+            is_pyi = (engine == "PyInstaller")
+            self.upx_check.setVisible(is_pyi)
+            self.form_perf.setRowVisible(self.upx_path_container, is_pyi and self.upx_check.isChecked())
+
+    def on_upx_toggled(self, checked):
+        if getattr(self, 'form_perf', None) is not None:
+            self.form_perf.setRowVisible(self.upx_path_container, checked)
+            if checked and getattr(self, 'app_scroll_area', None) is not None:
+                QTimer.singleShot(50, lambda: self.app_scroll_area.ensureWidgetVisible(self.upx_path_container))
+
+    def on_out_mode_changed(self, index):
+        show_custom = (index == 1)
+        if getattr(self, 'form_dest', None) is not None:
+            self.form_dest.setRowVisible(self.out_dir_container, show_custom)
+            if show_custom and getattr(self, 'app_scroll_area', None) is not None:
+                QTimer.singleShot(50, lambda: self.app_scroll_area.ensureWidgetVisible(self.out_dir_container))
+
+    def select_out_dir(self):
+        d = QFileDialog.getExistingDirectory(self, "选择输出保存目录")
+        if d:
+            self.out_dir_edit.setText(Path(d).resolve().as_posix())
+
+    def select_upx_path(self):
+        d = QFileDialog.getExistingDirectory(self, "选择 UPX 工具根目录")
+        if d:
+            self.upx_path_edit.setText(Path(d).resolve().as_posix())
 
     def update_icon_preview(self, path):
         if path and Path(path).exists():
@@ -1039,7 +1218,7 @@ class SettingsPanel(QWidget):
 
 
 class ScriptAnalysisThread(QThread):
-    analysis_done = Signal(str, str, str, str, set) # app_name, version, author, desc, imports
+    analysis_done = Signal(str, str, str, str, set)
 
     def __init__(self, path):
         super().__init__()
@@ -1099,6 +1278,7 @@ class PackingThread(QThread):
         self.venv_dir = None
         self.temp_workpath = None
         self.temp_out_dir = None
+        self.all_raw_logs = []  
 
     def cancel(self):
         self._is_cancelled = True
@@ -1113,6 +1293,7 @@ class PackingThread(QThread):
         
         timer = None
         is_timeout = [False]
+        cmd_raw_lines = []  
         
         clean_env = os.environ.copy()
         clean_env.pop("PYTHONHOME", None)
@@ -1141,11 +1322,26 @@ class PackingThread(QThread):
 
             buffer = []
             last_emit = time.time()
+            
+            def is_noisy_line(l):
+                l_lower = l.lower()
+                if "error:" in l_lower:
+                    return False
+                return any(kw in l_lower for kw in ["warning:", "info:", "deprecation:", "userwarning:", "futurewarning:"])
+
             for line in self.process.stdout:
                 if self._is_cancelled:
                     self.process.terminate()
                     return False
-                buffer.append(line.strip())
+                
+                stripped = line.rstrip('\r\n')
+                cmd_raw_lines.append(stripped)
+                self.all_raw_logs.append(stripped)
+                
+                if self.params.get('concise_log', True) and is_noisy_line(stripped):
+                    continue
+                
+                buffer.append(stripped)
                 if len(buffer) >= 15 or (time.time() - last_emit) > 0.1:
                     self.progress.emit('\n'.join(buffer))
                     buffer.clear()
@@ -1160,7 +1356,14 @@ class PackingThread(QThread):
                 self.progress.emit(f"[System] 子进程执行超时 (>{timeout}s)，已自动中断并继续执行后续流水线...")
                 return False
                 
-            return self.process.returncode == 0
+            success = self.process.returncode == 0
+            
+            if not success and self.params.get('concise_log', True) and cmd_raw_lines:
+                self.progress.emit("\n" + "!"*10 + " [诊断回溯: 以下是由于该环节执行异常产生的完整原始日志] " + "!"*10)
+                self.progress.emit('\n'.join(cmd_raw_lines))
+                self.progress.emit("!"*60 + "\n")
+                
+            return success
         except FileNotFoundError as e:
             cmd_name = cmd[0] if isinstance(cmd, list) and cmd else str(cmd)
             if "python" in str(cmd_name).lower():
@@ -1341,21 +1544,29 @@ class PackingThread(QThread):
                     
                 if self.params.get('version_file') and os.name == "nt": cmd.extend(["--version-file", self.params['version_file']])
                 if self.params.get('upx'):
-                    upx_dir = (Path.cwd() / "upx").resolve()
-                    if upx_dir.exists(): cmd.append(f"--upx-dir={upx_dir.as_posix()}")
+                    upx_dir_custom = self.params.get('upx_path', '').strip()
+                    if upx_dir_custom and Path(upx_dir_custom).exists():
+                        cmd.append(f"--upx-dir={upx_dir_custom}")
+                    else:
+                        upx_dir_default = (Path.cwd() / "upx").resolve()
+                        if upx_dir_default.exists(): cmd.append(f"--upx-dir={upx_dir_default.as_posix()}")
                 
                 for imp in self.params.get('hidden_imports', '').split(','):
                     if imp.strip(): cmd.extend(["--hidden-import", imp.strip()])
                 
                 for src, dst in parse_add_data(self.params.get('add_data', '')):
                     cmd.extend(["--add-data", f"{src}{os.pathsep}{dst}"])
+                
+                for excl in self.params.get('exclude_modules', '').split(','):
+                    if excl.strip(): cmd.extend(["--exclude-module", excl.strip()])
                         
             elif engine == "Nuitka":
                 self.temp_out_dir = Path(tempfile.mkdtemp(prefix="nuitka_out_")).resolve()
                 cmd = [python_exe, "-m", "nuitka", "--remove-output", "--assume-yes-for-downloads",
                        f"--output-dir={self.temp_out_dir.as_posix()}", f"--output-filename={app_name}{ext}"]
                 
-                cmd.append(f"--jobs={os.cpu_count() or 4}")
+                cores = self.params.get('cpu_cores', os.cpu_count() or 2)
+                cmd.append(f"--jobs={cores}")
                 
                 if self.params['onefile']: cmd.append("--onefile")
                 else: cmd.append("--standalone")
@@ -1395,6 +1606,9 @@ class PackingThread(QThread):
                     else:
                         cmd.append(f"--include-data-files={src_path.resolve().as_posix()}={dst}")
 
+                for excl in self.params.get('exclude_modules', '').split(','):
+                    if excl.strip(): cmd.append(f"--exclude-module={excl.strip()}")
+
             cmd.append(script_posix)
 
             success = self.run_cmd(cmd, cwd=Path.cwd().resolve().as_posix())
@@ -1405,7 +1619,18 @@ class PackingThread(QThread):
             if engine == "PyInstaller": src_out = cwd / "dist" / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
             elif engine == "Nuitka": src_out = self.temp_out_dir / (f"{app_name}{ext}" if self.params['onefile'] else f"{app_name}.dist")
 
-            final_out = script_dir / src_out.name
+            out_mode = int(self.params.get('out_mode', 0))
+            custom_out = self.params.get('custom_out_dir', '').strip()
+            if out_mode == 1 and custom_out:
+                try:
+                    final_out_dir = Path(custom_out)
+                    final_out_dir.mkdir(parents=True, exist_ok=True)
+                except:
+                    final_out_dir = script_dir
+            else:
+                final_out_dir = script_dir
+
+            final_out = final_out_dir / src_out.name
             if success and src_out.exists():
                 try:
                     if final_out.exists():
@@ -1417,10 +1642,22 @@ class PackingThread(QThread):
 
             if success and final_out.exists(): 
                 self.progress.emit("[Pack] 正在校验最终程序完整性...")
+                if self.params.get('auto_save_log') and self.all_raw_logs:
+                    try:
+                        log_file = final_out_dir / f"qpypack_build_{app_name}.log"
+                        log_file.write_text('\n'.join(self.all_raw_logs), encoding='utf-8')
+                        self.progress.emit(f"[Log] 打包日志已被导出至: {log_file.as_posix()}")
+                    except: pass
                 self.finished.emit(True, f"[Success] 构建结束！路径: {final_out.resolve().as_posix()}")
             else: 
+                if self.params.get('concise_log', True) and self.all_raw_logs:
+                    self.progress.emit("\n" + "!"*10 + " [诊断提示: 以下为全局完整运行日志汇总] " + "!"*10)
+                    self.progress.emit('\n'.join(self.all_raw_logs[-100:])) 
                 self.finished.emit(False, "[Failed] 构建任务异常中断，请参阅上方运行日志以排查错误。")
         except Exception as e:
+            if self.params.get('concise_log', True) and self.all_raw_logs:
+                self.progress.emit("\n" + "!"*10 + " [系统崩塌诊断: 崩溃前全局原始日志] " + "!"*10)
+                self.progress.emit('\n'.join(self.all_raw_logs[-100:]))
             self.finished.emit(False, f"[System Error] 发生未处理的严重错误: {str(e)}")
         finally:
             if is_temp and build_script_path and build_script_path.exists():
@@ -1461,8 +1698,8 @@ class MainWindow(QMainWindow):
     def init_style(self):
         self.setWindowTitle(f"{__app_name__} {__version__} - {__author__}")
         
-        self.setMinimumSize(580, 520)
-        self.resize(600, 560)
+        self.setMinimumSize(610, 560)
+        self.resize(610, 560)
         
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
@@ -1774,6 +2011,11 @@ class MainWindow(QMainWindow):
             'hidden_imports': sp.hidden_edit.text(),
             'add_data': sp.add_data_edit.text(),
             'upx': sp.upx_check.isChecked() if engine == "PyInstaller" else False,
+            'upx_path': sp.upx_path_edit.text().strip(),
+            'cpu_cores': sp.cores_spin.value(),
+            'exclude_modules': sp.exclude_edit.text().strip(),
+            'out_mode': sp.out_mode_combo.currentIndex(),
+            'custom_out_dir': sp.out_dir_edit.text().strip(),
             'use_venv': sp.venv_check.isChecked(),
             'clean_all': sp.clean_all_check.isChecked(),
             'version_file': version_file.as_posix() if version_file else None,
@@ -1781,7 +2023,9 @@ class MainWindow(QMainWindow):
             'ver_comp': sp.ver_comp.text(),
             'ver_desc': sp.ver_desc.text(),
             'ver_ver': sp.ver_ver.text(),
-            'pip_index_url': sp.pip_source_edit.text().strip()
+            'pip_index_url': sp.pip_source_edit.text().strip(),
+            'concise_log': sp.concise_log_check.isChecked(),
+            'auto_save_log': sp.auto_save_log_check.isChecked()
         }
 
         self.log.clear()
@@ -1799,6 +2043,10 @@ class MainWindow(QMainWindow):
     def on_pack_finished(self, success, msg):
         self.append_log("\n" + "━"*50 + "\n" + msg)
         self.drop_area.stop_build_anim()
+        
+        if self.settings_panel.sound_notify_check.isChecked():
+            play_alert(success)
+            
         if success:
             icon_path = self.settings_panel.icon_edit.text().strip()
             self.drop_area.show_success(icon_path)
@@ -1810,9 +2058,13 @@ class MainWindow(QMainWindow):
             self.update_ui_state("failed")
 
     def open_dist(self):
-        if self.settings_panel.clean_all_check.isChecked() and self.script_path:
+        if self.settings_panel.out_mode_combo.currentIndex() == 1:
+            target = Path(self.settings_panel.out_dir_edit.text().strip())
+        elif self.settings_panel.clean_all_check.isChecked() and self.script_path:
             target = Path(self.script_path).parent
-        else: target = Path.cwd() / "dist"
+        else: 
+            target = Path.cwd() / "dist"
+            
         if target.exists():
             try:
                 if os.name == 'nt': os.startfile(target)
