@@ -616,6 +616,13 @@ class DropArea(QFrame):
             )
             if fp: self.fileDropped.emit(fp)
 
+    def set_loading(self, filename):
+        pixmap = get_svg_pixmap('package', color="#1A73E8", size=88)
+        self.icon_widget.set_file_pixmap(pixmap, 88)
+        self.label.setText(f"文件已加载：{filename}")
+        self.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
+        self.sub_label.setText("正在分析依赖与元数据，请稍候...")
+
     def set_success(self, filename, custom_icon_path=None):
         pixmap = None
         if custom_icon_path and Path(custom_icon_path).exists():
@@ -1031,6 +1038,55 @@ class SettingsPanel(QWidget):
                     self.add_data_edit.setText(f"{curr}, {folder}:{dest}" if curr else f"{folder}:{dest}")
 
 
+class ScriptAnalysisThread(QThread):
+    analysis_done = Signal(str, str, str, str, set) # app_name, version, author, desc, imports
+
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+
+    def run(self):
+        app_name = Path(self.path).stem
+        version = ""
+        author = "My Studio"
+        desc = "Python Executable"
+        script_imports = set()
+
+        try:
+            with open(self.path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read(10240)
+            
+            v_match = re.search(r'^(?:__version__|VERSION|version)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
+            if v_match: 
+                version = v_match.group(1)
+                
+            c_match = re.search(r'^(?:__company__|COMPANY)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
+            if c_match: 
+                author = c_match.group(1)
+            else:
+                a_match = re.search(r'^(?:__author__|AUTHOR)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
+                if a_match: 
+                    author = a_match.group(1)
+                
+            n_match = re.search(r'^(?:__title__|__app_name__|APP_NAME)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
+            if n_match: 
+                app_name = n_match.group(1)
+                
+            d_match = re.search(r'^(?:__description__|DESCRIPTION)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
+            if d_match: 
+                desc = d_match.group(1)
+        except:
+            pass
+
+        try:
+            python_exe = get_python_executable()
+            script_imports = extract_imports_via_ast(self.path, python_exe)
+        except:
+            pass
+
+        self.analysis_done.emit(app_name, version, author, desc, script_imports)
+
+
 class PackingThread(QThread):
     progress = Signal(str)
     finished = Signal(bool, str)
@@ -1397,6 +1453,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.script_path = ""
         self.thread = None
+        self.analysis_thread = None
         self.current_state = "idle" 
         self.init_style()
         self.init_ui()
@@ -1589,43 +1646,30 @@ class MainWindow(QMainWindow):
 
         self.script_path = path
         
-        app_name = Path(path).stem
-        version = ""
-        author = "My Studio"
-        desc = "Python Executable"
+        self.drop_area.set_loading(Path(path).name)
+        self.status_label.setText(f" 状态: 正在解析 {Path(path).name} ...")
+        self.btn_main.setEnabled(False)
         
-        script_imports = set()
-        try:
-            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read(10240)
+        if self.analysis_thread and self.analysis_thread.isRunning():
+            self.analysis_thread.disconnect()
+            self.analysis_thread.terminate()
+            self.analysis_thread.wait()
             
-            v_match = re.search(r'^(?:__version__|VERSION|version)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
-            if v_match: 
-                version = v_match.group(1)
-                self.settings_panel.ver_ver.setText(version)
-                
-            c_match = re.search(r'^(?:__company__|COMPANY)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
-            if c_match: 
-                author = c_match.group(1)
-            else:
-                a_match = re.search(r'^(?:__author__|AUTHOR)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
-                if a_match: author = a_match.group(1)
-            self.settings_panel.ver_comp.setText(author)
-                
-            n_match = re.search(r'^(?:__title__|__app_name__|APP_NAME)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
-            if n_match: 
-                app_name = n_match.group(1)
-                
-            d_match = re.search(r'^(?:__description__|DESCRIPTION)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
-            if d_match: 
-                desc = d_match.group(1)
-                self.settings_panel.ver_desc.setText(desc)
+        self.analysis_thread = ScriptAnalysisThread(path)
+        self.analysis_thread.analysis_done.connect(self.on_analysis_finished)
+        self.analysis_thread.start()
 
-        except: pass
-        
-        try:
-            script_imports = extract_imports_via_ast(path, get_python_executable())
-        except: pass
+    def on_analysis_finished(self, app_name, version, author, desc, script_imports):
+        path = self.script_path
+        if not path: return
+
+        if version:
+            self.settings_panel.ver_ver.setText(version)
+        else:
+            self.settings_panel.ver_ver.setText("1.0.0")
+            
+        self.settings_panel.ver_comp.setText(author)
+        self.settings_panel.ver_desc.setText(desc)
 
         gui_libs = {'pyqt5', 'pyqt6', 'pyside2', 'pyside6', 'tkinter', 'wx', 'kivy', 'libavg'}
         has_gui = any(lib in {m.lower() for m in script_imports} for lib in gui_libs)
@@ -1657,6 +1701,7 @@ class MainWindow(QMainWindow):
         self.append_log(f"[System] 源文件绑定成功: {path}")
         if not has_gui:
             self.append_log("[System] 检测到该脚本不包含常见 GUI 图形框架。已为您保留控制台。")
+        self.btn_main.setEnabled(True)
         self.update_ui_state("ready")
 
     def cancel_pack(self):
