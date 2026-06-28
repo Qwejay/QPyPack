@@ -3,16 +3,15 @@ name: Build and Publish
 on:
   push:
     tags:
-      - 'v*' # 当推送形如 v1.0.0 或 v2.3.6 的标签时触发
+      - 'v*'
 
 jobs:
-  build-n-publish:
-    name: Build and publish Python distribution
+  publish-pypi:
+    name: Publish to PyPI and Create Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write
-
     steps:
     - name: Checkout source code
       uses: actions/checkout@v4
@@ -44,3 +43,85 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         skip-existing: true
+
+  build-windows-exe:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    needs: publish-pypi
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Extract version
+      shell: bash
+      run: |
+        TAG_NAME=${{ github.ref_name }}
+        VERSION=${TAG_NAME#v}
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install PySide6 pyinstaller
+
+    - name: Generate Windows Version Info File
+      shell: python
+      run: |
+        import os
+        version = os.environ['VERSION']
+        v_tuple = ",".join((version.split('.') + ['0', '0', '0'])[:3]) + ",0"
+        
+        info_content = f"""
+        VSVersionInfo(
+          ffi=FixedFileInfo(
+            filevers=({v_tuple}),
+            prodvers=({v_tuple}),
+            mask=0x3f,
+            flags=0x0,
+            OS=0x40004,
+            fileType=0x1,
+            subtype=0x0,
+            date=(0,0)
+          ),
+          kids=[
+            StringFileInfo(
+              [
+                StringTable(
+                  '040904B0',
+                  [
+                    StringStruct('CompanyName', 'QwejayHuang'),
+                    StringStruct('FileDescription', 'Automated Python Packaging Tool'),
+                    StringStruct('FileVersion', '{version}'),
+                    StringStruct('InternalName', 'QPyPack'),
+                    StringStruct('LegalCopyright', 'Copyright (C) QwejayHuang'),
+                    StringStruct('OriginalFilename', 'QPyPack.exe'),
+                    StringStruct('ProductName', 'QPyPack'),
+                    StringStruct('ProductVersion', '{version}')
+                  ]
+                )
+              ]
+            ),
+            VarFileInfo([VarStruct('Translation', [1033, 1200])])
+          ]
+        )
+        """
+        with open('file_version_info.txt', 'w', encoding='utf-8') as f:
+            f.write(info_content.strip())
+
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=src/qpypack/icon.ico --add-data "src/qpypack/icon.ico;." --name="QPyPack_${{ env.VERSION }}" src/qpypack/main.py
+
+    - name: Upload EXE to GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/QPyPack_${{ env.VERSION }}.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
