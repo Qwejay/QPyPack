@@ -989,7 +989,7 @@ class SettingsPanel(QWidget):
         self.icon_preview.clear()
 
     def select_icon(self):
-        p, _ = QFileDialog.getOpenFileName(self, "选择图标", "", "Icon Files (*.ico)")
+        p, _ = QFileDialog.getOpenFileName(self, "选择图标", "", "Icon Files (*.ico *.svg)")
         if p: self.icon_edit.setText(Path(p).resolve().as_posix())
 
     def auto_scan_hidden(self):
@@ -1122,6 +1122,34 @@ class PackingThread(QThread):
     def sanitize_script(self, orig_path: Path):
         if is_cloud_locked(orig_path):
             return None, False, "目标脚本处于云盘加密或锁定状态，请解密后重试。"
+        
+        if not self.params['noconsole']:
+            try:
+                raw = orig_path.read_bytes()
+                try: code = raw.decode('utf-8-sig')
+                except: code = raw.decode(locale.getpreferredencoding(), errors='ignore')
+                
+                pause_code = "\n" + "#"*30 + "\n" + (
+                    "try:\n"
+                    "    import sys\n"
+                    "    if sys.platform == 'win32':\n"
+                    "        import ctypes\n"
+                    "        kernel32 = ctypes.windll.kernel32\n"
+                    "        process_list = (ctypes.c_uint * 10)()\n"
+                    "        num_processes = kernel32.GetConsoleProcessList(process_list, 10)\n"
+                    "        if num_processes <= 2:\n"
+                    "            input('\\n执行完毕，按回车键退出...')\n"
+                    "except:\n"
+                    "    pass\n"
+                )
+                
+                temp_dir = Path(tempfile.gettempdir())
+                temp_file = temp_dir / f"qpypack_build_target_{int(time.time())}.py"
+                temp_file.write_text(code + pause_code, encoding='utf-8')
+                return temp_file, True, ""
+            except Exception as e:
+                self.progress.emit(f"[Warn] 注入控制台防闪退机制失败: {e}")
+                
         return orig_path, False, ""
 
     def run(self):
@@ -1333,7 +1361,7 @@ class PackingThread(QThread):
 
             if success and final_out.exists(): 
                 self.progress.emit("[Pack] 正在校验最终程序完整性...")
-                self.finished.emit(True, f"[Success] 构建结束！\n==> 输出路径: {final_out.resolve().as_posix()}")
+                self.finished.emit(True, f"[Success] 构建结束！路径: {final_out.resolve().as_posix()}")
             else: 
                 self.finished.emit(False, "[Failed] 构建任务异常中断，请参阅上方运行日志以排查错误。")
         except Exception as e:
@@ -1345,6 +1373,10 @@ class PackingThread(QThread):
                 
             if self.params.get('version_file'):
                 try: Path(self.params['version_file']).unlink(missing_ok=True)
+                except: pass
+                
+            if self.params.get('temp_icon_file'):
+                try: Path(self.params['temp_icon_file']).unlink(missing_ok=True)
                 except: pass
                 
             if self.params['clean_all']:
@@ -1562,6 +1594,7 @@ class MainWindow(QMainWindow):
         author = "My Studio"
         desc = "Python Executable"
         
+        script_imports = set()
         try:
             with open(path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read(10240)
@@ -1590,6 +1623,14 @@ class MainWindow(QMainWindow):
 
         except: pass
         
+        try:
+            script_imports = extract_imports_via_ast(path, get_python_executable())
+        except: pass
+
+        gui_libs = {'pyqt5', 'pyqt6', 'pyside2', 'pyside6', 'tkinter', 'wx', 'kivy', 'libavg'}
+        has_gui = any(lib in {m.lower() for m in script_imports} for lib in gui_libs)
+        self.settings_panel.noconsole_check.setChecked(has_gui)
+
         default_output_name = f"{app_name}_{version}" if version else app_name
         self.settings_panel.name_edit.setText(default_output_name)
         
@@ -1607,11 +1648,15 @@ class MainWindow(QMainWindow):
                     break
                 
         self.drop_area.set_success(Path(path).name, custom_icon_path=auto_icon)
-        self.status_label.setText(f" 状态: 已锁定源文件 {Path(path).name}")
+        
+        status_suffix = "，已配置为【保留控制台】模式" if not has_gui else "，已配置为GUI模式"
+        self.status_label.setText(f" 状态: 已锁定源文件 {Path(path).name}{status_suffix}")
         
         if not self.log_container.isVisible(): self.toggle_log()
         self.log.clear()
         self.append_log(f"[System] 源文件绑定成功: {path}")
+        if not has_gui:
+            self.append_log("[System] 检测到该脚本不包含常见 GUI 图形框架。已为您保留控制台。")
         self.update_ui_state("ready")
 
     def cancel_pack(self):
@@ -1642,13 +1687,43 @@ class MainWindow(QMainWindow):
                 version_file.write_text(content, encoding='utf-8')
             except: pass
 
+        icon_path_str = sp.icon_edit.text().strip()
+        temp_icon_file = None
+        if icon_path_str and Path(icon_path_str).exists():
+            icon_path = Path(icon_path_str)
+            if icon_path.suffix.lower() == '.svg':
+                try:
+                    renderer = QSvgRenderer()
+                    if renderer.load(icon_path.as_posix()):
+                        pixmap = QPixmap(256, 256)
+                        pixmap.fill(Qt.GlobalColor.transparent)
+                        painter = QPainter(pixmap)
+                        renderer.render(painter)
+                        painter.end()
+                        
+                        temp_ico = Path(tempfile.gettempdir()) / f"qpypack_temp_icon_{int(time.time())}.ico"
+                        if pixmap.save(temp_ico.as_posix(), "ICO"):
+                            icon_path_str = temp_ico.as_posix()
+                            temp_icon_file = temp_ico.as_posix()
+                        else:
+                            temp_png = Path(tempfile.gettempdir()) / f"qpypack_temp_icon_{int(time.time())}.png"
+                            if pixmap.save(temp_png.as_posix(), "PNG"):
+                                icon_path_str = temp_png.as_posix()
+                                temp_icon_file = temp_png.as_posix()
+                except Exception as e:
+                    self.append_log(f"[Warn] SVG 图标解析异常: {e}")
+                
+                if not temp_icon_file:
+                    icon_path_str = None
+                    self.append_log("[Warn] SVG 桌面图标转换失败，已自动降级为无图标模式构建以确保成功。")
+
         params = {
             'engine': engine,
             'script_path': self.script_path,
             'app_name': app_name,
             'onefile': sp.onefile_check.isChecked(),
             'noconsole': sp.noconsole_check.isChecked(),
-            'icon': sp.icon_edit.text().strip(),
+            'icon': icon_path_str,
             'use_reqs': sp.reqs_check.isChecked(),
             'use_pipreqs': sp.pipreqs_check.isChecked(),
             'hidden_imports': sp.hidden_edit.text(),
@@ -1657,6 +1732,7 @@ class MainWindow(QMainWindow):
             'use_venv': sp.venv_check.isChecked(),
             'clean_all': sp.clean_all_check.isChecked(),
             'version_file': version_file.as_posix() if version_file else None,
+            'temp_icon_file': temp_icon_file,
             'ver_comp': sp.ver_comp.text(),
             'ver_desc': sp.ver_desc.text(),
             'ver_ver': sp.ver_ver.text(),
