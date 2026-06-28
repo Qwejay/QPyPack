@@ -15,6 +15,8 @@ jobs:
     steps:
     - name: Checkout source code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -52,6 +54,14 @@ jobs:
         with open(main_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
         print("Successfully synchronized main.py.")
+
+    - name: Commit and push version updates back to repository
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add pyproject.toml src/qpypack/main.py
+        git commit -m "chore: bump version to ${{ github.ref_name }} [skip ci]" || echo "No version changes to commit"
+        git push origin HEAD:main
 
     - name: Install build dependencies
       run: |
