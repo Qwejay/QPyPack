@@ -21,6 +21,38 @@ jobs:
       with:
         python-version: '3.10'
 
+    - name: Sync version from Tag to files
+      shell: python
+      run: |
+        import re
+        import os
+        
+        tag = "${{ github.ref_name }}"
+        version = tag[1:] if tag.lower().startswith('v') else tag
+        print(f"Target version to sync: {version}")
+        
+        toml_path = 'pyproject.toml'
+        if not os.path.exists(toml_path):
+            raise FileNotFoundError(f"Missing critical configuration: {toml_path}")
+            
+        with open(toml_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+        with open(toml_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        print("Successfully synchronized pyproject.toml.")
+        
+        main_path = 'src/qpypack/main.py'
+        if not os.path.exists(main_path):
+            raise FileNotFoundError(f"Missing critical entrypoint: {main_path}")
+            
+        with open(main_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+        with open(main_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        print("Successfully synchronized main.py.")
+
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
@@ -66,6 +98,26 @@ jobs:
         VERSION=${TAG_NAME#v}
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+    - name: Sync version in Windows Workspace
+      shell: python
+      run: |
+        import re
+        import os
+        
+        version = os.environ['VERSION']
+        print(f"Target version to sync on Windows: {version}")
+        
+        main_path = 'src/qpypack/main.py'
+        if not os.path.exists(main_path):
+            raise FileNotFoundError(f"Missing critical entrypoint: {main_path}")
+            
+        with open(main_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+        with open(main_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        print("Windows workspace code version synchronized.")
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -75,8 +127,13 @@ jobs:
       shell: python
       run: |
         import os
+        import re
+        
         version = os.environ['VERSION']
-        v_tuple = ",".join((version.split('.') + ['0', '0', '0'])[:3]) + ",0"
+        parts = re.findall(r'\d+', version)
+        v_num = (parts + ['0', '0', '0', '0'])[:4]
+        v_tuple = ",".join(v_num)
+        print(f"Windows FileVersion tuple parsed: ({v_tuple})")
         
         info_content = f"""
         VSVersionInfo(
