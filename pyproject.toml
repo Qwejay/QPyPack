@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qpypack"
-version = "2.3.6"
+version = "2.3.8"
 description = "A modern graphical packaging config tool for PyInstaller, Nuitka."
 readme = "README.md"
 authors = [
