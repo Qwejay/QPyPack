@@ -5,6 +5,29 @@ on:
     tags:
       - 'v*'
 
+# =================================================================
+# ⚙️ 项目参数配置区
+# =================================================================
+env:
+  PROJECT_NAME: "qpypack"               # 项目包名
+  MAIN_SCRIPT: "qpypack/main.py"        # Python入口文件
+  ICON_PATH: "qpypack/icon.ico"         # 应用程序图标
+  EXE_NAME_PREFIX: "QPyPack"            # 用程序前缀
+  
+  # -------------------------------------------------------------
+  # 🚀 功能开关
+  # -------------------------------------------------------------
+  BUILD_PIP_PACKAGE: "true"             # 是否构建 pip 安装包
+  PUBLISH_TO_PYPI: "true"               # 是否发布到 PyPI 官方源
+  # -------------------------------------------------------------
+
+  # 软件元数据
+  COMPANY_NAME: "QwejayHuang"
+  PRODUCT_NAME: "QPyPack"
+  LEGAL_COPYRIGHT: "Copyright (C) QwejayHuang"
+  FILE_DESCRIPTION: ""
+# =================================================================
+
 jobs:
   publish-pypi:
     name: Publish to PyPI and Create Release
@@ -16,7 +39,7 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -34,41 +57,45 @@ jobs:
         print(f"Target version to sync: {version}")
         
         toml_path = 'pyproject.toml'
-        if not os.path.exists(toml_path):
-            raise FileNotFoundError(f"Missing critical configuration: {toml_path}")
-            
-        with open(toml_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-        with open(toml_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        print("Successfully synchronized pyproject.toml.")
+        if os.path.exists(toml_path):
+            with open(toml_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+            with open(toml_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            print("Successfully synchronized pyproject.toml.")
         
-        main_path = 'src/qpypack/main.py'
-        if not os.path.exists(main_path):
-            raise FileNotFoundError(f"Missing critical entrypoint: {main_path}")
-            
-        with open(main_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-        with open(main_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        print("Successfully synchronized main.py.")
+        main_path = os.environ['MAIN_SCRIPT']
+        if os.path.exists(main_path):
+            with open(main_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+            with open(main_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            print(f"Successfully synchronized {main_path}.")
 
     - name: Commit and push version updates back to repository
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add pyproject.toml src/qpypack/main.py
+        
+        if [ -f "pyproject.toml" ]; then
+          git add pyproject.toml "${{ env.MAIN_SCRIPT }}"
+        else
+          git add "${{ env.MAIN_SCRIPT }}"
+        fi
+        
         git commit -m "chore: bump version to ${{ github.ref_name }} [skip ci]" || echo "No version changes to commit"
         git push origin HEAD:main
 
     - name: Install build dependencies
+      if: env.BUILD_PIP_PACKAGE == 'true'
       run: |
         python -m pip install --upgrade pip
         python -m pip install build
 
     - name: Build sdist and wheel
+      if: env.BUILD_PIP_PACKAGE == 'true'
       run: python -m build
 
     - name: Create GitHub Release
@@ -77,14 +104,17 @@ jobs:
         files: |
           dist/*.whl
           dist/*.tar.gz
+        fail_on_unmatched_files: false
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Publish to PyPI
+      if: env.PUBLISH_TO_PYPI == 'true' && env.BUILD_PIP_PACKAGE == 'true'
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         skip-existing: true
+      continue-on-error: true
 
   build-windows-exe:
     name: Build Windows EXE
@@ -115,18 +145,16 @@ jobs:
         import os
         
         version = os.environ['VERSION']
+        main_path = os.environ['MAIN_SCRIPT']
         print(f"Target version to sync on Windows: {version}")
         
-        main_path = 'src/qpypack/main.py'
-        if not os.path.exists(main_path):
-            raise FileNotFoundError(f"Missing critical entrypoint: {main_path}")
-            
-        with open(main_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-        with open(main_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        print("Windows workspace code version synchronized.")
+        if os.path.exists(main_path):
+            with open(main_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+            with open(main_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            print(f"Windows workspace {main_path} synchronized.")
 
     - name: Install dependencies
       run: |
@@ -143,6 +171,13 @@ jobs:
         parts = re.findall(r'\d+', version)
         v_num = (parts + ['0', '0', '0', '0'])[:4]
         v_tuple = ",".join(v_num)
+        
+        company = os.environ.get('COMPANY_NAME', 'My Company')
+        product = os.environ.get('PRODUCT_NAME', 'My Product')
+        copyright_str = os.environ.get('LEGAL_COPYRIGHT', 'Copyright')
+        description = os.environ.get('FILE_DESCRIPTION', 'Python Executable')
+        exe_name = os.environ.get('EXE_NAME_PREFIX', 'App')
+        
         print(f"Windows FileVersion tuple parsed: ({v_tuple})")
         
         info_content = f"""
@@ -163,13 +198,13 @@ jobs:
                 StringTable(
                   '040904B0',
                   [
-                    StringStruct('CompanyName', 'QwejayHuang'),
-                    StringStruct('FileDescription', 'Automated Python Packaging Tool'),
+                    StringStruct('CompanyName', '{company}'),
+                    StringStruct('FileDescription', '{description}'),
                     StringStruct('FileVersion', '{version}'),
-                    StringStruct('InternalName', 'QPyPack'),
-                    StringStruct('LegalCopyright', 'Copyright (C) QwejayHuang'),
-                    StringStruct('OriginalFilename', 'QPyPack.exe'),
-                    StringStruct('ProductName', 'QPyPack'),
+                    StringStruct('InternalName', '{exe_name}'),
+                    StringStruct('LegalCopyright', '{copyright_str}'),
+                    StringStruct('OriginalFilename', '{exe_name}.exe'),
+                    StringStruct('ProductName', '{product}'),
                     StringStruct('ProductVersion', '{version}')
                   ]
                 )
@@ -183,12 +218,28 @@ jobs:
             f.write(info_content.strip())
 
     - name: Build EXE with PyInstaller
+      shell: bash
       run: |
-        pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=src/qpypack/icon.ico --add-data "src/qpypack/icon.ico;." --name="QPyPack_${{ env.VERSION }}" src/qpypack/main.py
+        PYINSTALLER_CMD="pyinstaller --clean --onefile --noconsole"
+        
+        if [ -f "file_version_info.txt" ]; then
+          PYINSTALLER_CMD="$PYINSTALLER_CMD --version-file=file_version_info.txt"
+        fi
+        
+        if [ -f "${{ env.ICON_PATH }}" ]; then
+          PYINSTALLER_CMD="$PYINSTALLER_CMD --icon=\"${{ env.ICON_PATH }}\" --add-data=\"${{ env.ICON_PATH }};.\""
+        else
+          echo "Warning: Icon path '${{ env.ICON_PATH }}' not found. Packaging without a custom icon."
+        fi
+        
+        PYINSTALLER_CMD="$PYINSTALLER_CMD --name=\"${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}\" ${{ env.MAIN_SCRIPT }}"
+        
+        echo "Executing: $PYINSTALLER_CMD"
+        eval $PYINSTALLER_CMD
 
     - name: Upload EXE to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/QPyPack_${{ env.VERSION }}.exe
+        files: dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
