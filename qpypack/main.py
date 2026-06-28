@@ -1411,6 +1411,43 @@ class PackingThread(QThread):
                 
         return orig_path, False, ""
 
+    def detect_python_syntax_errors(self):
+        import re
+        script_path = self.params['script_path']
+        script_name = Path(script_path).name
+        log_text = "\n".join(self.all_raw_logs)
+        
+        file_line_pat = re.compile(r'File "([^"]+)", line (\d+)', re.I)
+        err_type_pat = re.compile(r'^(IndentationError|SyntaxError|TabError):\s*(.*)', re.M)
+        
+        err_matches = list(err_type_pat.finditer(log_text))
+        if err_matches:
+            last_err = err_matches[-1]
+            err_type = last_err.group(1)
+            err_desc = last_err.group(2)
+            
+            err_pos = last_err.start()
+            line_no = "未知"
+            file_name = script_name
+            
+            file_line_matches = list(file_line_pat.finditer(log_text))
+            for m in reversed(file_line_matches):
+                if m.end() < err_pos:
+                    matched_filepath = m.group(1)
+                    if matched_filepath.endswith(('.py', '.pyw')):
+                        line_no = m.group(2)
+                        file_name = Path(matched_filepath).name
+                        break
+                        
+            return {
+                "is_code_error": True,
+                "type": err_type,
+                "desc": err_desc,
+                "line": line_no,
+                "file": file_name
+            }
+        return {"is_code_error": False}
+
     def run(self):
         os.environ["NUITKA_ACCEPT_DOWNLOADS"] = "yes"
         engine = self.params['engine']
@@ -1650,13 +1687,26 @@ class PackingThread(QThread):
                     except: pass
                 self.finished.emit(True, f"[Success] 构建结束！路径: {final_out.resolve().as_posix()}")
             else: 
-                if self.params.get('concise_log', True) and self.all_raw_logs:
-                    self.progress.emit("\n" + "!"*10 + " [诊断提示: 以下为全局完整运行日志汇总] " + "!"*10)
-                    self.progress.emit('\n'.join(self.all_raw_logs[-100:])) 
-                self.finished.emit(False, "[Failed] 构建任务异常中断，请参阅上方运行日志以排查错误。")
+                err_info = self.detect_python_syntax_errors()
+                if err_info["is_code_error"]:
+                    msg = (
+                        f"[❌ 语法错误] 检测到您的 Python 源代码存在语法/缩进问题！\n"
+                        f"  - 错误文件: {err_info['file']}\n"
+                        f"  - 错误类型: {err_info['type']}\n"
+                        f"  - 错误位置: 第 {err_info['line']} 行附近\n"
+                        f"  - 错误描述: {err_info['desc']}\n"
+                        f"\n提示: 此问题为源码本身不合规导致。请先修复脚本错误并能正常执行，然后再尝试打包。"
+                    )
+                else:
+                    if self.params.get('concise_log', True) and self.all_raw_logs:
+                        self.progress.emit("\n" + "!"*10 + " [诊断提示: 以下为全局完整运行日志汇总] " + "!"*10)
+                        self.progress.emit('\n'.join(self.all_raw_logs[-100:])) 
+                    msg = "[Failed] 构建任务异常中断，请参阅上方运行日志以排查错误。"
+                self.finished.emit(False, msg)
+                
         except Exception as e:
             if self.params.get('concise_log', True) and self.all_raw_logs:
-                self.progress.emit("\n" + "!"*10 + " [系统崩塌诊断: 崩溃前全局原始日志] " + "!"*10)
+                self.progress.emit("\n" + "!"*10 + " [系统诊断: 崩溃前全局原始日志] " + "!"*10)
                 self.progress.emit('\n'.join(self.all_raw_logs[-100:]))
             self.finished.emit(False, f"[System Error] 发生未处理的严重错误: {str(e)}")
         finally:
@@ -1683,7 +1733,6 @@ class PackingThread(QThread):
                 for p in ["build", "__pycache__", f"{app_name}.build", f"{app_name}.dist", f"{app_name}.onefile-build"]:
                     robust_rmtree(cwd / p)
                 Path(cwd / f"{app_name}.spec").unlink(missing_ok=True)
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
