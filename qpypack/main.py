@@ -31,7 +31,7 @@ from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.4.1"
+__version__ = "2.4.3"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "自动化 Python 脚本打包构建工具"
@@ -74,7 +74,8 @@ def load_config():
             'use_pipreqs': 'True', 'upx': 'False', 'concise_log': 'True',
             'cpu_cores': str(os.cpu_count() or 2), 'upx_path': '',
             'exclude_modules': '', 'out_mode': '0', 'custom_out_dir': '',
-            'sound_notify': 'True', 'auto_save_log': 'False'
+            'sound_notify': 'True', 'auto_save_log': 'False',
+            'use_reqs_file': ''
         }
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -92,7 +93,8 @@ def load_config():
             'out_mode': '0',
             'custom_out_dir': '',
             'sound_notify': 'True',
-            'auto_save_log': 'False'
+            'auto_save_log': 'False',
+            'use_reqs_file': ''
         }
         updated = False
         for k, v in default_updates.items():
@@ -114,8 +116,6 @@ def is_cloud_locked(filepath):
     try:
         with open(filepath, 'rb') as f:
             return b"__CLOUDSYNC_ENC__" in f.read(1024)
-    except (PermissionError, OSError):
-        return True
     except Exception:
         return False
 
@@ -812,6 +812,7 @@ class SettingsPanel(QWidget):
             self.venv_check.setChecked(s.getboolean('use_venv', True))
             self.reqs_check.setChecked(s.getboolean('use_reqs', True))
             self.pipreqs_check.setChecked(s.getboolean('use_pipreqs', True))
+            self.reqs_file_edit.setText(s.get('use_reqs_file', ''))
             
             if self.upx_check:
                 self.upx_check.setChecked(s.getboolean('upx', False))
@@ -840,6 +841,7 @@ class SettingsPanel(QWidget):
         s['use_venv'] = str(self.venv_check.isChecked())
         s['use_reqs'] = str(self.reqs_check.isChecked())
         s['use_pipreqs'] = str(self.pipreqs_check.isChecked())
+        s['use_reqs_file'] = self.reqs_file_edit.text().strip()
         if self.upx_check:
             s['upx'] = str(self.upx_check.isChecked())
         s['upx_path'] = self.upx_path_edit.text().strip()
@@ -958,7 +960,7 @@ class SettingsPanel(QWidget):
         dep_lay.setSpacing(15)
 
         grid_dep = QGridLayout()
-        self.reqs_check = QCheckBox("优先读取 requirements.txt")
+        self.reqs_check = QCheckBox("启用依赖清单部署")
         self.pipreqs_check = QCheckBox("启用 pipreqs 深度代码分析")
         
         grid_dep.addWidget(self.reqs_check, 0, 0)
@@ -967,6 +969,17 @@ class SettingsPanel(QWidget):
 
         form_dep = QFormLayout()
         form_dep.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        
+        self.reqs_file_edit = QLineEdit()
+        self.reqs_file_edit.setPlaceholderText("留空则默认读取脚本目录下的 requirements.txt")
+        btn_reqs_file = QPushButton("选择...")
+        btn_reqs_file.setProperty("class", "ToolBtn")
+        btn_reqs_file.clicked.connect(self.select_reqs_file)
+        h_reqs = QHBoxLayout()
+        h_reqs.addWidget(self.reqs_file_edit)
+        h_reqs.addWidget(btn_reqs_file)
+        form_dep.addRow("依赖清单文件:", h_reqs)
+        
         self.hidden_edit = QLineEdit()
         self.hidden_edit.setPlaceholderText("例如: pandas, PyQt5 (逗号分隔)")
         btn_scan = QPushButton("AST 扫描")
@@ -1165,6 +1178,11 @@ class SettingsPanel(QWidget):
         d = QFileDialog.getExistingDirectory(self, "选择 UPX 工具根目录")
         if d:
             self.upx_path_edit.setText(Path(d).resolve().as_posix())
+
+    def select_reqs_file(self):
+        f, _ = QFileDialog.getOpenFileName(self, "选择依赖清单文件", "", "Requirements Files (*.txt);;All Files (*)")
+        if f:
+            self.reqs_file_edit.setText(Path(f).resolve().as_posix())
 
     def update_icon_preview(self, path):
         if path and Path(path).exists():
@@ -1402,8 +1420,8 @@ class PackingThread(QThread):
                     "    pass\n"
                 )
                 
-                temp_dir = Path(tempfile.gettempdir())
-                temp_file = temp_dir / f"qpypack_build_target_{int(time.time())}.py"
+                # 修复：将临时脚本创建在原代码同目录下，以确保其原有的本地相对导入及上下文关系完全正常
+                temp_file = orig_path.parent / f"_qpypack_temp_entry_{int(time.time())}.py"
                 temp_file.write_text(code + pause_code, encoding='utf-8')
                 return temp_file, True, ""
             except Exception as e:
@@ -1502,9 +1520,14 @@ class PackingThread(QThread):
             self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + core_pkgs + pip_args)
                       
             if self.params.get('use_reqs'):
-                req_file = script_dir / "requirements.txt"
+                custom_reqs = self.params.get('reqs_file', '').strip()
+                if custom_reqs and Path(custom_reqs).exists():
+                    req_file = Path(custom_reqs)
+                else:
+                    req_file = script_dir / "requirements.txt"
+                
                 if req_file.exists():
-                    self.progress.emit("[Deps] 阶段 1/3: 正在读取并部署清单依赖 (requirements.txt)...")
+                    self.progress.emit(f"[Deps] 阶段 1/3: 正在读取并部署清单依赖 ({req_file.name})...")
                     try:
                         if is_cloud_locked(req_file): raise ValueError("清单文件被安全锁定")
                         raw_req = req_file.read_bytes()
@@ -1653,8 +1676,19 @@ class PackingThread(QThread):
 
             self.progress.emit("[Pack] 编译阶段完成，正在提取并归档最终可执行产物...")
             cwd = Path.cwd().resolve()
-            if engine == "PyInstaller": src_out = cwd / "dist" / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
-            elif engine == "Nuitka": src_out = self.temp_out_dir / (f"{app_name}{ext}" if self.params['onefile'] else f"{app_name}.dist")
+            
+            if engine == "PyInstaller": 
+                src_out = cwd / "dist" / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
+            elif engine == "Nuitka": 
+                if self.params['onefile']:
+                    src_out = self.temp_out_dir / f"{app_name}{ext}"
+                else:
+                    # 修复：因为临时入口文件名影响 Nuitka Standing 文件夹名，此处做动态匹配，确保 100% 能提取到产物
+                    dist_dirs = list(self.temp_out_dir.glob("*.dist"))
+                    if dist_dirs:
+                        src_out = dist_dirs[0]
+                    else:
+                        src_out = self.temp_out_dir / f"{app_name}.dist"
 
             out_mode = int(self.params.get('out_mode', 0))
             custom_out = self.params.get('custom_out_dir', '').strip()
@@ -1936,10 +1970,10 @@ class MainWindow(QMainWindow):
         self.status_label.setText(f" 状态: 正在解析 {Path(path).name} ...")
         self.btn_main.setEnabled(False)
         
+        # 修复：安全解除旧线程信号连接，不再暴力调用 terminate() 避免内存泄漏、GIL 损坏和锁死
         if self.analysis_thread and self.analysis_thread.isRunning():
-            self.analysis_thread.disconnect()
-            self.analysis_thread.terminate()
-            self.analysis_thread.wait()
+            try: self.analysis_thread.analysis_done.disconnect()
+            except: pass
             
         self.analysis_thread = ScriptAnalysisThread(path)
         self.analysis_thread.analysis_done.connect(self.on_analysis_finished)
@@ -2033,20 +2067,23 @@ class MainWindow(QMainWindow):
                         painter.end()
                         
                         temp_ico = Path(tempfile.gettempdir()) / f"qpypack_temp_icon_{int(time.time())}.ico"
+                        # 尝试保存为 Windows 标准 ICO 图标
                         if pixmap.save(temp_ico.as_posix(), "ICO"):
                             icon_path_str = temp_ico.as_posix()
                             temp_icon_file = temp_ico.as_posix()
                         else:
+                            # 插件缺失时优雅降级：PyInstaller在Windows上不支持PNG，此时直接置空，防止后续编译器报错闪退
                             temp_png = Path(tempfile.gettempdir()) / f"qpypack_temp_icon_{int(time.time())}.png"
                             if pixmap.save(temp_png.as_posix(), "PNG"):
-                                icon_path_str = temp_png.as_posix()
-                                temp_icon_file = temp_png.as_posix()
+                                if os.name == 'nt' and engine == "PyInstaller":
+                                    self.append_log("[Warn] 格式转换组件失效，Windows环境下PyInstaller不支持PNG格式图标，已优雅降级为无图标模式打包以确保流程畅通。")
+                                    icon_path_str = None
+                                else:
+                                    icon_path_str = temp_png.as_posix()
+                                    temp_icon_file = temp_png.as_posix()
                 except Exception as e:
                     self.append_log(f"[Warn] SVG 图标解析异常: {e}")
-                
-                if not temp_icon_file:
                     icon_path_str = None
-                    self.append_log("[Warn] SVG 桌面图标转换失败，已自动降级为无图标模式构建以确保成功。")
 
         params = {
             'engine': engine,
@@ -2057,6 +2094,7 @@ class MainWindow(QMainWindow):
             'icon': icon_path_str,
             'use_reqs': sp.reqs_check.isChecked(),
             'use_pipreqs': sp.pipreqs_check.isChecked(),
+            'reqs_file': sp.reqs_file_edit.text().strip(), # 传递自定义 requirements 清单路径
             'hidden_imports': sp.hidden_edit.text(),
             'add_data': sp.add_data_edit.text(),
             'upx': sp.upx_check.isChecked() if engine == "PyInstaller" else False,
