@@ -237,9 +237,14 @@ jobs:
         echo "Executing: $PYINSTALLER_CMD"
         eval $PYINSTALLER_CMD
 
-    - name: Upload EXE to GitHub Release
+    - name: Compress EXE to ZIP
+      shell: pwsh
+      run: |
+        Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.exe" -DestinationPath "dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.zip"
+
+    - name: Upload ZIP to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.exe
+        files: dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

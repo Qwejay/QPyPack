@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayo
                              QComboBox, QFrame, QStackedLayout, QFormLayout, QTextEdit, 
                              QGraphicsOpacityEffect, QGroupBox, QGridLayout, QTabWidget,
                              QMessageBox, QInputDialog, QFileIconProvider, QSizePolicy, QScrollArea,
-                             QGraphicsDropShadowEffect, QSpinBox)
+                             QGraphicsDropShadowEffect, QSpinBox, QListWidget, QListWidgetItem)
 from PySide6.QtCore import Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QFileInfo, QVariantAnimation, QTimer, QPointF, QRectF, QRect
 from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen
 from PySide6.QtSvg import QSvgRenderer
@@ -75,7 +75,7 @@ def load_config():
             'cpu_cores': str(os.cpu_count() or 2), 'upx_path': '',
             'exclude_modules': '', 'out_mode': '0', 'custom_out_dir': '',
             'sound_notify': 'True', 'auto_save_log': 'False',
-            'use_reqs_file': ''
+            'use_reqs_file': '', 'add_data_list': ''
         }
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -94,7 +94,8 @@ def load_config():
             'custom_out_dir': '',
             'sound_notify': 'True',
             'auto_save_log': 'False',
-            'use_reqs_file': ''
+            'use_reqs_file': '',
+            'add_data_list': ''
         }
         updated = False
         for k, v in default_updates.items():
@@ -316,14 +317,10 @@ def parse_add_data(add_data_str):
     for d in add_data_str.split(','):
         d = d.strip()
         if not d: continue
-        if ":" in d:
-            last_colon_idx = d.rfind(':')
-            if last_colon_idx > 1:
-                src_path = d[:last_colon_idx].strip()
-                dst_path = d[last_colon_idx+1:].strip()
-            else:
-                src_path = d.strip()
-                dst_path = "."
+        parts = d.rsplit(':', 1)
+        if len(parts) == 2 and not (os.name == 'nt' and len(parts[0]) == 1):
+            src_path = parts[0].strip()
+            dst_path = parts[1].strip()
         else:
             src_path = d.strip()
             dst_path = "."
@@ -743,6 +740,9 @@ class SettingsPanel(QWidget):
             QTabBar::tab { background: #f1f3f4; border: 1px solid #e8eaed; padding: 10px 20px; margin-right: 4px; border-top-left-radius: 8px; border-top-right-radius: 8px; color: #5f6368; font-weight: bold; font-size: 13px; }
             QTabBar::tab:selected { background: white; border-bottom-color: white; color: #1A73E8; }
             QTabBar::tab:hover:!selected { background: #e8eaed; }
+            QListWidget { border: 1px solid #dadce0; border-radius: 6px; background: #fff; outline: none; font-size: 12px;}
+            QListWidget::item { padding: 6px 10px; border-bottom: 1px solid #f1f3f4; color: #3c4043;}
+            QListWidget::item:selected { background: #e8f0fe; color: #1a73e8; font-weight:bold; border-radius: 4px;}
         """)
         self.init_ui()
         self.load_from_config()
@@ -827,6 +827,20 @@ class SettingsPanel(QWidget):
             self.concise_log_check.setChecked(s.getboolean('concise_log', True))
             self.sound_notify_check.setChecked(s.getboolean('sound_notify', True))
             self.auto_save_log_check.setChecked(s.getboolean('auto_save_log', False))
+            
+            self.add_data_list.clear()
+            res_str = s.get('add_data_list', '')
+            if res_str:
+                for part in res_str.split("|||"):
+                    if part.count('|') == 2:
+                        r_type, src, dst = part.split('|')
+                        self._add_resource_item(r_type, src, dst)
+            else:
+                old_str = s.get('add_data', '')
+                if old_str:
+                    for src, dst in parse_add_data(old_str):
+                        r_type = 'dir' if Path(src).is_dir() else 'file'
+                        self._add_resource_item(r_type, src, dst)
 
     def save_to_config(self):
         config = load_config()
@@ -852,6 +866,13 @@ class SettingsPanel(QWidget):
         s['concise_log'] = str(self.concise_log_check.isChecked())
         s['sound_notify'] = str(self.sound_notify_check.isChecked())
         s['auto_save_log'] = str(self.auto_save_log_check.isChecked())
+        
+        res_list = []
+        for i in range(self.add_data_list.count()):
+            r_type, src, dst = self.add_data_list.item(i).data(Qt.ItemDataRole.UserRole)
+            res_list.append(f"{r_type}|{src}|{dst}")
+        s['add_data_list'] = "|||".join(res_list)
+        
         save_config(config)
 
     def build_basic_tab(self):
@@ -1010,21 +1031,43 @@ class SettingsPanel(QWidget):
         lay = QVBoxLayout(content)
         lay.setContentsMargins(15, 15, 15, 15)
         
-        grp_res = QGroupBox("附加资源归档")
-        form_res = QFormLayout(grp_res)
-        form_res.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form_res.setContentsMargins(15, 20, 15, 15)
-        form_res.setVerticalSpacing(12)
+        grp_res = QGroupBox("附加资源归档 (支持双击修改目标路径)")
+        res_lay = QVBoxLayout(grp_res)
+        res_lay.setContentsMargins(15, 20, 15, 15)
+        res_lay.setSpacing(10)
         
-        self.add_data_edit = QLineEdit()
-        self.add_data_edit.setPlaceholderText("例如: data/model.bin:data")
-        btn_add = QPushButton("添加...")
-        btn_add.setProperty("class", "ToolBtn")
-        btn_add.clicked.connect(self.add_resource)
-        h_res = QHBoxLayout()
-        h_res.addWidget(self.add_data_edit)
-        h_res.addWidget(btn_add)
-        form_res.addRow("附加资源:", h_res)
+        self.add_data_list = QListWidget()
+        self.add_data_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self.add_data_list.setMinimumHeight(100)
+        self.add_data_list.itemDoubleClicked.connect(self.edit_resource)
+        res_lay.addWidget(self.add_data_list)
+        
+        btn_res_lay = QHBoxLayout()
+        btn_res_lay.setSpacing(8)
+        
+        self.btn_add_file = QPushButton("添加文件...")
+        self.btn_add_file.setProperty("class", "ToolBtn")
+        self.btn_add_file.clicked.connect(self.add_resource_files)
+        
+        self.btn_add_dir = QPushButton("添加文件夹...")
+        self.btn_add_dir.setProperty("class", "ToolBtn")
+        self.btn_add_dir.clicked.connect(self.add_resource_dir)
+        
+        self.btn_del_res = QPushButton("删除选中")
+        self.btn_del_res.setProperty("class", "ToolBtn")
+        self.btn_del_res.clicked.connect(self.del_resource)
+        
+        self.btn_clear_res = QPushButton("清空")
+        self.btn_clear_res.setProperty("class", "ToolBtn")
+        self.btn_clear_res.clicked.connect(self.clear_resource)
+        
+        btn_res_lay.addWidget(self.btn_add_file)
+        btn_res_lay.addWidget(self.btn_add_dir)
+        btn_res_lay.addWidget(self.btn_del_res)
+        btn_res_lay.addWidget(self.btn_clear_res)
+        btn_res_lay.addStretch()
+        
+        res_lay.addLayout(btn_res_lay)
         lay.addWidget(grp_res)
 
         grp_env = QGroupBox("执行环境隔离")
@@ -1058,7 +1101,6 @@ class SettingsPanel(QWidget):
         lay = QVBoxLayout(content)
         lay.setContentsMargins(15, 15, 15, 15)
         
-        # 编译资源限制组
         self.form_perf = QFormLayout()
         grp_perf = QGroupBox("编译资源限制与压缩优化")
         grp_perf.setLayout(self.form_perf)
@@ -1091,7 +1133,6 @@ class SettingsPanel(QWidget):
         self.form_perf.addRow("自定义 UPX 目录:", self.upx_path_container)
         lay.addWidget(grp_perf)
         
-        # 产物保存路径策略组
         self.form_dest = QFormLayout()
         grp_dest = QGroupBox("构建产物保存路径")
         grp_dest.setLayout(self.form_dest)
@@ -1123,7 +1164,6 @@ class SettingsPanel(QWidget):
         self.form_dest.addRow("自定义目录路径:", self.out_dir_container)
         lay.addWidget(grp_dest)
 
-        # 偏好控制与反馈组
         grp_app = QGroupBox("偏好习惯与通知反馈")
         grid_app = QGridLayout(grp_app)
         grid_app.setContentsMargins(15, 20, 15, 15)
@@ -1211,28 +1251,44 @@ class SettingsPanel(QWidget):
         except Exception as e: 
             QMessageBox.warning(self, "分析异常", f"AST 语法树解析过程中发生异常: {e}")
 
-    def add_resource(self):
-        choice = QMessageBox.question(self, "添加资源", "Yes=文件, No=文件夹", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if choice == QMessageBox.StandardButton.Yes:
-            files, _ = QFileDialog.getOpenFileNames(self, "选择文件", "", "All Files (*)")
-            for f in files:
-                f = Path(f).resolve().as_posix()
-                default_dest = Path(f).name
-                dest, ok = QInputDialog.getText(self, "相对路径", f"目标位置:", text=default_dest)
-                if ok:
-                    dest = dest.strip().replace('\\', '/') if dest else default_dest
-                    curr = self.add_data_edit.text().strip()
-                    self.add_data_edit.setText(f"{curr}, {f}:{dest}" if curr else f"{f}:{dest}")
-        else:
-            folder = QFileDialog.getExistingDirectory(self, "选择文件夹")
-            if folder:
-                folder = Path(folder).resolve().as_posix()
-                default_dest = Path(folder).name
-                dest, ok = QInputDialog.getText(self, "相对路径", f"目标位置:", text=default_dest)
-                if ok:
-                    dest = dest.strip().replace('\\', '/') if dest else default_dest
-                    curr = self.add_data_edit.text().strip()
-                    self.add_data_edit.setText(f"{curr}, {folder}:{dest}" if curr else f"{folder}:{dest}")
+    def add_resource_files(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "选择附加文件", "", "All Files (*)")
+        for f in files:
+            src = Path(f).resolve().as_posix()
+            dst = "."
+            self._add_resource_item('file', src, dst)
+            
+    def add_resource_dir(self):
+        folder = QFileDialog.getExistingDirectory(self, "选择附加文件夹")
+        if folder:
+            src = Path(folder).resolve().as_posix()
+            dst = Path(folder).name
+            self._add_resource_item('dir', src, dst)
+            
+    def _add_resource_item(self, r_type, src, dst):
+        display_text = f"[{'文件' if r_type == 'file' else '目录'}] {src}  ->  {dst}"
+        item = QListWidgetItem(display_text)
+        item.setData(Qt.ItemDataRole.UserRole, (r_type, src, dst))
+        self.add_data_list.addItem(item)
+
+    def edit_resource(self, item=None):
+        if not item:
+            item = self.add_data_list.currentItem()
+        if not item: return
+        r_type, src, dst = item.data(Qt.ItemDataRole.UserRole)
+        new_dst, ok = QInputDialog.getText(self, "修改目标路径", "请输入打包后的相对目标路径\n(根目录请填 . ):", text=dst)
+        if ok and new_dst:
+            new_dst = new_dst.strip().replace('\\', '/')
+            if not new_dst: new_dst = "."
+            item.setData(Qt.ItemDataRole.UserRole, (r_type, src, new_dst))
+            item.setText(f"[{'文件' if r_type == 'file' else '目录'}] {src}  ->  {new_dst}")
+
+    def del_resource(self):
+        for item in self.add_data_list.selectedItems():
+            self.add_data_list.takeItem(self.add_data_list.row(item))
+
+    def clear_resource(self):
+        self.add_data_list.clear()
 
 
 class ScriptAnalysisThread(QThread):
@@ -1420,7 +1476,6 @@ class PackingThread(QThread):
                     "    pass\n"
                 )
                 
-                # 修复：将临时脚本创建在原代码同目录下，以确保其原有的本地相对导入及上下文关系完全正常
                 temp_file = orig_path.parent / f"_qpypack_temp_entry_{int(time.time())}.py"
                 temp_file.write_text(code + pause_code, encoding='utf-8')
                 return temp_file, True, ""
@@ -1614,7 +1669,7 @@ class PackingThread(QThread):
                 for imp in self.params.get('hidden_imports', '').split(','):
                     if imp.strip(): cmd.extend(["--hidden-import", imp.strip()])
                 
-                for src, dst in parse_add_data(self.params.get('add_data', '')):
+                for r_type, src, dst in self.params.get('add_data_list', []):
                     cmd.extend(["--add-data", f"{src}{os.pathsep}{dst}"])
                 
                 for excl in self.params.get('exclude_modules', '').split(','):
@@ -1659,12 +1714,12 @@ class PackingThread(QThread):
                 for imp in self.params.get('hidden_imports', '').split(','):
                     if imp.strip(): cmd.append(f"--include-module={imp.strip()}")
                 
-                for src, dst in parse_add_data(self.params.get('add_data', '')):
-                    src_path = Path(src)
-                    if src_path.is_dir():
-                        cmd.append(f"--include-data-dir={src_path.resolve().as_posix()}={dst}")
+                for r_type, src, dst in self.params.get('add_data_list', []):
+                    src_path = Path(src).resolve().as_posix()
+                    if r_type == 'dir':
+                        cmd.append(f"--include-data-dir={src_path}={dst}")
                     else:
-                        cmd.append(f"--include-data-files={src_path.resolve().as_posix()}={dst}")
+                        cmd.append(f"--include-data-files={src_path}={dst}")
 
                 for excl in self.params.get('exclude_modules', '').split(','):
                     if excl.strip(): cmd.append(f"--exclude-module={excl.strip()}")
@@ -1683,7 +1738,6 @@ class PackingThread(QThread):
                 if self.params['onefile']:
                     src_out = self.temp_out_dir / f"{app_name}{ext}"
                 else:
-                    # 修复：因为临时入口文件名影响 Nuitka Standing 文件夹名，此处做动态匹配，确保 100% 能提取到产物
                     dist_dirs = list(self.temp_out_dir.glob("*.dist"))
                     if dist_dirs:
                         src_out = dist_dirs[0]
@@ -1970,7 +2024,6 @@ class MainWindow(QMainWindow):
         self.status_label.setText(f" 状态: 正在解析 {Path(path).name} ...")
         self.btn_main.setEnabled(False)
         
-        # 修复：安全解除旧线程信号连接，不再暴力调用 terminate() 避免内存泄漏、GIL 损坏和锁死
         if self.analysis_thread and self.analysis_thread.isRunning():
             try: self.analysis_thread.analysis_done.disconnect()
             except: pass
@@ -2067,12 +2120,10 @@ class MainWindow(QMainWindow):
                         painter.end()
                         
                         temp_ico = Path(tempfile.gettempdir()) / f"qpypack_temp_icon_{int(time.time())}.ico"
-                        # 尝试保存为 Windows 标准 ICO 图标
                         if pixmap.save(temp_ico.as_posix(), "ICO"):
                             icon_path_str = temp_ico.as_posix()
                             temp_icon_file = temp_ico.as_posix()
                         else:
-                            # 插件缺失时优雅降级：PyInstaller在Windows上不支持PNG，此时直接置空，防止后续编译器报错闪退
                             temp_png = Path(tempfile.gettempdir()) / f"qpypack_temp_icon_{int(time.time())}.png"
                             if pixmap.save(temp_png.as_posix(), "PNG"):
                                 if os.name == 'nt' and engine == "PyInstaller":
@@ -2085,6 +2136,10 @@ class MainWindow(QMainWindow):
                     self.append_log(f"[Warn] SVG 图标解析异常: {e}")
                     icon_path_str = None
 
+        add_data_items = []
+        for i in range(sp.add_data_list.count()):
+            add_data_items.append(sp.add_data_list.item(i).data(Qt.ItemDataRole.UserRole))
+
         params = {
             'engine': engine,
             'script_path': self.script_path,
@@ -2094,9 +2149,9 @@ class MainWindow(QMainWindow):
             'icon': icon_path_str,
             'use_reqs': sp.reqs_check.isChecked(),
             'use_pipreqs': sp.pipreqs_check.isChecked(),
-            'reqs_file': sp.reqs_file_edit.text().strip(), # 传递自定义 requirements 清单路径
+            'reqs_file': sp.reqs_file_edit.text().strip(),
             'hidden_imports': sp.hidden_edit.text(),
-            'add_data': sp.add_data_edit.text(),
+            'add_data_list': add_data_items,
             'upx': sp.upx_check.isChecked() if engine == "PyInstaller" else False,
             'upx_path': sp.upx_path_edit.text().strip(),
             'cpu_cores': sp.cores_spin.value(),
@@ -2164,7 +2219,7 @@ class MainWindow(QMainWindow):
         self.settings_panel.name_edit.clear()
         self.settings_panel.icon_edit.clear()
         self.settings_panel.hidden_edit.clear()
-        self.settings_panel.add_data_edit.clear()
+        self.settings_panel.add_data_list.clear()
         self.log.clear()
         if self.log_container.isVisible(): self.toggle_log()
         self.drop_area.reset()
