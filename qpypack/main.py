@@ -127,6 +127,7 @@ def extract_imports_via_ast(script_path, python_exe):
         "try:\n"
         "    with open(sys.argv[1], 'rb') as f: raw = f.read()\n"
         "    code = raw.decode('utf-8-sig') if raw.startswith(b'\\xef\\xbb\\xbf') else raw.decode('utf-8', errors='ignore')\n"
+        "    code = code.replace('\\r\\n', '\\n').replace('\\r', '\\n')\n"
         "    imports = set()\n"
         "    for node in ast.walk(ast.parse(code)):\n"
         "        if isinstance(node, ast.Import): imports.update(a.name.split('.')[0] for a in node.names)\n"
@@ -1461,6 +1462,8 @@ class PackingThread(QThread):
                 raw = orig_path.read_bytes()
                 try: code = raw.decode('utf-8-sig')
                 except: code = raw.decode(locale.getpreferredencoding(), errors='ignore')
+                
+                code = code.replace('\r\n', '\n').replace('\r', '\n')
                 
                 pause_code = "\n" + "#"*30 + "\n" + (
                     "try:\n"
