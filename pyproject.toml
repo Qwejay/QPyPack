@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qpypack"
-version = "2.4.6"
-description = "A modern graphical packaging config tool for PyInstaller, Nuitka."
+version = "2.5.0"
+description = "A cross-platform GUI packaging and compilation suite for PyInstaller and Nuitka."
 readme = "README.md"
 authors = [
     { name = "QwejayHuang" }
@@ -13,20 +13,35 @@ authors = [
 license = { text = "GPL-3.0" }
 requires-python = ">=3.8"
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: User Interfaces",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
     "PySide6>=6.0.0",
+    "Pillow>=9.0.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/qwejay/QPyPack"
+"Homepage" = "https://github.com/qwejay/QPyPack"
+"Bug Tracker" = "https://github.com/qwejay/QPyPack/issues"
+"Source Code" = "https://github.com/qwejay/QPyPack"
 
 [project.scripts]
 qpypack = "qpypack.main:main"
+
+[tool.setuptools]
+packages = ["qpypack"]
 
 [tool.setuptools.package-data]
 qpypack = ["icon.ico"]
