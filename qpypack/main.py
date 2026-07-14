@@ -36,7 +36,7 @@ from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.5.1"
+__version__ = "2.5.2"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -176,7 +176,6 @@ def get_svg_icon(name, color="#5F6368", size=24):
     painter.end()
     
     return QIcon(pixmap)
-
 
 def get_svg_pixmap(name, color="#5F6368", size=64):
     return get_svg_icon(name, color, size).pixmap(size, size)
@@ -394,12 +393,6 @@ def play_alert(success=True):
         pass
 
 def convert_image_to_format(src_path, dest_path, dest_format):
-    """
-    自适应跨平台图像格式转换服务：
-    1. macOS 系统环境优先调用内建高性能 sips 命令；
-    2. 基于 Qt 框架 QImage API 进行图像二次转换渲染；
-    3. 异常路径下采用 Pillow 图像处理库提供向后兼容转换。
-    """
     src = Path(src_path).resolve()
     dst = Path(dest_path).resolve()
     fmt = dest_format.lower()
@@ -446,7 +439,6 @@ def convert_image_to_format(src_path, dest_path, dest_format):
         
     return False
 
-
 class AnimatedButton(QPushButton):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
@@ -486,7 +478,6 @@ class AnimatedButton(QPushButton):
             self.op_anim.setEndValue(1.0)
             self.animation_group.start()
         super().leaveEvent(event)
-
 
 class TargetIconWidget(QWidget):
     def __init__(self, parent=None):
@@ -669,7 +660,6 @@ class TargetIconWidget(QWidget):
         painter.drawPixmap(pix_rect, scaled_pix)
         painter.end()
 
-
 class DropArea(QFrame):
     fileDropped = Signal(str)
 
@@ -819,7 +809,6 @@ class DropArea(QFrame):
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
         self.sub_label.setText("自动解析模块依赖、资源文件与隐式导入")
 
-
 class PythonScannerThread(QThread):
     scan_done = Signal(dict)
     
@@ -925,7 +914,6 @@ class PythonScannerThread(QThread):
                     valid_pythons[cand] = ver
             except: pass
         self.scan_done.emit(valid_pythons)
-
 
 class SettingsPanel(QWidget):
     def __init__(self, parent=None):
@@ -1578,7 +1566,6 @@ class SettingsPanel(QWidget):
     def clear_resource(self):
         self.add_data_list.clear()
 
-
 class ScriptAnalysisThread(QThread):
     analysis_done = Signal(str, str, str, str, set)
 
@@ -1626,7 +1613,6 @@ class ScriptAnalysisThread(QThread):
             pass
 
         self.analysis_done.emit(app_name, version, author, desc, script_imports)
-
 
 class PackingThread(QThread):
     progress = Signal(str)
@@ -1934,12 +1920,23 @@ class PackingThread(QThread):
 
             if engine == "PyInstaller":
                 self.temp_workpath = Path(tempfile.mkdtemp(prefix="qpypack_build_")).resolve()
-                cmd = [python_exe, "-m", "PyInstaller", "--clean", "--noconfirm", f"--workpath={self.temp_workpath.as_posix()}", f"--name={app_name}"]
+                cmd = [
+                    python_exe, "-m", "PyInstaller", 
+                    "--clean", 
+                    "--noconfirm", 
+                    f"--workpath={self.temp_workpath.as_posix()}", 
+                    f"--name={app_name}"
+                ]
                 
-                if self.params['onefile']: cmd.append("--onefile")
-                else: cmd.append("--onedir")
+                if self.params['onefile']: 
+                    cmd.append("--onefile")
+                else: 
+                    cmd.append("--onedir")
                 
-                if self.params['noconsole']: cmd.append("--noconsole")
+                if self.params['noconsole']: 
+                    cmd.append("--noconsole")
+                else:
+                    cmd.append("--console")
 
                 if icon_path: 
                     cmd.extend(["--icon", icon_path])
@@ -1968,22 +1965,31 @@ class PackingThread(QThread):
                 
                 for excl in self.params.get('exclude_modules', '').split(','):
                     if excl.strip(): cmd.extend(["--exclude-module", excl.strip()])
-                        
+
             elif engine == "Nuitka":
                 self.temp_out_dir = Path(tempfile.mkdtemp(prefix="nuitka_out_")).resolve()
-                cmd = [python_exe, "-m", "nuitka", "--remove-output", "--assume-yes-for-downloads",
-                       f"--output-dir={self.temp_out_dir.as_posix()}", f"--output-filename={app_name}{ext}"]
+                cmd = [
+                    python_exe, "-m", "nuitka", 
+                    "--remove-output", 
+                    "--assume-yes-for-downloads",
+                    f"--output-dir={self.temp_out_dir.as_posix()}", 
+                    f"--output-filename={app_name}{ext}"
+                ]
                 
                 cores = self.params.get('cpu_cores', os.cpu_count() or 2)
                 cmd.append(f"--jobs={cores}")
                 
-                if self.params['onefile']: cmd.append("--onefile")
-                else: cmd.append("--standalone")
+                if self.params['onefile']: 
+                    cmd.append("--onefile")
+                else: 
+                    cmd.append("--standalone")
                 
                 if self.params['noconsole']: 
                     cmd.append("--windows-console-mode=disable")
                     if sys.platform == "darwin":
                         cmd.append("--macos-create-app-bundle")
+                else:
+                    cmd.append("--windows-console-mode=force")
                 
                 if icon_path: 
                     if os.name == "nt":
@@ -1993,9 +1999,18 @@ class PackingThread(QThread):
                     cmd.append(f"--include-data-files={Path(icon_path).resolve().as_posix()}={Path(icon_path).name}")
                     
                 if os.name == "nt":
-                    if self.params.get('ver_comp'): cmd.append(f"--company-name={self.params['ver_comp']}")
-                    if self.params.get('ver_desc'): cmd.append(f"--product-name={self.params['ver_desc']}")
-                    if self.params.get('ver_ver'): cmd.append(f"--file-version={self.params['ver_ver']}")
+                    if self.params.get('ver_comp'): 
+                        cmd.append(f"--company-name={self.params['ver_comp']}")
+                    if self.params.get('ver_desc'): 
+                        cmd.append(f"--file-description={self.params['ver_desc']}")
+                    if self.params.get('app_name'): 
+                        cmd.append(f"--product-name={self.params['app_name']}")
+                    if self.params.get('ver_ver'): 
+                        v_str = self.params['ver_ver'].strip()
+                        v_nums = re.findall(r'\d+', v_str)
+                        v_clean = ".".join((v_nums + ['0', '0', '0', '0'])[:4])
+                        cmd.append(f"--file-version={v_clean}")
+                        cmd.append(f"--product-version={v_clean}")
                 elif sys.platform == "darwin":
                     if self.params.get('ver_comp'): 
                         cmd.append(f"--company-name={self.params['ver_comp']}")
@@ -2004,8 +2019,6 @@ class PackingThread(QThread):
                     comp = self.params.get('ver_comp', 'mycompany').strip().lower().replace(" ", "")
                     bundle_id = f"com.{comp or 'anonymous'}.{app_name.lower().replace(' ', '')}"
                     cmd.append(f"--macos-signed-app-name={bundle_id}")
-                    
-                cmd.append("--enable-plugin=anti-bloat")
                 
                 if 'PyQt5' in script_imports: cmd.append("--enable-plugin=pyqt5")
                 elif 'PyQt6' in script_imports: cmd.append("--enable-plugin=pyqt6")
@@ -2024,10 +2037,15 @@ class PackingThread(QThread):
                     if r_type == 'dir':
                         cmd.append(f"--include-data-dir={src_path}={dst}")
                     else:
-                        cmd.append(f"--include-data-files={src_path}={dst}")
+                        filename = Path(src).name
+                        if dst == ".":
+                            nuitka_dst = filename
+                        else:
+                            nuitka_dst = os.path.normpath(os.path.join(dst, filename)).replace('\\', '/')
+                        cmd.append(f"--include-data-files={src_path}={nuitka_dst}")
 
                 for excl in self.params.get('exclude_modules', '').split(','):
-                    if excl.strip(): cmd.append(f"--exclude-module={excl.strip()}")
+                    if excl.strip(): cmd.append(f"--nofollow-import-to={excl.strip()}")
 
             cmd.append(script_posix)
 
@@ -2136,7 +2154,6 @@ class PackingThread(QThread):
                 for p in ["build", "__pycache__", f"{app_name}.build", f"{app_name}.dist", f"{app_name}.onefile-build"]:
                     robust_rmtree(cwd / p)
                 Path(cwd / f"{app_name}.spec").unlink(missing_ok=True)
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -2587,7 +2604,6 @@ class MainWindow(QMainWindow):
     def append_log(self, msg):
         self.log.append(msg)
         self.log.ensureCursorVisible()
-
 
 def main():
     app = QApplication(sys.argv)
