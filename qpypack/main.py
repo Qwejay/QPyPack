@@ -36,7 +36,7 @@ from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.5.0"
+__version__ = "2.5.1"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -161,16 +161,22 @@ def extract_imports_via_ast(script_path, python_exe):
 
 def get_svg_icon(name, color="#5F6368", size=24):
     path_data = MATERIAL_ICONS.get(name, "")
-    svg_str = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="{size}" height="{size}"><path fill="{color}" d="{path_data}"/></svg>'
+    svg_str = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="{color}" d="{path_data}"/></svg>'
     renderer = QSvgRenderer()
     renderer.load(svg_str.encode('utf-8'))
-    pixmap = QPixmap(size, size)
+    
+    render_size = max(size * 4, 128)
+    pixmap = QPixmap(render_size, render_size)
     pixmap.fill(Qt.GlobalColor.transparent)
+    
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
     renderer.render(painter)
     painter.end()
+    
     return QIcon(pixmap)
+
 
 def get_svg_pixmap(name, color="#5F6368", size=64):
     return get_svg_icon(name, color, size).pixmap(size, size)
@@ -299,8 +305,15 @@ def find_system_python():
                                 candidates.append(exe)
                 except: pass
 
+    seen = set()
+    unique_candidates = []
     for cand in candidates:
         cand = os.path.normpath(cand)
+        if cand not in seen:
+            seen.add(cand)
+            unique_candidates.append(cand)
+
+    for cand in unique_candidates:
         if not os.path.exists(cand): continue
         
         if os.name == 'nt' and "WindowsApps" in cand:
@@ -991,9 +1004,9 @@ class SettingsPanel(QWidget):
         self.tab_pref = QWidget()
         self.tab_about = QWidget()
         
-        self.tabs.addTab(self.tab_build, " 🎛️ 构建参数")
-        self.tabs.addTab(self.tab_pref, " ⚙️ 全局设置")
-        self.tabs.addTab(self.tab_about, " ℹ️ 关于")
+        self.tabs.addTab(self.tab_build, get_svg_icon('package', "#5F6368", 16), "构建参数")
+        self.tabs.addTab(self.tab_pref, get_svg_icon('settings', "#5F6368", 16), "全局设置")
+        self.tabs.addTab(self.tab_about, get_svg_icon('info', "#5F6368", 16), "关于")
         
         self.build_build_tab()
         self.build_pref_tab()
@@ -1445,9 +1458,9 @@ class SettingsPanel(QWidget):
             btn.clicked.connect(lambda: __import__('webbrowser').open(url))
             return btn
             
-        btn_github = create_link_btn("🌍 GitHub 仓库", "https://github.com/qwejay/QPyPack")
-        btn_issue = create_link_btn("🐞 反馈与建议", "https://github.com/qwejay/QPyPack/issues")
-        btn_pypi = create_link_btn("📦 PyPI 主页", "https://pypi.org/project/qpypack/")
+        btn_github = create_link_btn("GitHub 仓库", "https://github.com/qwejay/QPyPack")
+        btn_issue = create_link_btn("反馈与建议", "https://github.com/qwejay/QPyPack/issues")
+        btn_pypi = create_link_btn("PyPI 主页", "https://pypi.org/project/qpypack/")
         
         btn_lay.addWidget(btn_github)
         btn_lay.addWidget(btn_issue)
@@ -1457,7 +1470,7 @@ class SettingsPanel(QWidget):
         
         main_lay.addStretch(1) 
         
-        rights_lbl = QLabel(f"Copyright © {__company__}. All rights reserved.")
+        rights_lbl = QLabel(f"Copyright © {__company__}.")
         rights_lbl.setStyleSheet("font-size: 12px; color: #bdc1c6; font-weight: bold;")
         rights_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_lay.addWidget(rights_lbl)
@@ -1721,7 +1734,7 @@ class PackingThread(QThread):
                 self.progress.emit(f"[ERROR] 子进程调用失败：未检测到系统指令或外部程序 \"{cmd_name}\" ({e})")
             return False
         except Exception as e:
-            self.progress.emit(f"[ERROR] 子进程执行发生系统级异常: {e}")
+            self.progress.emit(f"[ERROR] 子进程执行发生 system 级异常: {e}")
             return False
         finally:
             if timer:
@@ -2080,7 +2093,7 @@ class PackingThread(QThread):
                 err_info = self.detect_python_syntax_errors()
                 if err_info["is_code_error"]:
                     msg = (
-                        f"[❌ 语法异常] 源程序存在语法不合规或缩进异常错误！\n"
+                        f"[语法异常] 源程序存在语法不合规或缩进异常错误！\n"
                         f"  - 错误源文件: {err_info['file']}\n"
                         f"  - 异常类型: {err_info['type']}\n"
                         f"  - 异常位置: 第 {err_info['line']} 行附近\n"
@@ -2136,7 +2149,7 @@ class MainWindow(QMainWindow):
         self.init_ui()
 
     def init_style(self):
-        self.setWindowTitle(f"{__app_name__} {__version__} - {__author__}")
+        self.setWindowTitle(f"{__app_name__} {__version__}")
         
         self.setMinimumSize(680, 620)
         self.resize(680, 620)
@@ -2229,11 +2242,54 @@ class MainWindow(QMainWindow):
         self.stacked_layout.addWidget(self.settings_panel)
         self.stacked_layout.setCurrentWidget(self.main_panel)
         
-        self.statusBar = self.statusBar()
+        self.status_bar = self.statusBar()
         self.status_label = QLabel(" 状态: 准备就绪")
-        self.statusBar.addWidget(self.status_label)
+        self.status_bar.addWidget(self.status_label)
+
+        self.copyright_label = QLabel(f"Copyright © {__company__}. ")
+        self.copyright_label.setStyleSheet("color: #bdc1c6; font-size: 11px; font-weight: bold; background: transparent; padding-right: 5px;")
+        self.status_bar.addPermanentWidget(self.copyright_label)
 
         self.update_ui_state("idle")
+
+    def set_status(self, text):
+        self.status_label.setText(text)
+        self.adjust_status_bar()
+
+    def adjust_status_bar(self):
+        if not hasattr(self, 'status_label') or not hasattr(self, 'copyright_label') or not hasattr(self, 'status_bar'):
+            return
+        text = self.status_label.text()
+        metrics = self.status_label.fontMetrics()
+        text_width = metrics.horizontalAdvance(text)
+        
+        copyright_metrics = self.copyright_label.fontMetrics()
+        copyright_width = copyright_metrics.horizontalAdvance(self.copyright_label.text())
+        
+        if text_width + copyright_width + 60 > self.status_bar.width():
+            self.copyright_label.hide()
+        else:
+            self.copyright_label.show()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.adjust_status_bar()
+
+    def closeEvent(self, event):
+        if self.thread and self.thread.isRunning():
+            self.thread.cancel()
+            self.thread.wait()
+            
+        if self.analysis_thread and self.analysis_thread.isRunning():
+            self.analysis_thread.terminate()
+            self.analysis_thread.wait()
+            
+        if hasattr(self, 'settings_panel') and hasattr(self.settings_panel, 'scanner_thread'):
+            if self.settings_panel.scanner_thread and self.settings_panel.scanner_thread.isRunning():
+                self.settings_panel.scanner_thread.terminate()
+                self.settings_panel.scanner_thread.wait()
+                
+        super().closeEvent(event)
 
     def update_ui_state(self, state):
         self.current_state = state
@@ -2324,7 +2380,7 @@ class MainWindow(QMainWindow):
         self.script_path = path
         
         self.drop_area.set_loading(Path(path).name)
-        self.status_label.setText(f" 状态: 正在解析源文件 {Path(path).name} ...")
+        self.set_status(f" 状态: 正在解析源文件 {Path(path).name} ...")
         self.btn_main.setEnabled(False)
         
         if self.analysis_thread and self.analysis_thread.isRunning():
@@ -2380,7 +2436,7 @@ class MainWindow(QMainWindow):
         self.drop_area.set_success(Path(path).name, custom_icon_path=auto_icon)
         
         status_suffix = "，已配置为控制台模式" if not has_gui else "，已配置为无控制台模式"
-        self.status_label.setText(f" 状态: 已载入源文件 {Path(path).name}{status_suffix}")
+        self.set_status(f" 状态: 已载入源文件 {Path(path).name}{status_suffix}")
         
         if not self.log_container.isVisible(): self.toggle_log()
         self.log.clear()
@@ -2393,7 +2449,7 @@ class MainWindow(QMainWindow):
     def cancel_pack(self):
         if self.thread and self.thread.isRunning():
             self.thread.cancel()
-            self.status_label.setText(" 状态: 构建已终止")
+            self.set_status(" 状态: 构建已终止")
             self.drop_area.stop_build_anim()
             self.update_ui_state("ready")
 
@@ -2480,7 +2536,7 @@ class MainWindow(QMainWindow):
         self.thread.finished.connect(self.on_pack_finished)
         self.thread.start()
         
-        self.status_label.setText(f" 状态: 正在通过 {engine} 构建...")
+        self.set_status(f" 状态: 正在通过 {engine} 构建...")
         self.update_ui_state("building")
         self.drop_area.start_build_anim()
 
@@ -2494,11 +2550,11 @@ class MainWindow(QMainWindow):
         if success:
             icon_path = self.settings_panel.icon_edit.text().strip()
             self.drop_area.show_success(icon_path)
-            self.status_label.setText(" 状态: 构建完成 ✅")
+            self.set_status(" 状态: 构建完成")
             self.update_ui_state("done")
         else:
             self.drop_area.show_failure()
-            self.status_label.setText(" 状态: 构建失败 ❌")
+            self.set_status(" 状态: 构建失败")
             self.update_ui_state("failed")
 
     def open_dist(self):
@@ -2525,7 +2581,7 @@ class MainWindow(QMainWindow):
         self.log.clear()
         if self.log_container.isVisible(): self.toggle_log()
         self.drop_area.reset()
-        self.status_label.setText(" 状态: 工作区已重置")
+        self.set_status(" 状态: 工作区已重置")
         self.update_ui_state("idle")
 
     def append_log(self, msg):

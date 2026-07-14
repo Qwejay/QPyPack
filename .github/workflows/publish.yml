@@ -10,9 +10,9 @@ on:
 # =================================================================
 env:
   PROJECT_NAME: "qpypack"               # 项目包名
-  MAIN_SCRIPT: "qpypack/main.py"        # Python入口文件
-  ICON_PATH: "qpypack/icon.ico"         # 应用程序图标
-  EXE_NAME_PREFIX: "QPyPack"            # 用程序前缀
+  MAIN_SCRIPT: "qpypack/main.py"        # Python 入口文件
+  ICON_PATH: "qpypack/icon.ico"         # 默认应用程序图标 (Windows ICO)
+  EXE_NAME_PREFIX: "QPyPack"            # 应用程序名前缀
   
   # -------------------------------------------------------------
   # 🚀 功能开关
@@ -21,11 +21,11 @@ env:
   PUBLISH_TO_PYPI: "true"               # 是否发布到 PyPI 官方源
   # -------------------------------------------------------------
 
-  # 软件元数据
+  # 软件元数据 (Windows 平台适用)
   COMPANY_NAME: "QwejayHuang"
   PRODUCT_NAME: "QPyPack"
   LEGAL_COPYRIGHT: "Copyright (C) QwejayHuang"
-  FILE_DESCRIPTION: ""
+  FILE_DESCRIPTION: "Automation Python Packaging and Freezing Suite"
 # =================================================================
 
 jobs:
@@ -116,12 +116,25 @@ jobs:
         skip-existing: true
       continue-on-error: true
 
-  build-windows-exe:
-    name: Build Windows EXE
-    runs-on: windows-latest
+  build-executables:
+    name: Build Native Executables
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
     needs: publish-pypi
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            archive_ext: .zip
+          - os: macos-latest
+            platform: macos
+            archive_ext: .zip
+          - os: ubuntu-latest
+            platform: linux
+            archive_ext: .tar.gz
     steps:
     - name: Checkout source code
       uses: actions/checkout@v4
@@ -138,7 +151,7 @@ jobs:
         VERSION=${TAG_NAME#v}
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-    - name: Sync version in Windows Workspace
+    - name: Sync version in Workspace
       shell: python
       run: |
         import re
@@ -146,7 +159,7 @@ jobs:
         
         version = os.environ['VERSION']
         main_path = os.environ['MAIN_SCRIPT']
-        print(f"Target version to sync on Windows: {version}")
+        print(f"Target version to sync on {os.name}: {version}")
         
         if os.path.exists(main_path):
             with open(main_path, 'r', encoding='utf-8') as f:
@@ -154,14 +167,15 @@ jobs:
             new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
             with open(main_path, 'w', encoding='utf-8') as f:
                 f.write(new_content)
-            print(f"Windows workspace {main_path} synchronized.")
+            print(f"Workspace {main_path} synchronized.")
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install PySide6 pyinstaller
+        python -m pip install PySide6 pyinstaller Pillow
 
     - name: Generate Windows Version Info File
+      if: matrix.platform == 'windows'
       shell: python
       run: |
         import os
@@ -217,34 +231,81 @@ jobs:
         with open('file_version_info.txt', 'w', encoding='utf-8') as f:
             f.write(info_content.strip())
 
-    - name: Build EXE with PyInstaller
+    - name: Configure Icon Options
+      shell: bash
+      run: |
+        ICON_OPTION=""
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          if [ -f "${{ env.ICON_PATH }}" ]; then
+            ICON_OPTION="--icon=\"${{ env.ICON_PATH }}\" --add-data=\"${{ env.ICON_PATH }};.\""
+          fi
+        elif [ "${{ matrix.platform }}" = "macos" ]; then
+          # macOS 优先检查工程是否存在标准的 .icns/icon.png，否则采用默认图标降级匹配
+          if [ -f "qpypack/icon.icns" ]; then
+            ICON_OPTION="--icon=\"qpypack/icon.icns\" --add-data=\"qpypack/icon.icns:.\""
+          elif [ -f "qpypack/icon.png" ]; then
+            ICON_OPTION="--icon=\"qpypack/icon.png\" --add-data=\"qpypack/icon.png:.\""
+          elif [ -f "${{ env.ICON_PATH }}" ]; then
+            ICON_OPTION="--icon=\"${{ env.ICON_PATH }}\" --add-data=\"${{ env.ICON_PATH }}:.\""
+          fi
+        elif [ "${{ matrix.platform }}" = "linux" ]; then
+          if [ -f "qpypack/icon.png" ]; then
+            ICON_OPTION="--add-data=\"qpypack/icon.png:.\""
+          elif [ -f "${{ env.ICON_PATH }}" ]; then
+            ICON_OPTION="--add-data=\"${{ env.ICON_PATH }}:.\""
+          fi
+        fi
+        echo "ICON_OPTION=$ICON_OPTION" >> $GITHUB_ENV
+
+    - name: Build EXE / APP / Binary with PyInstaller
       shell: bash
       run: |
         PYINSTALLER_CMD="pyinstaller --clean --onefile --noconsole"
         
-        if [ -f "file_version_info.txt" ]; then
+        # Windows 元数据配置
+        if [ "${{ matrix.platform }}" = "windows" ] && [ -f "file_version_info.txt" ]; then
           PYINSTALLER_CMD="$PYINSTALLER_CMD --version-file=file_version_info.txt"
         fi
         
-        if [ -f "${{ env.ICON_PATH }}" ]; then
-          PYINSTALLER_CMD="$PYINSTALLER_CMD --icon=\"${{ env.ICON_PATH }}\" --add-data=\"${{ env.ICON_PATH }};.\""
-        else
-          echo "Warning: Icon path '${{ env.ICON_PATH }}' not found. Packaging without a custom icon."
+        # macOS Bundle 属性标识符配置
+        if [ "${{ matrix.platform }}" = "macos" ]; then
+          PYINSTALLER_CMD="$PYINSTALLER_CMD --osx-bundle-identifier=\"com.qwejayhuang.qpypack\""
         fi
         
-        PYINSTALLER_CMD="$PYINSTALLER_CMD --name=\"${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}\" ${{ env.MAIN_SCRIPT }}"
+        # 挂载图标参数
+        if [ -n "$ICON_OPTION" ]; then
+          PYINSTALLER_CMD="$PYINSTALLER_CMD $ICON_OPTION"
+        fi
         
-        echo "Executing: $PYINSTALLER_CMD"
+        TARGET_NAME="${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}"
+        PYINSTALLER_CMD="$PYINSTALLER_CMD --name=\"$TARGET_NAME\" ${{ env.MAIN_SCRIPT }}"
+        
+        echo "Executing build: $PYINSTALLER_CMD"
         eval $PYINSTALLER_CMD
 
-    - name: Compress EXE to ZIP
+    - name: Compress Build Artifact (Windows)
+      if: matrix.platform == 'windows'
       shell: pwsh
       run: |
         Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.exe" -DestinationPath "dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.zip"
 
-    - name: Upload ZIP to GitHub Release
+    - name: Compress Build Artifact (macOS)
+      if: matrix.platform == 'macos'
+      shell: bash
+      run: |
+        cd dist
+        zip -r "${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.zip" "${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.app"
+
+    - name: Compress Build Artifact (Linux)
+      if: matrix.platform == 'linux'
+      shell: bash
+      run: |
+        cd dist
+        tar -czvf "${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.tar.gz" "${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}"
+
+    - name: Upload Artifacts to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.zip
+        files: dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}${{ matrix.archive_ext }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
