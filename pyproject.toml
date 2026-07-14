@@ -1,47 +1,133 @@
-[build-system]
-requires = ["setuptools>=61.0.0", "wheel"]
-build-backend = "setuptools.build_meta"
+name: Build and Release
 
-[project]
-name = "qpypack"
-version = "2.5.0"
-description = "A cross-platform GUI packaging and compilation suite for PyInstaller and Nuitka."
-readme = "README.md"
-authors = [
-    { name = "QwejayHuang" }
-]
-license = { text = "GPL-3.0" }
-requires-python = ">=3.8"
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Build Tools",
-    "Topic :: Software Development :: User Interfaces",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-]
+on:
+  push:
+    tags:
+      - 'v*'
 
-dependencies = [
-    "PySide6>=6.0.0",
-    "Pillow>=9.0.0",
-]
+jobs:
+  build-binaries:
+    name: Build Standalone for ${{ matrix.os }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x64
+            artifact_name: QPyPack.exe
+            package_extension: zip
+          - os: macos-13
+            arch: x64
+            artifact_name: QPyPack.app
+            package_extension: zip
+          - os: macos-14
+            arch: arm64
+            artifact_name: QPyPack.app
+            package_extension: zip
+          - os: ubuntu-latest
+            arch: x64
+            artifact_name: QPyPack
+            package_extension: tar.gz
 
-[project.urls]
-"Homepage" = "https://github.com/qwejay/QPyPack"
-"Bug Tracker" = "https://github.com/qwejay/QPyPack/issues"
-"Source Code" = "https://github.com/qwejay/QPyPack"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-[project.scripts]
-qpypack = "qpypack.main:main"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
 
-[tool.setuptools]
-packages = ["qpypack"]
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PySide6 Pillow pyinstaller
 
-[tool.setuptools.package-data]
-qpypack = ["icon.ico"]
+      - name: Build with PyInstaller
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            pyinstaller --onefile --noconsole --name=QPyPack --icon=qpypack/icon.ico qpypack/main.py
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            pyinstaller --onefile --noconsole --name=QPyPack --icon=qpypack/icon.ico qpypack/main.py
+          else
+            pyinstaller --onefile --noconsole --name=QPyPack qpypack/main.py
+          fi
+
+      - name: Package Artifact
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          OS_NAME=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
+          ARCH_NAME="${{ matrix.arch }}"
+          
+          OUT_NAME="QPyPack-${VERSION}-${OS_NAME}-${ARCH_NAME}"
+          
+          echo "Packaging into ${OUT_NAME}.${{ matrix.package_extension }}..."
+          
+          cd dist
+          if [ "${{ matrix.package_extension }}" = "zip" ]; then
+            if [ "${{ runner.os }}" = "Windows" ]; then
+              powershell Compress-Archive -Path "QPyPack.exe" -DestinationPath "../${OUT_NAME}.zip" -Force
+            else
+              zip -r "../${OUT_NAME}.zip" "QPyPack.app"
+            fi
+          else
+            tar -czf "../${OUT_NAME}.tar.gz" "QPyPack"
+          fi
+
+      - name: Upload Artifacts to Job
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}-${{ matrix.arch }}
+          path: QPyPack-*.*
+
+  build-pypi-packages:
+    name: Build PyPI Wheel and Sdist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build Packages
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Upload PyPI Artifacts to Job
+        uses: actions/upload-artifact@v4
+        with:
+          name: pypi-packages
+          path: dist/*
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-binaries, build-pypi-packages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Display Downloaded Files
+        run: ls -R artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
