@@ -14,7 +14,12 @@ import configparser
 from pathlib import Path
 
 if os.name == 'nt':
-    import winreg
+    try:
+        import winreg
+    except ImportError:
+        winreg = None
+else:
+    winreg = None
 
 os.environ["QT_LOGGING_RULES"] = "qt.text.font.db=false"
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
@@ -27,14 +32,14 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayo
                              QMessageBox, QInputDialog, QFileIconProvider, QSizePolicy, QScrollArea,
                              QGraphicsDropShadowEffect, QSpinBox, QListWidget, QListWidgetItem)
 from PySide6.QtCore import Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QFileInfo, QVariantAnimation, QTimer, QPointF, QRectF, QRect
-from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen
+from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen, QImage, QImageWriter
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.4.6"
+__version__ = "2.5.0"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
-__description__ = "自动化 Python 脚本打包构建工具"
+__description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
 
 MATERIAL_ICONS = {
     'settings': 'M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z',
@@ -211,7 +216,7 @@ def find_system_python():
         p = shutil.which(name)
         if p: candidates.append(p)
         
-    if os.name == 'nt':
+    if winreg is not None:
         try:
             py = shutil.which("py")
             if py:
@@ -269,6 +274,21 @@ def find_system_python():
             "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin",
             os.path.expanduser("~/.pyenv/shims"), os.path.expanduser("~/.local/bin")
         ]
+        user_profile = os.environ.get("HOME", "") or os.environ.get("USERPROFILE", "")
+        if user_profile:
+            for c_dir in ("miniconda3", "anaconda3", "mambaforge", ".conda"):
+                base_dir = os.path.join(user_profile, c_dir)
+                if os.path.exists(base_dir):
+                    exe = os.path.join(base_dir, "bin", "python")
+                    if os.path.exists(exe): unix_bases.append(os.path.join(base_dir, "bin"))
+                    envs_dir = os.path.join(base_dir, "envs")
+                    if os.path.exists(envs_dir):
+                        try:
+                            for env in os.listdir(envs_dir):
+                                p_bin = os.path.join(envs_dir, env, "bin")
+                                if os.path.exists(p_bin): unix_bases.append(p_bin)
+                        except: pass
+
         for base in unix_bases:
             if os.path.exists(base):
                 try:
@@ -359,6 +379,59 @@ def play_alert(success=True):
             sys.stdout.flush()
     except:
         pass
+
+def convert_image_to_format(src_path, dest_path, dest_format):
+    """
+    自适应跨平台图像格式转换服务：
+    1. macOS 系统环境优先调用内建高性能 sips 命令；
+    2. 基于 Qt 框架 QImage API 进行图像二次转换渲染；
+    3. 异常路径下采用 Pillow 图像处理库提供向后兼容转换。
+    """
+    src = Path(src_path).resolve()
+    dst = Path(dest_path).resolve()
+    fmt = dest_format.lower()
+    
+    if sys.platform == "darwin" and fmt == "icns":
+        try:
+            proc = subprocess.run(
+                ["sips", "-s", "format", "icns", src.as_posix(), "--out", dst.as_posix()],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            if proc.returncode == 0 and dst.exists():
+                return True
+        except:
+            pass
+
+    try:
+        img = QImage(src.as_posix())
+        if not img.isNull():
+            if fmt == "ico":
+                img = img.scaled(256, 256, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            elif fmt == "icns":
+                img = img.scaled(512, 512, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            
+            writer = QImageWriter(dst.as_posix(), fmt.upper().encode('utf-8'))
+            if writer.write(img):
+                return True
+    except:
+        pass
+
+    try:
+        from PIL import Image
+        img = Image.open(src.as_posix())
+        if fmt == "ico":
+            img.save(dst.as_posix(), format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (32, 32), (16, 16)])
+            return True
+        elif fmt == "icns":
+            img.save(dst.as_posix(), format="ICNS", sizes=[(512, 512), (256, 256), (128, 128), (64, 64)])
+            return True
+        else:
+            img.save(dst.as_posix(), format=dest_format.upper())
+            return True
+    except:
+        pass
+        
+    return False
 
 
 class AnimatedButton(QPushButton):
@@ -625,14 +698,14 @@ class DropArea(QFrame):
         
         layout.addSpacing(18)
         
-        self.label = QLabel("将 Python 脚本 (.py/.pyw) 拖拽至此处\n或 点击浏览文件")
+        self.label = QLabel("将 Python 源代码文件 (.py/.pyw) 拖放到此处\n或 点击手动选择文件")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
         layout.addWidget(self.label)
         
         layout.addSpacing(8)
         
-        self.sub_label = QLabel("智能解析工程依赖、静态附件及隐藏模块树")
+        self.sub_label = QLabel("自动解析模块依赖、资源文件与隐式导入")
         self.sub_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sub_label.setStyleSheet("QLabel { background: transparent; color: #9AA0A6; font-size: 13px; border: none; }")
         layout.addWidget(self.sub_label)
@@ -670,9 +743,9 @@ class DropArea(QFrame):
     def set_loading(self, filename):
         pixmap = get_svg_pixmap('package', color="#1A73E8", size=88)
         self.icon_widget.set_file_pixmap(pixmap, 88)
-        self.label.setText(f"文件已加载：{filename}")
+        self.label.setText(f"已载入源文件：{filename}")
         self.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
-        self.sub_label.setText("正在分析依赖与元数据，请稍候...")
+        self.sub_label.setText("正在解析依赖依赖与项目元数据，请稍候...")
 
     def set_success(self, filename, custom_icon_path=None):
         pixmap = None
@@ -686,12 +759,12 @@ class DropArea(QFrame):
             
         self.icon_widget.set_file_pixmap(pixmap, 88)
             
-        self.label.setText(f"文件已加载：{filename}")
+        self.label.setText(f"已载入源文件：{filename}")
         self.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
-        self.sub_label.setText("系统准备就绪，随时可启动构建引擎")
+        self.sub_label.setText("环境配置就绪，可执行构建")
 
     def start_build_anim(self):
-        self.sub_label.setText("构建引擎运行中：正在执行模块分析与环境封装...")
+        self.sub_label.setText("构建引擎运行中：正在分析应用模块并生成构建包...")
         self.icon_widget.start_building()
 
     def stop_build_anim(self):
@@ -714,24 +787,24 @@ class DropArea(QFrame):
             
         self.icon_widget.start_success()
             
-        self.label.setText("构建任务圆满完成！")
+        self.label.setText("构建任务执行成功")
         self.label.setStyleSheet("QLabel { background: transparent; color: #1E8E3E; font-size: 20px; font-weight: bold; border: none; }")
-        self.sub_label.setText("您可以打开输出目录查看产物，或重置工作区")
+        self.sub_label.setText("可打开输出目录查看构建产物，或重置当前工作区")
 
     def show_failure(self):
         size = 128
         self.icon_widget.set_custom_pixmap(get_svg_pixmap('close', color="#D93025", size=size), size)
         self.icon_widget.start_failure()
         
-        self.label.setText("构建任务异常中断！")
+        self.label.setText("构建异常中断")
         self.label.setStyleSheet("QLabel { background: transparent; color: #D93025; font-size: 20px; font-weight: bold; border: none; }")
-        self.sub_label.setText("请查阅下方的执行日志报告以进行问题排查")
+        self.sub_label.setText("请参阅下方编译日志以排查构建异常")
         
     def reset(self):
         self.icon_widget.reset()
-        self.label.setText("将 Python 脚本 (.py/.pyw) 拖拽至此处\n或 点击浏览文件")
+        self.label.setText("将 Python 源代码文件 (.py/.pyw) 拖放到此处\n或 点击手动选择文件")
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
-        self.sub_label.setText("智能解析工程依赖、静态附件及隐藏模块树")
+        self.sub_label.setText("自动解析模块依赖、资源文件与隐式导入")
 
 
 class PythonScannerThread(QThread):
@@ -744,7 +817,7 @@ class PythonScannerThread(QThread):
             p = shutil.which(name)
             if p: candidates.add(os.path.normpath(p))
             
-        if os.name == 'nt':
+        if winreg is not None:
             try:
                 for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
                     try:
@@ -795,6 +868,21 @@ class PythonScannerThread(QThread):
                 "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin",
                 os.path.expanduser("~/.pyenv/shims"), os.path.expanduser("~/.local/bin")
             ]
+            user_profile = os.environ.get("HOME", "") or os.environ.get("USERPROFILE", "")
+            if user_profile:
+                for c_dir in ("miniconda3", "anaconda3", "mambaforge", ".conda"):
+                    base_dir = os.path.join(user_profile, c_dir)
+                    if os.path.exists(base_dir):
+                        exe = os.path.join(base_dir, "bin", "python")
+                        if os.path.exists(exe): unix_bases.append(os.path.join(base_dir, "bin"))
+                        envs_dir = os.path.join(base_dir, "envs")
+                        if os.path.exists(envs_dir):
+                            try:
+                                for env in os.listdir(envs_dir):
+                                    p_bin = os.path.join(envs_dir, env, "bin")
+                                    if os.path.exists(p_bin): unix_bases.append(p_bin)
+                            except: pass
+
             for base in unix_bases:
                 if os.path.exists(base):
                     try:
@@ -804,21 +892,6 @@ class PythonScannerThread(QThread):
                                 if os.path.isfile(exe) and os.access(exe, os.X_OK):
                                     candidates.add(os.path.normpath(exe))
                     except: pass
-                    
-            user_profile = os.environ.get("HOME", "")
-            if user_profile:
-                for c_dir in ("miniconda3", "anaconda3", "mambaforge"):
-                    base_dir = os.path.join(user_profile, c_dir)
-                    if os.path.exists(base_dir):
-                        exe = os.path.join(base_dir, "bin", "python")
-                        if os.path.exists(exe): candidates.add(os.path.normpath(exe))
-                        envs_dir = os.path.join(base_dir, "envs")
-                        if os.path.exists(envs_dir):
-                            try:
-                                for env in os.listdir(envs_dir):
-                                    exe = os.path.join(envs_dir, env, "bin", "python")
-                                    if os.path.exists(exe): candidates.add(os.path.normpath(exe))
-                            except: pass
 
         valid_pythons = {}
         
@@ -864,7 +937,6 @@ class SettingsPanel(QWidget):
             QCheckBox::indicator:hover { border-color: #1A73E8; }
             QCheckBox::indicator:checked { background: #1A73E8; border-color: #1A73E8; image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='white'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg>"); }
             
-            /* Modern Card Style */
             QFrame#SettingCard { background-color: #ffffff; border: 1px solid #e8eaed; border-radius: 12px; }
             QFrame#SettingCard:hover { border: 1px solid #d2e3fc; }
             
@@ -872,13 +944,11 @@ class SettingsPanel(QWidget):
             QPushButton.ToolBtn:hover { background: #e8eaed; color: #202124; }
             QPushButton.ToolBtn:pressed { background: #dadce0; }
             
-            /* Main Tabs */
             QTabWidget#MainTabWidget::pane { border: none; background: transparent; top: -1px; }
             QTabBar#MainTabBar::tab { background: transparent; border: none; padding: 12px 24px; color: #5f6368; font-weight: bold; font-size: 14px; border-bottom: 3px solid transparent; margin-right: 4px; }
             QTabBar#MainTabBar::tab:selected { color: #1A73E8; border-bottom: 3px solid #1A73E8; }
             QTabBar#MainTabBar::tab:hover:!selected { color: #202124; background: rgba(0,0,0,0.03); border-radius: 6px; }
             
-            /* Sub Tabs (Pill Style) */
             QTabWidget#SubTabWidget::pane { border: none; background: transparent; }
             QTabBar#SubTabBar { alignment: left; }
             QTabBar#SubTabBar::tab { background: transparent; border: 1px solid transparent; padding: 6px 18px; color: #5f6368; font-weight: bold; font-size: 13px; margin: 0 8px 12px 0; border-radius: 15px; }
@@ -921,9 +991,9 @@ class SettingsPanel(QWidget):
         self.tab_pref = QWidget()
         self.tab_about = QWidget()
         
-        self.tabs.addTab(self.tab_build, " 🎛️ 构建配置")
-        self.tabs.addTab(self.tab_pref, " ⚙️ 偏好设置")
-        self.tabs.addTab(self.tab_about, " ℹ️ 关于软件")
+        self.tabs.addTab(self.tab_build, " 🎛️ 构建参数")
+        self.tabs.addTab(self.tab_pref, " ⚙️ 全局设置")
+        self.tabs.addTab(self.tab_about, " ℹ️ 关于")
         
         self.build_build_tab()
         self.build_pref_tab()
@@ -938,12 +1008,12 @@ class SettingsPanel(QWidget):
         self.btn_reset = AnimatedButton("")
         self.btn_reset.setFixedSize(44, 44)
         self.btn_reset.setIcon(get_svg_icon('refresh', "#5F6368"))
-        self.btn_reset.setToolTip("恢复默认配置")
+        self.btn_reset.setToolTip("重置为默认配置")
         self.btn_reset.setStyleSheet(self.parent_win.icon_btn_style)
         self.btn_reset.clicked.connect(self.parent_win.reset_all)
         btn_lay.addWidget(self.btn_reset)
         
-        self.btn_save = AnimatedButton(" 保存并返回工作区")
+        self.btn_save = AnimatedButton(" 保存并返回")
         self.btn_save.setFixedHeight(44)
         self.btn_save.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_save.setIcon(get_svg_icon('check', "white"))
@@ -1085,7 +1155,7 @@ class SettingsPanel(QWidget):
         lay_basic = QVBoxLayout(tab_basic)
         lay_basic.setContentsMargins(0, 5, 0, 0)
         
-        card1, c_lay1 = self._create_card("核心参数设定")
+        card1, c_lay1 = self._create_card("编译核心配置")
         form1 = QFormLayout()
         form1.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form1.setSpacing(15)
@@ -1096,7 +1166,7 @@ class SettingsPanel(QWidget):
         
         self.python_path_combo = QComboBox()
         self.python_path_combo.setEditable(True)
-        self.python_path_combo.setPlaceholderText("留空自动探测当前系统默认 Python 解释器")
+        self.python_path_combo.setPlaceholderText("留空则自动检索当前环境下的默认 Python 解释器")
         btn_python_path = QPushButton("浏览")
         btn_python_path.setProperty("class", "ToolBtn")
         btn_python_path.clicked.connect(self.select_python_path)
@@ -1104,7 +1174,7 @@ class SettingsPanel(QWidget):
         h_py.addWidget(self.python_path_combo); h_py.addWidget(btn_python_path)
 
         self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("默认自动使用入口代码文件同名")
+        self.name_edit.setPlaceholderText("默认自适应源文件名")
         
         self.icon_edit = QLineEdit()
         self.icon_preview = QLabel()
@@ -1117,16 +1187,16 @@ class SettingsPanel(QWidget):
         icon_cont = QWidget(); h_icon = QHBoxLayout(icon_cont); h_icon.setContentsMargins(0,0,0,0)
         h_icon.addWidget(self.icon_edit); h_icon.addWidget(self.icon_preview); h_icon.addWidget(btn_icon)
 
-        form1.addRow("构建引擎:", self.engine_combo)
-        form1.addRow("Python 环境:", py_cont)
-        form1.addRow("输出名称:", self.name_edit)
-        form1.addRow("应用图标:", icon_cont)
+        form1.addRow("编译引擎 (Engine):", self.engine_combo)
+        form1.addRow("解释器 (Interpreter):", py_cont)
+        form1.addRow("可执行文件名 (Name):", self.name_edit)
+        form1.addRow("应用图标 (Icon):", icon_cont)
         c_lay1.addLayout(form1)
         
-        card2, c_lay2 = self._create_card("应用程序行为")
+        card2, c_lay2 = self._create_card("运行属性 (Run Properties)")
         h_mode = QHBoxLayout()
-        self.onefile_check = QCheckBox("打包为单文件可执行程序 (OneFile)")
-        self.noconsole_check = QCheckBox("隐藏命令行黑框 (GUI窗口应用)")
+        self.onefile_check = QCheckBox("单文件打包模式 (OneFile / Standalone)")
+        self.noconsole_check = QCheckBox("无控制台模式 (Windowed / No Console)")
         h_mode.addWidget(self.onefile_check)
         h_mode.addWidget(self.noconsole_check)
         h_mode.addStretch()
@@ -1144,43 +1214,43 @@ class SettingsPanel(QWidget):
         lay_assets = QVBoxLayout(cont_assets)
         lay_assets.setContentsMargins(0, 5, 0, 0)
         
-        card3, c_lay3 = self._create_card("环境隔离与包管理")
+        card3, c_lay3 = self._create_card("依赖与虚拟环境控制")
         form2 = QFormLayout()
         form2.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form2.setSpacing(15)
         
         self.pip_source_edit = QLineEdit()
         
-        self.reqs_file_edit = QLineEdit(); self.reqs_file_edit.setPlaceholderText("如不选，默认读取目录下的 requirements.txt")
+        self.reqs_file_edit = QLineEdit(); self.reqs_file_edit.setPlaceholderText("留空则自动检索当前目录下的 requirements.txt")
         btn_reqs = QPushButton("选择"); btn_reqs.setProperty("class", "ToolBtn"); btn_reqs.clicked.connect(self.select_reqs_file)
         reqs_cont = QWidget(); h_reqs = QHBoxLayout(reqs_cont); h_reqs.setContentsMargins(0,0,0,0)
         h_reqs.addWidget(self.reqs_file_edit); h_reqs.addWidget(btn_reqs)
         
-        self.hidden_edit = QLineEdit(); self.hidden_edit.setPlaceholderText("程序报错找不到模块时在此填入，逗号分隔 (如: pandas, PyQt5)")
+        self.hidden_edit = QLineEdit(); self.hidden_edit.setPlaceholderText("显式指定未被隐式导入的依赖，英文逗号分隔 (如: pandas, PyQt5)")
         btn_scan = QPushButton("AST扫描"); btn_scan.setProperty("class", "ToolBtn"); btn_scan.clicked.connect(self.auto_scan_hidden)
         hid_cont = QWidget(); h_hid = QHBoxLayout(hid_cont); h_hid.setContentsMargins(0,0,0,0)
         h_hid.addWidget(self.hidden_edit); h_hid.addWidget(btn_scan)
 
-        self.exclude_edit = QLineEdit(); self.exclude_edit.setPlaceholderText("排除无需打包的庞大模块，以减小体积 (如: tkinter, matplotlib)")
+        self.exclude_edit = QLineEdit(); self.exclude_edit.setPlaceholderText("指定不进行打包的模块列表，英文逗号分隔 (如: tkinter, matplotlib)")
         
-        form2.addRow("PIP 镜像源:", self.pip_source_edit)
-        form2.addRow("依赖清单文件:", reqs_cont)
-        form2.addRow("强制包含 (防丢失):", hid_cont)
-        form2.addRow("强制排除 (减体积):", self.exclude_edit)
+        form2.addRow("PIP 源地址 (Index URL):", self.pip_source_edit)
+        form2.addRow("声明清单 (Requirements):", reqs_cont)
+        form2.addRow("隐式导入 (Hidden Imports):", hid_cont)
+        form2.addRow("排除模块 (Exclude):", self.exclude_edit)
         c_lay3.addLayout(form2)
         
         c_lay3.addSpacing(5)
         h_dep = QHBoxLayout()
-        self.venv_check = QCheckBox("启用虚拟沙盒 (推荐)")
-        self.reqs_check = QCheckBox("按清单同步")
-        self.pipreqs_check = QCheckBox("智能深度分析依赖")
+        self.venv_check = QCheckBox("使用虚拟环境隔离 (Virtualenv)")
+        self.reqs_check = QCheckBox("强制同步 Requirements 声明")
+        self.pipreqs_check = QCheckBox("使用 pipreqs 自动分析依赖")
         h_dep.addWidget(self.venv_check)
         h_dep.addWidget(self.reqs_check)
         h_dep.addWidget(self.pipreqs_check)
         h_dep.addStretch()
         c_lay3.addLayout(h_dep)
         
-        card4, c_lay4 = self._create_card("附加静态资源 (双击列表条目可修改释放路径)")
+        card4, c_lay4 = self._create_card("附加资源文件 (Data Files / Folders)")
         self.add_data_list = QListWidget()
         self.add_data_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.add_data_list.setFixedHeight(120)
@@ -1212,28 +1282,28 @@ class SettingsPanel(QWidget):
         lay_adv = QVBoxLayout(cont_adv)
         lay_adv.setContentsMargins(0, 5, 0, 0)
         
-        card5, c_lay5 = self._create_card("可执行文件属性 (Windows 元数据)")
+        card5, c_lay5 = self._create_card("版本信息与元数据 (Metadata)")
         form3 = QFormLayout()
         form3.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form3.setSpacing(15)
         self.ver_ver = QLineEdit("1.0.0")
         self.ver_comp = QLineEdit("My Studio")
         self.ver_desc = QLineEdit("Python Executable")
-        form3.addRow("版本序列:", self.ver_ver)
-        form3.addRow("发行公司:", self.ver_comp)
-        form3.addRow("文件描述:", self.ver_desc)
+        form3.addRow("应用版本 (Version):", self.ver_ver)
+        form3.addRow("公司名称 (Company):", self.ver_comp)
+        form3.addRow("应用描述 (Description):", self.ver_desc)
         c_lay5.addLayout(form3)
         
-        card6, c_lay6 = self._create_card("深度编译优化")
+        card6, c_lay6 = self._create_card("性能与编译优化")
         form4 = QFormLayout()
         form4.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form4.setSpacing(15)
         self.cores_spin = QSpinBox(); self.cores_spin.setRange(1, os.cpu_count() or 4); self.cores_spin.setValue(os.cpu_count() or 2)
-        form4.addRow("并发编译线程:", self.cores_spin)
+        form4.addRow("并发构建线程数 (Jobs):", self.cores_spin)
         
-        self.upx_check = QCheckBox("挂载 UPX 极限压缩优化")
+        self.upx_check = QCheckBox("启用 UPX 压缩优化")
         self.upx_check.toggled.connect(self.on_upx_toggled)
-        self.upx_path_edit = QLineEdit(); self.upx_path_edit.setPlaceholderText("输入UPX环境目录，留空则自动搜索")
+        self.upx_path_edit = QLineEdit(); self.upx_path_edit.setPlaceholderText("指定 UPX 工具路径，留空则自动检索环境变量")
         btn_upx = QPushButton("选择"); btn_upx.setProperty("class", "ToolBtn"); btn_upx.clicked.connect(self.select_upx_path)
         self.upx_path_container = QWidget(); h_upx = QHBoxLayout(self.upx_path_container); h_upx.setContentsMargins(0,0,0,0)
         h_upx.addWidget(self.upx_path_edit); h_upx.addWidget(btn_upx)
@@ -1242,7 +1312,7 @@ class SettingsPanel(QWidget):
         h_upx_row = QHBoxLayout()
         h_upx_row.addWidget(self.upx_check)
         h_upx_row.addWidget(self.upx_path_container)
-        form4.addRow("UPX 压缩引擎:", h_upx_row)
+        form4.addRow("UPX 压缩工具 (UPX Path):", h_upx_row)
         c_lay6.addLayout(form4)
         
         lay_adv.addWidget(card5)
@@ -1269,9 +1339,9 @@ class SettingsPanel(QWidget):
         lay.setContentsMargins(0, 5, 0, 15)
         lay.setSpacing(15)
         
-        card1, lay1 = self._create_card("输出与归档策略")
+        card1, lay1 = self._create_card("输出设置")
         self.out_mode_combo = QComboBox()
-        self.out_mode_combo.addItems(["默认策略 (直接保存在源脚本同级目录)", "独立归档 (保存到自定义的专属目录)"])
+        self.out_mode_combo.addItems(["默认路径 (源文件同级目录)", "自定义归档路径 (自定义目录)"])
         self.out_mode_combo.currentIndexChanged.connect(self.on_out_mode_changed)
         
         self.out_dir_edit = QLineEdit(); self.out_dir_edit.setPlaceholderText("选择具体的输出归档路径...")
@@ -1283,19 +1353,19 @@ class SettingsPanel(QWidget):
         form1 = QFormLayout()
         form1.setVerticalSpacing(15)
         form1.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form1.addRow("保存位置规则:", self.out_mode_combo)
-        form1.addRow("自定义归档区:", self.out_dir_container)
+        form1.addRow("输出路径规则:", self.out_mode_combo)
+        form1.addRow("目标输出目录:", self.out_dir_container)
         lay1.addLayout(form1)
         lay.addWidget(card1)
 
-        card2, lay2 = self._create_card("自动化选项与运行反馈")
+        card2, lay2 = self._create_card("编译选项")
         lay2.setSpacing(16)
         
-        self.concise_log_check = QCheckBox("开启静默排版 (自动过滤底层引擎产生的干扰性警告)")
-        self.auto_save_log_check = QCheckBox("异常捕获机制 (编译结束后，自动在输出目录落盘完整排错日志)")
-        self.auto_icon_check = QCheckBox("视觉资源嗅探 (自动识别并绑定同目录下的同名 ICO/SVG 图标)")
-        self.clean_all_check = QCheckBox("存储无痕释放 (任务完成后，自动销毁所有临时沙盒与构建缓存)")
-        self.sound_notify_check = QCheckBox("声音感官反馈 (任务结束或发生异常中断时，播放系统提示音)")
+        self.concise_log_check = QCheckBox("精简日志输出 (过滤构建引擎产生的警告信息)")
+        self.auto_save_log_check = QCheckBox("自动保存编译日志 (构建失败时在输出目录落盘生成日志文件)")
+        self.auto_icon_check = QCheckBox("自动检索图标 (自动匹配并绑定源文件同名 ICO/SVG 图标)")
+        self.clean_all_check = QCheckBox("清理构建缓存 (构建完成后自动删除临时目录与缓存文件)")
+        self.sound_notify_check = QCheckBox("启用构建提示音 (构建成功或失败时播放系统音效)")
         
         for chk in (self.concise_log_check, self.auto_save_log_check, self.auto_icon_check, self.clean_all_check, self.sound_notify_check):
             lay2.addWidget(chk)
@@ -1438,7 +1508,7 @@ class SettingsPanel(QWidget):
         self.icon_preview.clear()
 
     def select_icon(self):
-        p, _ = QFileDialog.getOpenFileName(self, "选择图标", "", "Icon Files (*.ico *.svg)")
+        p, _ = QFileDialog.getOpenFileName(self, "选择图标", "", "Icon Files (*.ico *.svg *.png *.icns)")
         if p: self.icon_edit.setText(Path(p).resolve().as_posix())
 
     def auto_scan_hidden(self):
@@ -1632,7 +1702,7 @@ class PackingThread(QThread):
             self.process.wait()
             
             if is_timeout[0]:
-                self.progress.emit(f"[System] 子进程执行超时 (>{timeout}s)，已自动中断并继续执行后续流水线...")
+                self.progress.emit(f"[WARN] 子进程执行超时 (>{timeout}s)，正在终止执行...")
                 return False
                 
             success = self.process.returncode == 0
@@ -1646,12 +1716,12 @@ class PackingThread(QThread):
         except FileNotFoundError as e:
             cmd_name = cmd[0] if isinstance(cmd, list) and cmd else str(cmd)
             if "python" in str(cmd_name).lower():
-                self.progress.emit(f"[Error] 宿主环境异常：无法定位 Python 解释器，请检查系统环境变量配置。")
+                self.progress.emit(f"[ERROR] 主控环境异常：无法定位 Python 解释器，请检查环境变量配置。")
             else:
-                self.progress.emit(f"[Error] 进程调用失败：缺失系统指令或程序 \"{cmd_name}\" ({e})")
+                self.progress.emit(f"[ERROR] 子进程调用失败：未检测到系统指令或外部程序 \"{cmd_name}\" ({e})")
             return False
         except Exception as e:
-            self.progress.emit(f"[Error] 子进程执行发生系统级异常: {e}")
+            self.progress.emit(f"[ERROR] 子进程执行发生系统级异常: {e}")
             return False
         finally:
             if timer:
@@ -1685,7 +1755,7 @@ class PackingThread(QThread):
                 temp_file.write_text(code + pause_code, encoding='utf-8')
                 return temp_file, True, ""
             except Exception as e:
-                self.progress.emit(f"[Warn] 注入控制台防闪退机制失败: {e}")
+                self.progress.emit(f"[WARN] 自动注入控制台防闪退阻塞机制失败: {e}")
                 
         return orig_path, False, ""
 
@@ -1735,7 +1805,7 @@ class PackingThread(QThread):
         ext = ".exe" if os.name == "nt" else ""
 
         try:
-            self.progress.emit("[Init] 正在初始化工作区并清理历史残留数据...")
+            self.progress.emit("[INFO] 正在初始化工作空间并清除历史构建缓存...")
             robust_rmtree(Path.cwd() / "build")
             robust_rmtree(Path.cwd() / "dist")
             
@@ -1743,35 +1813,35 @@ class PackingThread(QThread):
             script_dir = script_path.parent
             
             build_script_path, is_temp, err_msg = self.sanitize_script(script_path)
-            if not build_script_path and err_msg: return self.finished.emit(False, f"[Error] I/O 异常: {err_msg}")
+            if not build_script_path and err_msg: return self.finished.emit(False, f"[ERROR] I/O 异常: {err_msg}")
             script_posix = build_script_path.as_posix()
 
             system_python_exe = get_python_executable()
-            self.progress.emit(f"[Env] 构建调度宿主解释器路径: {system_python_exe}")
+            self.progress.emit(f"[INFO] 主控 Python 解释器路径: {system_python_exe}")
 
             script_imports = set()
             try:
                 script_imports = extract_imports_via_ast(script_posix, system_python_exe)
             except Exception as e:
-                self.progress.emit(f"[Warn] 源码 AST 预处理异常: {e}")
+                self.progress.emit(f"[WARN] 源码 AST 静态分析异常: {e}")
 
             pip_args = ["-i", pip_idx] if pip_idx else []
             
             if self.params['use_venv']:
-                self.progress.emit("[Env] 正在分配独立隔离的虚拟环境 (Virtual Environment)...")
+                self.progress.emit("[INFO] 正在创建独立的虚拟环境隔离沙盒...")
                 self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
                 if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
-                    return self.finished.emit(False, "[Error] 虚拟环境(venv)创建失败。宿主 Python 环境可能存在内核文件缺失或权限受限。")
+                    return self.finished.emit(False, "[ERROR] 虚拟环境 (virtualenv) 创建失败。当前 Python 环境可能缺失必要模块或权限受限。")
                 python_exe = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
                 
-                self.progress.emit("[Env] 正在同步并升级 Pip 构建工具链...")
+                self.progress.emit("[INFO] 正在同步并升级 pip 包管理器...")
                 self.run_cmd([python_exe, "-m", "pip", "install", "--upgrade", "pip", "-q"] + pip_args)
             else: 
                 python_exe = system_python_exe
 
             engine_pkg = "nuitka" if engine == "Nuitka" else "pyinstaller"
             
-            self.progress.emit(f"[Env] 正在配置基础构建引擎 ({engine_pkg} & 核心支持库)...")
+            self.progress.emit(f"[INFO] 正在安装编译引擎 [{engine_pkg}] 及核心编译依赖...")
             core_pkgs = [engine_pkg]
             if engine == "PyInstaller": 
                 core_pkgs.append("pillow")
@@ -1787,9 +1857,9 @@ class PackingThread(QThread):
                     req_file = script_dir / "requirements.txt"
                 
                 if req_file.exists():
-                    self.progress.emit(f"[Deps] 阶段 1/3: 正在读取并部署清单依赖 ({req_file.name})...")
+                    self.progress.emit(f"[INFO] 依赖安装 [1/3]: 正在读取并安装声明依赖 ({req_file.name})...")
                     try:
-                        if is_cloud_locked(req_file): raise ValueError("清单文件被安全锁定")
+                        if is_cloud_locked(req_file): raise ValueError("依赖清单文件已被系统锁定")
                         raw_req = req_file.read_bytes()
                         try: req_content = raw_req.decode('utf-8-sig')
                         except: req_content = raw_req.decode(locale.getpreferredencoding(), errors='ignore')
@@ -1798,10 +1868,10 @@ class PackingThread(QThread):
                         temp_req.write_text(req_content, encoding='utf-8')
                         self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_req.as_posix()] + pip_args)
                         temp_req.unlink(missing_ok=True)
-                    except Exception as e: self.progress.emit(f"[Warn] 清单解析或网络请求异常: {e}")
+                    except Exception as e: self.progress.emit(f"[WARN] 依赖清单读取或安装过程发生异常: {e}")
 
             if self.params.get('use_pipreqs'):
-                self.progress.emit("[Deps] 阶段 2/3: 正在启动深度依赖分析 (Pipreqs)...")
+                self.progress.emit("[INFO] 依赖安装 [2/3]: 正在调用 pipreqs 分析项目依赖...")
                 self.run_cmd([python_exe, "-m", "pip", "install", "pipreqs", "-q"] + pip_args)
                 temp_pipreqs = Path(tempfile.gettempdir()) / f"qpypack_pipreqs_{int(time.time())}.txt"
                 
@@ -1815,7 +1885,7 @@ class PackingThread(QThread):
                 ]
                 if pypi_server: 
                     pipreqs_cmd.extend(["--pypi-server", pypi_server])
-                    self.progress.emit(f"[Deps] 依赖分析镜像地址: {pypi_server}")
+                    self.progress.emit(f"[INFO] 依赖分析服务源地址: {pypi_server}")
                 
                 if self.run_cmd(pipreqs_cmd, timeout=15) and temp_pipreqs.exists():
                     self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args)
@@ -1835,16 +1905,16 @@ class PackingThread(QThread):
             ]
             
             if ast_pkgs:
-                self.progress.emit(f"[Deps] 阶段 3/3: 启动 AST 源码扫描...")
-                self.progress.emit(f"==> [Deps] 正在对齐隐式依赖项: {', '.join(ast_pkgs)}")
+                self.progress.emit(f"[INFO] 依赖安装 [3/3]: 正在通过 AST 静态扫描提取隐式依赖...")
+                self.progress.emit(f"[INFO] 正在解析并安装隐式导入依赖: {', '.join(ast_pkgs)}")
                 if not self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + ast_pkgs + pip_args):
-                    self.progress.emit("[Warn] 批量依赖同步存在冲突，正在降级为逐项安全安装模式...")
+                    self.progress.emit("[WARN] 批量依赖同步发生冲突，正在转换为顺序安全安装机制...")
                     for pkg in ast_pkgs:
                         self.run_cmd([python_exe, "-m", "pip", "install", "-q", pkg] + pip_args)
 
-            if self._is_cancelled: return self.finished.emit(False, "[System] 构建任务已被用户主动终止。")
+            if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。")
 
-            self.progress.emit(f"[Build] 正在初始化 {engine} 编译引擎，执行可执行程序生成任务...")
+            self.progress.emit(f"[INFO] 正在启动 {engine} 编译引擎，开始冻结/编译二进制文件...")
             cmd = []
             app_name = self.params['app_name']
             icon_path = Path(self.params['icon']).resolve().as_posix() if self.params.get('icon') else None
@@ -1862,7 +1932,13 @@ class PackingThread(QThread):
                     cmd.extend(["--icon", icon_path])
                     cmd.extend(["--add-data", f"{icon_path}{os.pathsep}."])
                     
-                if self.params.get('version_file') and os.name == "nt": cmd.extend(["--version-file", self.params['version_file']])
+                if self.params.get('version_file') and os.name == "nt": 
+                    cmd.extend(["--version-file", self.params['version_file']])
+                elif sys.platform == "darwin":
+                    comp = self.params.get('ver_comp', 'mycompany').strip().lower().replace(" ", "")
+                    bundle_id = f"com.{comp or 'anonymous'}.{app_name.lower().replace(' ', '')}"
+                    cmd.extend(["--osx-bundle-identifier", bundle_id])
+                    
                 if self.params.get('upx'):
                     upx_dir_custom = self.params.get('upx_path', '').strip()
                     if upx_dir_custom and Path(upx_dir_custom).exists():
@@ -1891,12 +1967,15 @@ class PackingThread(QThread):
                 if self.params['onefile']: cmd.append("--onefile")
                 else: cmd.append("--standalone")
                 
-                if self.params['noconsole']: cmd.append("--windows-console-mode=disable")
+                if self.params['noconsole']: 
+                    cmd.append("--windows-console-mode=disable")
+                    if sys.platform == "darwin":
+                        cmd.append("--macos-create-app-bundle")
                 
                 if icon_path: 
                     if os.name == "nt":
                         cmd.append(f"--windows-icon-from-ico={icon_path}")
-                    elif sys.platform == "darwin" and icon_path.endswith(".icns"):
+                    elif sys.platform == "darwin":
                         cmd.append(f"--macos-app-icon={icon_path}")
                     cmd.append(f"--include-data-files={Path(icon_path).resolve().as_posix()}={Path(icon_path).name}")
                     
@@ -1904,6 +1983,14 @@ class PackingThread(QThread):
                     if self.params.get('ver_comp'): cmd.append(f"--company-name={self.params['ver_comp']}")
                     if self.params.get('ver_desc'): cmd.append(f"--product-name={self.params['ver_desc']}")
                     if self.params.get('ver_ver'): cmd.append(f"--file-version={self.params['ver_ver']}")
+                elif sys.platform == "darwin":
+                    if self.params.get('ver_comp'): 
+                        cmd.append(f"--company-name={self.params['ver_comp']}")
+                    if self.params.get('ver_ver'): 
+                        cmd.append(f"--macos-app-version={self.params['ver_ver']}")
+                    comp = self.params.get('ver_comp', 'mycompany').strip().lower().replace(" ", "")
+                    bundle_id = f"com.{comp or 'anonymous'}.{app_name.lower().replace(' ', '')}"
+                    cmd.append(f"--macos-signed-app-name={bundle_id}")
                     
                 cmd.append("--enable-plugin=anti-bloat")
                 
@@ -1932,22 +2019,32 @@ class PackingThread(QThread):
             cmd.append(script_posix)
 
             success = self.run_cmd(cmd, cwd=Path.cwd().resolve().as_posix())
-            if self._is_cancelled: return self.finished.emit(False, "[System] 构建任务已被用户主动终止。")
+            if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。")
 
-            self.progress.emit("[Pack] 编译阶段完成，正在提取并归档最终可执行产物...")
+            self.progress.emit("[INFO] 编译核心完成，正在提取并归档编译产物...")
             cwd = Path.cwd().resolve()
             
+            src_out = None
             if engine == "PyInstaller": 
-                src_out = cwd / "dist" / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
+                if sys.platform == "darwin" and self.params['noconsole']:
+                    src_out = cwd / "dist" / f"{app_name}.app"
+                else:
+                    src_out = cwd / "dist" / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
             elif engine == "Nuitka": 
                 if self.params['onefile']:
-                    src_out = self.temp_out_dir / f"{app_name}{ext}"
-                else:
-                    dist_dirs = list(self.temp_out_dir.glob("*.dist"))
-                    if dist_dirs:
-                        src_out = dist_dirs[0]
+                    if sys.platform == "darwin" and self.params['noconsole']:
+                        src_out = self.temp_out_dir / f"{app_name}.app"
                     else:
-                        src_out = self.temp_out_dir / f"{app_name}.dist"
+                        src_out = self.temp_out_dir / f"{app_name}{ext}"
+                else:
+                    if sys.platform == "darwin" and self.params['noconsole']:
+                        src_out = self.temp_out_dir / f"{app_name}.app"
+                    else:
+                        dist_dirs = list(self.temp_out_dir.glob("*.dist"))
+                        if dist_dirs:
+                            src_out = dist_dirs[0]
+                        else:
+                            src_out = self.temp_out_dir / f"{app_name}.dist"
 
             out_mode = int(self.params.get('out_mode', 0))
             custom_out = self.params.get('custom_out_dir', '').strip()
@@ -1961,47 +2058,47 @@ class PackingThread(QThread):
                 final_out_dir = script_dir
 
             final_out = final_out_dir / src_out.name
-            if success and src_out.exists():
+            if success and src_out and src_out.exists():
                 try:
                     if final_out.exists():
-                        if final_out.is_dir(): shutil.rmtree(final_out, ignore_errors=True)
+                        if final_out.is_dir(): shutil.rmtree(final_out, onerror=remove_readonly)
                         else: final_out.unlink(missing_ok=True)
                     shutil.move(src_out.as_posix(), final_out.as_posix())
-                except Exception as e: self.progress.emit(f"[Error] 产物转移异常，文件可能被系统防御机制拦截或占用: {e}")
-            else: self.progress.emit(f"[Error] 构建目标缺失，未能在沙盒中定位到有效产物: {src_out}")
+                except Exception as e: self.progress.emit(f"[ERROR] 产物移交失败，文件可能被系统进程占用或权限不足: {e}")
+            else: self.progress.emit(f"[ERROR] 未在临时构建目录中定位到有效可执行产物: {src_out}")
 
             if success and final_out.exists(): 
-                self.progress.emit("[Pack] 正在校验最终程序完整性...")
+                self.progress.emit("[INFO] 正在校验输出文件并生成最终产物...")
                 if self.params.get('auto_save_log') and self.all_raw_logs:
                     try:
                         log_file = final_out_dir / f"qpypack_build_{app_name}.log"
                         log_file.write_text('\n'.join(self.all_raw_logs), encoding='utf-8')
-                        self.progress.emit(f"[Log] 打包日志已被导出至: {log_file.as_posix()}")
+                        self.progress.emit(f"[INFO] 编译日志已导出至: {log_file.as_posix()}")
                     except: pass
-                self.finished.emit(True, f"[Success] 构建结束！路径: {final_out.resolve().as_posix()}")
+                self.finished.emit(True, f"[SUCCESS] 编译已完成，输出路径: {final_out.resolve().as_posix()}")
             else: 
                 err_info = self.detect_python_syntax_errors()
                 if err_info["is_code_error"]:
                     msg = (
-                        f"[❌ 语法错误] 检测到您的 Python 源代码存在语法/缩进问题！\n"
-                        f"  - 错误文件: {err_info['file']}\n"
-                        f"  - 错误类型: {err_info['type']}\n"
-                        f"  - 错误位置: 第 {err_info['line']} 行附近\n"
+                        f"[❌ 语法异常] 源程序存在语法不合规或缩进异常错误！\n"
+                        f"  - 错误源文件: {err_info['file']}\n"
+                        f"  - 异常类型: {err_info['type']}\n"
+                        f"  - 异常位置: 第 {err_info['line']} 行附近\n"
                         f"  - 错误描述: {err_info['desc']}\n"
-                        f"\n提示: 此问题为源码本身不合规导致。请先修复脚本错误并能正常执行，然后再尝试打包。"
+                        f"\n提示: 此问题为源码逻辑本身错误。请在确保本地运行无误后，再次执行编译流程。"
                     )
                 else:
                     if self.params.get('concise_log', True) and self.all_raw_logs:
-                        self.progress.emit("\n" + "!"*10 + " [诊断提示: 以下为全局完整运行日志汇总] " + "!"*10)
+                        self.progress.emit("\n" + "!"*10 + " [诊断回溯: 以下为最后段编译运行日志汇总] " + "!"*10)
                         self.progress.emit('\n'.join(self.all_raw_logs[-100:])) 
-                    msg = "[Failed] 构建任务异常中断，请参阅上方运行日志以排查错误。"
+                    msg = "[FAILED] 编译异常中断，请参阅上方日志以定位构建异常。"
                 self.finished.emit(False, msg)
                 
         except Exception as e:
             if self.params.get('concise_log', True) and self.all_raw_logs:
                 self.progress.emit("\n" + "!"*10 + " [系统诊断: 崩溃前全局原始日志] " + "!"*10)
                 self.progress.emit('\n'.join(self.all_raw_logs[-100:]))
-            self.finished.emit(False, f"[System Error] 发生未处理的严重错误: {str(e)}")
+            self.finished.emit(False, f"[ERROR] 构建流程发生致命异常: {str(e)}")
         finally:
             if is_temp and build_script_path and build_script_path.exists():
                 try: build_script_path.unlink()
@@ -2016,7 +2113,7 @@ class PackingThread(QThread):
                 except: pass
                 
             if self.params['clean_all']:
-                self.progress.emit("[Clean] 正在释放工作区，抹除虚拟环境与沙盒临时数据...")
+                self.progress.emit("[INFO] 正在释放工作空间，删除虚拟环境及临时编译缓存...")
                 for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir]:
                     if p and p.exists(): robust_rmtree(p)
                     
@@ -2026,6 +2123,7 @@ class PackingThread(QThread):
                 for p in ["build", "__pycache__", f"{app_name}.build", f"{app_name}.dist", f"{app_name}.onefile-build"]:
                     robust_rmtree(cwd / p)
                 Path(cwd / f"{app_name}.spec").unlink(missing_ok=True)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -2119,7 +2217,7 @@ class MainWindow(QMainWindow):
         self.btn_right = AnimatedButton("")
         self.btn_right.setFixedSize(44, 44)
         self.btn_right.setIcon(get_svg_icon('settings', "#5F6368"))
-        self.btn_right.setToolTip("构建配置")
+        self.btn_right.setToolTip("配置构建参数")
         self.btn_right.setStyleSheet(self.icon_btn_style)
         self.btn_right.clicked.connect(self.show_settings)
         btn_layout.addWidget(self.btn_right)
@@ -2132,7 +2230,7 @@ class MainWindow(QMainWindow):
         self.stacked_layout.setCurrentWidget(self.main_panel)
         
         self.statusBar = self.statusBar()
-        self.status_label = QLabel(" 状态: 就绪")
+        self.status_label = QLabel(" 状态: 准备就绪")
         self.statusBar.addWidget(self.status_label)
 
         self.update_ui_state("idle")
@@ -2226,7 +2324,7 @@ class MainWindow(QMainWindow):
         self.script_path = path
         
         self.drop_area.set_loading(Path(path).name)
-        self.status_label.setText(f" 状态: 正在解析 {Path(path).name} ...")
+        self.status_label.setText(f" 状态: 正在解析源文件 {Path(path).name} ...")
         self.btn_main.setEnabled(False)
         
         if self.analysis_thread and self.analysis_thread.isRunning():
@@ -2260,32 +2358,42 @@ class MainWindow(QMainWindow):
         auto_icon = None
         
         if self.settings_panel.auto_icon_check.isChecked():
-            for name in ["ICON.ICO", "icon.ico", "logo.ico", "icon.svg", "logo.svg"]:
-                trial = script_dir / name
-                if trial.exists():
-                    auto_icon = trial
-                    curr = self.settings_panel.icon_edit.text()
-                    if not curr or not Path(curr).exists():
-                        self.settings_panel.icon_edit.setText(trial.resolve().as_posix())
-                    break
+            preferred_extensions = [".ico", ".icns", ".png", ".svg"]
+            if sys.platform == "darwin":
+                preferred_extensions = [".icns", ".png", ".svg", ".ico"]
+            elif sys.platform == "linux":
+                preferred_extensions = [".png", ".svg", ".ico", ".icns"]
+                
+            found = False
+            for ext in preferred_extensions:
+                for name in ["icon", "logo", "ICON", "LOGO"]:
+                    trial = script_dir / f"{name}{ext}"
+                    if trial.exists():
+                        auto_icon = trial
+                        curr = self.settings_panel.icon_edit.text()
+                        if not curr or not Path(curr).exists():
+                            self.settings_panel.icon_edit.setText(trial.resolve().as_posix())
+                        found = True
+                        break
+                if found: break
                 
         self.drop_area.set_success(Path(path).name, custom_icon_path=auto_icon)
         
-        status_suffix = "，已配置为【保留控制台】模式" if not has_gui else "，已配置为GUI模式"
-        self.status_label.setText(f" 状态: 已锁定源文件 {Path(path).name}{status_suffix}")
+        status_suffix = "，已配置为控制台模式" if not has_gui else "，已配置为无控制台模式"
+        self.status_label.setText(f" 状态: 已载入源文件 {Path(path).name}{status_suffix}")
         
         if not self.log_container.isVisible(): self.toggle_log()
         self.log.clear()
-        self.append_log(f"[System] 源文件绑定成功: {path}")
+        self.append_log(f"[INFO] 载入应用入口文件成功: {path}")
         if not has_gui:
-            self.append_log("[System] 检测到该脚本不包含常见 GUI 图形框架。已为您保留控制台。")
+            self.append_log("[INFO] 静态扫描分析：未检测到图形框架。运行属性已自动配置为保留控制台。")
         self.btn_main.setEnabled(True)
         self.update_ui_state("ready")
 
     def cancel_pack(self):
         if self.thread and self.thread.isRunning():
             self.thread.cancel()
-            self.status_label.setText(" 状态: 任务已被用户主动终止")
+            self.status_label.setText(" 状态: 构建已终止")
             self.drop_area.stop_build_anim()
             self.update_ui_state("ready")
 
@@ -2318,32 +2426,17 @@ class MainWindow(QMainWindow):
         temp_icon_file = None
         if icon_path_str and Path(icon_path_str).exists():
             icon_path = Path(icon_path_str)
-            if icon_path.suffix.lower() == '.svg':
-                try:
-                    renderer = QSvgRenderer()
-                    if renderer.load(icon_path.as_posix()):
-                        pixmap = QPixmap(256, 256)
-                        pixmap.fill(Qt.GlobalColor.transparent)
-                        painter = QPainter(pixmap)
-                        renderer.render(painter)
-                        painter.end()
-                        
-                        temp_ico = Path(tempfile.gettempdir()) / f"qpypack_temp_icon_{int(time.time())}.ico"
-                        if pixmap.save(temp_ico.as_posix(), "ICO"):
-                            icon_path_str = temp_ico.as_posix()
-                            temp_icon_file = temp_ico.as_posix()
-                        else:
-                            temp_png = Path(tempfile.gettempdir()) / f"qpypack_temp_icon_{int(time.time())}.png"
-                            if pixmap.save(temp_png.as_posix(), "PNG"):
-                                if os.name == 'nt' and engine == "PyInstaller":
-                                    self.append_log("[Warn] 格式转换组件失效，Windows环境下PyInstaller不支持PNG格式图标，已优雅降级为无图标模式打包以确保流程畅通。")
-                                    icon_path_str = None
-                                else:
-                                    icon_path_str = temp_png.as_posix()
-                                    temp_icon_file = temp_png.as_posix()
-                except Exception as e:
-                    self.append_log(f"[Warn] SVG 图标解析异常: {e}")
-                    icon_path_str = None
+            needed_ext = "ico" if os.name == "nt" else ("icns" if sys.platform == "darwin" else "png")
+            
+            if icon_path.suffix.lower() != f".{needed_ext}":
+                temp_ico_name = f"qpypack_temp_icon_{int(time.time())}.{needed_ext}"
+                temp_ico = Path(tempfile.gettempdir()) / temp_ico_name
+                
+                if convert_image_to_format(icon_path.as_posix(), temp_ico.as_posix(), needed_ext):
+                    icon_path_str = temp_ico.as_posix()
+                    temp_icon_file = temp_ico.as_posix()
+                else:
+                    self.append_log(f"[WARN] 图像处理模块异常：目标图标转换失败，尝试使用源格式直接转交编译引擎。")
 
         add_data_items = []
         for i in range(sp.add_data_list.count()):
@@ -2387,7 +2480,7 @@ class MainWindow(QMainWindow):
         self.thread.finished.connect(self.on_pack_finished)
         self.thread.start()
         
-        self.status_label.setText(f" 状态: 正在使用 {engine} 执行构建...")
+        self.status_label.setText(f" 状态: 正在通过 {engine} 构建...")
         self.update_ui_state("building")
         self.drop_area.start_build_anim()
 
