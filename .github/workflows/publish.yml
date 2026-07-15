@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Publish
 
 on:
   push:
@@ -18,82 +18,97 @@ env:
   FILE_DESCRIPTION: Automation Python Packaging and Freezing Suite
 
 jobs:
-  build-pypi-packages:
-    name: Build PyPI Wheel and Sdist
+  publish-pypi:
+    name: Publish to PyPI and Create Release
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  
+      id-token: write   
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
+    - name: Checkout source code
+      uses: actions/checkout@v4
+      with:
+        ref: main 
+        fetch-depth: 0 
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Synchronize Version
-        shell: python
-        run: |
-          import re
-          import os
-          
-          tag = "${{ github.ref_name }}"
-          version = tag[1:] if tag.lower().startswith('v') else tag 
-          print(f"Target version to sync: {version}") 
-          
-          toml_path = 'pyproject.toml' 
-          if os.path.exists(toml_path): 
-              with open(toml_path, 'r', encoding='utf-8') as f: 
-                  content = f.read() 
-              new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1) 
-              with open(toml_path, 'w', encoding='utf-8') as f: 
-                  f.write(new_content) 
-              print("Successfully synchronized pyproject.toml.") 
-          
-          main_path = os.environ['MAIN_SCRIPT'] 
-          if os.path.exists(main_path): 
-              with open(main_path, 'r', encoding='utf-8') as f: 
-                  content = f.read() 
-              new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1) 
-              with open(main_path, 'w', encoding='utf-8') as f: 
-                  f.write(new_content) 
-              print(f"Successfully synchronized {main_path}.") 
+    - name: Sync version from Tag to files
+      shell: python
+      run: |
+        import re
+        import os
+        
+        tag = "${{ github.ref_name }}"
+        version = tag[1:] if tag.lower().startswith('v') else tag
+        print(f"Target version to sync: {version}")
+        
+        toml_path = 'pyproject.toml'
+        if not os.path.exists(toml_path):
+            raise FileNotFoundError(f"Missing critical configuration: {toml_path}")
+            
+        with open(toml_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+        with open(toml_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        print("Successfully synchronized pyproject.toml.")
+        
+        main_path = os.environ['MAIN_SCRIPT']
+        if not os.path.exists(main_path):
+            raise FileNotFoundError(f"Missing critical entrypoint: {main_path}")
+            
+        with open(main_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+        with open(main_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        print(f"Successfully synchronized {main_path}.")
 
-      - name: Commit and Push Version Changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          if [ -f "pyproject.toml" ]; then
-            git add pyproject.toml "${{ env.MAIN_SCRIPT }}"
-          else
-            git add "${{ env.MAIN_SCRIPT }}"
-          fi
-          
-          git commit -m "chore: bump version to ${{ github.ref_name }} [skip ci]" || echo "No version changes to commit"
-          git push origin HEAD:main
+    - name: Commit and push version updates back to repository
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add pyproject.toml "${{ env.MAIN_SCRIPT }}"
+        git commit -m "chore: bump version to ${{ github.ref_name }} [skip ci]" || echo "No version changes to commit"
+        git push origin HEAD:main
 
-      - name: Build Packages
-        if: env.BUILD_PIP_PACKAGE == 'true'
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build
+    - name: Install build dependencies
+      if: env.BUILD_PIP_PACKAGE == 'true'
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install build
 
-      - name: Upload PyPI Artifacts to Job
-        if: env.BUILD_PIP_PACKAGE == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pypi-packages
-          path: dist/*
+    - name: Build sdist and wheel
+      if: env.BUILD_PIP_PACKAGE == 'true'
+      run: python -m build
+
+    - name: Create GitHub Release
+      if: env.BUILD_PIP_PACKAGE == 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          dist/*.whl
+          dist/*.tar.gz
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Publish to PyPI
+      if: env.BUILD_PIP_PACKAGE == 'true' && env.PUBLISH_TO_PYPI == 'true'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true
 
   build-binaries:
     name: Build Standalone for ${{ matrix.os }} (${{ matrix.arch }})
-    needs: build-pypi-packages
+    needs: publish-pypi 
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write 
     strategy:
       fail-fast: false
       matrix:
@@ -103,7 +118,7 @@ jobs:
             artifact_name: QPyPack.exe
             package_extension: zip
           - os: macos-14
-            arch: arm64
+            arch: arm64        
             artifact_name: QPyPack.app
             package_extension: zip
           - os: ubuntu-latest
@@ -112,82 +127,118 @@ jobs:
             package_extension: tar.gz
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: main
+    - name: Checkout source code
+      uses: actions/checkout@v4
+      with:
+        ref: main 
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install PySide6 Pillow pyinstaller
+    - name: Extract version
+      shell: bash
+      run: |
+        TAG_NAME=${{ github.ref_name }}
+        VERSION=${TAG_NAME#v}
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build with PyInstaller
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
-          elif [ "${{ runner.os }}" = "macOS" ]; then
-            pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
-          else
-            pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} ${{ env.MAIN_SCRIPT }}
-          fi
+    - name: Generate Windows Version Info File
+      if: runner.os == 'Windows'
+      shell: python
+      run: |
+        import os
+        import re
+        
+        version = os.environ['VERSION']
+        parts = re.findall(r'\d+', version)
+        v_num = (parts + ['0', '0', '0', '0'])[:4]
+        v_tuple = ",".join(v_num)
+        print(f"Windows FileVersion tuple parsed: ({v_tuple})")
+        
+        info_content = f"""
+        VSVersionInfo(
+          ffi=FixedFileInfo(
+            filevers=({v_tuple}),
+            prodvers=({v_tuple}),
+            mask=0x3f,
+            flags=0x0,
+            OS=0x40004,
+            fileType=0x1,
+            subtype=0x0,
+            date=(0,0)
+          ),
+          kids=[
+            StringFileInfo(
+              [
+                StringTable(
+                  '040904B0',
+                  [
+                    StringStruct('CompanyName', '${{ env.COMPANY_NAME }}'),
+                    StringStruct('FileDescription', '${{ env.FILE_DESCRIPTION }}'),
+                    StringStruct('FileVersion', '{version}'),
+                    StringStruct('InternalName', '${{ env.EXE_NAME_PREFIX }}'),
+                    StringStruct('LegalCopyright', '${{ env.LEGAL_COPYRIGHT }}'),
+                    StringStruct('OriginalFilename', '${{ env.EXE_NAME_PREFIX }}.exe'),
+                    StringStruct('ProductName', '${{ env.PRODUCT_NAME }}'),
+                    StringStruct('ProductVersion', '{version}')
+                  ]
+                )
+              ]
+            ),
+            VarFileInfo([VarStruct('Translation', [1033, 1200])])
+          ]
+        )
+        """
+        with open('file_version_info.txt', 'w', encoding='utf-8') as f:
+            f.write(info_content.strip())
 
-      - name: Package Artifact (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $VERSION = "${{ github.ref_name }}".TrimStart('v')
-          $OUT_NAME = "${{ env.EXE_NAME_PREFIX }}-$VERSION-windows-${{ matrix.arch }}"
-          Compress-Archive -Path "dist/${{ matrix.artifact_name }}" -DestinationPath "$OUT_NAME.zip" -Force
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install PySide6 Pillow pyinstaller
 
-      - name: Package Artifact (macOS / Linux)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          OS_NAME=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
-          OUT_NAME="${{ env.EXE_NAME_PREFIX }}-${VERSION}-${OS_NAME}-${{ matrix.arch }}"
-          cd dist
-          if [ "${{ matrix.package_extension }}" = "zip" ]; then
-            zip -r "../${OUT_NAME}.zip" "${{ matrix.artifact_name }}"
-          else
-            tar -czf "../${OUT_NAME}.tar.gz" "${{ matrix.artifact_name }}"
-          fi
+    - name: Build with PyInstaller (Windows with Version Info)
+      if: runner.os == 'Windows'
+      run: |
+        pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --name="${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}" ${{ env.MAIN_SCRIPT }}
 
-      - name: Upload Artifacts to Job
-        uses: actions/upload-artifact@v4
-        with:
-          name: binary-${{ matrix.os }}-${{ matrix.arch }}
-          path: ${{ env.EXE_NAME_PREFIX }}-*.*
+    - name: Build with PyInstaller (macOS / Linux)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" = "macOS" ]; then
+          pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
+        else
+          pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} ${{ env.MAIN_SCRIPT }}
+        fi
 
-  create-release:
-    name: Create GitHub Release
-    needs: [build-binaries, build-pypi-packages]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
+    - name: Package Artifact (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $OUT_NAME = "${{ env.EXE_NAME_PREFIX }}-${{ env.VERSION }}-windows-${{ matrix.arch }}"
+        Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.exe" -DestinationPath "$OUT_NAME.zip" -Force
 
-      - name: Display Downloaded Files
-        run: ls -R artifacts
+    - name: Package Artifact (macOS / Linux)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        VERSION=${{ env.VERSION }}
+        OS_NAME=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
+        OUT_NAME="${{ env.EXE_NAME_PREFIX }}-${VERSION}-${OS_NAME}-${{ matrix.arch }}"
+        cd dist
+        if [ "${{ matrix.package_extension }}" = "zip" ]; then
+          zip -r "../${OUT_NAME}.zip" "${{ matrix.artifact_name }}"
+        else
+          tar -czf "../${OUT_NAME}.tar.gz" "${{ matrix.artifact_name }}"
+        fi
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*
-          fail_on_unmatched_files: true
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Append Standalone Binary to GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ${{ env.EXE_NAME_PREFIX }}-*.*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
