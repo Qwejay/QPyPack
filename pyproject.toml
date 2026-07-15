@@ -19,7 +19,7 @@
 
           [project]
           name = "qpypack"
-          version = "{version}"
+          version = "2.5.4"
           description = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包配置工具"
           readme = "README.md"
           requires-python = ">=3.8"
