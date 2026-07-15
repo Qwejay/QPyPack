@@ -1,62 +1,47 @@
-- name: Update Version Files
-        shell: python
-        env:
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          import os
-          import sys
-          import re
-          
-          tag = os.environ["TAG_NAME"]
-          version = tag.lstrip('v') # 剔除 tag 开头的 v 字符
-          print(f"当前触发的 Tag 为: {tag}，正在执行 pyproject.toml 自愈重构与版本号同步: {version}")
-          
-          # 1. 强行自愈并安全重写 pyproject.toml（彻底终结编码与冒号语法带来的任何报错）
-          toml_path = "pyproject.toml"
-          toml_content = f"""[build-system]
-          requires = ["setuptools>=61.0", "wheel"]
-          build-backend = "setuptools.build_meta"
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
-          [project]
-          name = "qpypack"
-          version = "{version}"
-          description = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包配置工具"
-          readme = "README.md"
-          requires-python = ">=3.8"
-          classifiers = [
-              "Programming Language :: Python :: 3",
-              "License :: OSI Approved :: MIT License",
-              "Operating System :: OS Independent",
-          ]
-          dependencies = [
-              "PySide6>=6.0.0",
-              "Pillow>=9.0.0"
-          ]
-          """
-          
-          # 整理多行字符串的缩进，确保输出的 TOML 文件绝对规范
-          cleaned_toml = "\n".join([line.strip() for line in toml_content.strip().split("\n")])
-          
-          # 写入标准 UTF-8 编码的文件
-          open(toml_path, "w", encoding="utf-8").write(cleaned_toml)
-          print("-> 已成功在运行器中重构并覆写最标准的 pyproject.toml 配置文件。")
-          
-          # 2. 自动检测并补齐 README.md，防止 build 工具因缺失 readme 文件而引发构建异常
-          if not os.path.exists("README.md"):
-              open("README.md", "w", encoding="utf-8").write("# QPyPack\n基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包配置工具\n")
-              print("-> 已自动创建 README.md 占位文件。")
-          
-          # 3. 自动正则匹配并更新 qpypack/main.py 里的 __version__
-          main_path = "qpypack/main.py"
-          if os.path.exists(main_path):
-              content = open(main_path, "r", encoding="utf-8").read()
-              content = re.sub(
-                  r'(__version__\s*=\s*")([^"]+)(")',
-                  rf'\g<1>{version}\3',
-                  content,
-                  count=1
-              )
-              open(main_path, "w", encoding="utf-8").write(content)
-              print("-> 已成功同步 qpypack/main.py 里的内部版本号。")
-          else:
-              print(f"警告: 未找到主控源文件 '{main_path}'")
+[project]
+name = "qpypack"
+version = "2.5.0"
+description = "A cross-platform GUI packaging and compilation suite for PyInstaller and Nuitka."
+readme = "README.md"
+authors = [
+    { name = "QwejayHuang" }
+]
+license = { text = "GPL-3.0" }
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: User Interfaces",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "PySide6>=6.0.0",
+    "Pillow>=9.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/qwejay/QPyPack"
+"Bug Tracker" = "https://github.com/qwejay/QPyPack/issues"
+"Source Code" = "https://github.com/qwejay/QPyPack"
+
+[project.scripts]
+qpypack = "qpypack.main:main"
+
+[tool.setuptools]
+packages = ["qpypack"]
+
+[tool.setuptools.package-data]
+qpypack = ["icon.ico"]
