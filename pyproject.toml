@@ -56,26 +56,28 @@ jobs:
             pyinstaller --onefile --noconsole --name=QPyPack qpypack/main.py
           fi
 
-      - name: Package Artifact
+      # Windows 平台的标准打包格式 (使用 PowerShell Core)
+      - name: Package Artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.ref_name }}".TrimStart('v')
+          $OUT_NAME = "QPyPack-$VERSION-windows-${{ matrix.arch }}"
+          Compress-Archive -Path "dist/${{ matrix.artifact_name }}" -DestinationPath "$OUT_NAME.zip" -Force
+
+      # macOS / Linux 平台的标准打包格式 (使用 Bash)
+      - name: Package Artifact (macOS / Linux)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${GITHUB_REF_NAME#v}
           OS_NAME=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
-          ARCH_NAME="${{ matrix.arch }}"
-          
-          OUT_NAME="QPyPack-${VERSION}-${OS_NAME}-${ARCH_NAME}"
-          
-          echo "Packaging into ${OUT_NAME}.${{ matrix.package_extension }}..."
-          
+          OUT_NAME="QPyPack-${VERSION}-${OS_NAME}-${{ matrix.arch }}"
           cd dist
           if [ "${{ matrix.package_extension }}" = "zip" ]; then
-            if [ "${{ runner.os }}" = "Windows" ]; then
-              powershell Compress-Archive -Path "QPyPack.exe" -DestinationPath "../${OUT_NAME}.zip" -Force
-            else
-              zip -r "../${OUT_NAME}.zip" "QPyPack.app"
-            fi
+            zip -r "../${OUT_NAME}.zip" "${{ matrix.artifact_name }}"
           else
-            tar -czf "../${OUT_NAME}.tar.gz" "QPyPack"
+            tar -czf "../${OUT_NAME}.tar.gz" "${{ matrix.artifact_name }}"
           fi
 
       - name: Upload Artifacts to Job
