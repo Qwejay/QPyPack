@@ -5,7 +5,6 @@ on:
     tags:
       - 'v*'
 
-# 全局环境变量配置（完整保留了您的自定义项目属性）
 env:
   PROJECT_NAME: qpypack
   MAIN_SCRIPT: qpypack/main.py
@@ -19,17 +18,16 @@ env:
   FILE_DESCRIPTION: Automation Python Packaging and Freezing Suite
 
 jobs:
-  # =================== 步骤 1：安全切回 main 分支，自动同步并提交版本号，构建 PyPI 包 ===================
   build-pypi-packages:
     name: Build PyPI Wheel and Sdist
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 必须开放写权限，以便将更新后的版本号推回主分支
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: main # 显式切换到 main 分支，防止产生“游离指针”导致 git push 失败
+          ref: main
           fetch-depth: 0
 
       - name: Set up Python
@@ -44,11 +42,9 @@ jobs:
           import os
           
           tag = "${{ github.ref_name }}"
-          # 清洗版本号，提取纯版本数字（例如将 v2.5.4 转换为 2.5.4）
           version = tag[1:] if tag.lower().startswith('v') else tag 
           print(f"Target version to sync: {version}") 
           
-          # 1. 自动同步 pyproject.toml 里的版本字段
           toml_path = 'pyproject.toml' 
           if os.path.exists(toml_path): 
               with open(toml_path, 'r', encoding='utf-8') as f: 
@@ -58,7 +54,6 @@ jobs:
                   f.write(new_content) 
               print("Successfully synchronized pyproject.toml.") 
           
-          # 2. 自动同步主控脚本里的 __version__
           main_path = os.environ['MAIN_SCRIPT'] 
           if os.path.exists(main_path): 
               with open(main_path, 'r', encoding='utf-8') as f: 
@@ -79,7 +74,6 @@ jobs:
             git add "${{ env.MAIN_SCRIPT }}"
           fi
           
-          # 使用 [skip ci] 避免本次推送在 GitHub 上触发冗余的多余 Action 构建
           git commit -m "chore: bump version to ${{ github.ref_name }} [skip ci]" || echo "No version changes to commit"
           git push origin HEAD:main
 
@@ -96,10 +90,9 @@ jobs:
           name: pypi-packages
           path: dist/*
 
-  # =================== 步骤 2：编译多平台独立可执行文件 (EXE / APP) ===================
   build-binaries:
     name: Build Standalone for ${{ matrix.os }} (${{ matrix.arch }})
-    needs: build-pypi-packages # 必须等待版本号更新完成并顺利提交后再拉取编译
+    needs: build-pypi-packages
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -110,7 +103,7 @@ jobs:
             artifact_name: QPyPack.exe
             package_extension: zip
           - os: macos-14
-            arch: universal2 # 使用高性能的 ARM64 运行器编译通吃 Intel 与 Apple Silicon 的双架构包
+            arch: arm64
             artifact_name: QPyPack.app
             package_extension: zip
           - os: ubuntu-latest
@@ -122,7 +115,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: main # 拉取最新的 main 分支，保证打包的可执行文件拥有同步后的版本号
+          ref: main
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -141,13 +134,11 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
           elif [ "${{ runner.os }}" = "macOS" ]; then
-            # 使用 --target-architecture=universal2 替代拖沓的 macos-13 虚拟机，提速 5-10 倍
-            pyinstaller --onefile --noconsole --target-architecture=universal2 --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
+            pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
           else
             pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} ${{ env.MAIN_SCRIPT }}
           fi
 
-      # Windows 平台的标准打包格式 (使用 PowerShell Core)
       - name: Package Artifact (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -156,7 +147,6 @@ jobs:
           $OUT_NAME = "${{ env.EXE_NAME_PREFIX }}-$VERSION-windows-${{ matrix.arch }}"
           Compress-Archive -Path "dist/${{ matrix.artifact_name }}" -DestinationPath "$OUT_NAME.zip" -Force
 
-      # macOS / Linux 平台的标准打包格式 (使用 Bash)
       - name: Package Artifact (macOS / Linux)
         if: runner.os != 'Windows'
         shell: bash
@@ -177,7 +167,6 @@ jobs:
           name: binary-${{ matrix.os }}-${{ matrix.arch }}
           path: ${{ env.EXE_NAME_PREFIX }}-*.*
 
-  # =================== 步骤 3：汇聚所有打包产物，创建 GitHub Release 并上载附件 ===================
   create-release:
     name: Create GitHub Release
     needs: [build-binaries, build-pypi-packages]
