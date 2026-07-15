@@ -109,12 +109,8 @@ jobs:
             arch: x64
             artifact_name: QPyPack.exe
             package_extension: zip
-          - os: macos-13
-            arch: x64
-            artifact_name: QPyPack.app
-            package_extension: zip
           - os: macos-14
-            arch: arm64
+            arch: universal2 # 使用高性能的 ARM64 运行器编译通吃 Intel 与 Apple Silicon 的双架构包
             artifact_name: QPyPack.app
             package_extension: zip
           - os: ubuntu-latest
@@ -145,7 +141,8 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
           elif [ "${{ runner.os }}" = "macOS" ]; then
-            pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
+            # 使用 --target-architecture=universal2 替代拖沓的 macos-13 虚拟机，提速 5-10 倍
+            pyinstaller --onefile --noconsole --target-architecture=universal2 --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
           else
             pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} ${{ env.MAIN_SCRIPT }}
           fi
