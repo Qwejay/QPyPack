@@ -1,311 +1,207 @@
-name: Build and Publish
+name: Build and Release
 
 on:
   push:
     tags:
       - 'v*'
 
-# =================================================================
-# ⚙️ 项目参数配置区
-# =================================================================
+# 全局环境变量配置（完整保留了您的自定义项目属性）
 env:
-  PROJECT_NAME: "qpypack"               # 项目包名
-  MAIN_SCRIPT: "qpypack/main.py"        # Python 入口文件
-  ICON_PATH: "qpypack/icon.ico"         # 默认应用程序图标 (Windows ICO)
-  EXE_NAME_PREFIX: "QPyPack"            # 应用程序名前缀
-  
-  # -------------------------------------------------------------
-  # 🚀 功能开关
-  # -------------------------------------------------------------
-  BUILD_PIP_PACKAGE: "true"             # 是否构建 pip 安装包
-  PUBLISH_TO_PYPI: "true"               # 是否发布到 PyPI 官方源
-  # -------------------------------------------------------------
-
-  # 软件元数据 (Windows 平台适用)
-  COMPANY_NAME: "QwejayHuang"
-  PRODUCT_NAME: "QPyPack"
-  LEGAL_COPYRIGHT: "Copyright (C) QwejayHuang"
-  FILE_DESCRIPTION: "Automation Python Packaging and Freezing Suite"
-# =================================================================
+  PROJECT_NAME: qpypack
+  MAIN_SCRIPT: qpypack/main.py
+  ICON_PATH: qpypack/icon.ico
+  EXE_NAME_PREFIX: QPyPack
+  BUILD_PIP_PACKAGE: true
+  PUBLISH_TO_PYPI: true
+  COMPANY_NAME: QwejayHuang
+  PRODUCT_NAME: QPyPack
+  LEGAL_COPYRIGHT: Copyright (C) QwejayHuang
+  FILE_DESCRIPTION: Automation Python Packaging and Freezing Suite
 
 jobs:
-  publish-pypi:
-    name: Publish to PyPI and Create Release
+  # =================== 步骤 1：安全切回 main 分支，自动同步并提交版本号，构建 PyPI 包 ===================
+  build-pypi-packages:
+    name: Build PyPI Wheel and Sdist
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      id-token: write
+      contents: write # 必须开放写权限，以便将更新后的版本号推回主分支
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: main # 显式切换到 main 分支，防止产生“游离指针”导致 git push 失败
+          fetch-depth: 0
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Sync version from Tag to files
-      shell: python
-      run: |
-        import re
-        import os
-        
-        tag = "${{ github.ref_name }}"
-        version = tag[1:] if tag.lower().startswith('v') else tag
-        print(f"Target version to sync: {version}")
-        
-        toml_path = 'pyproject.toml'
-        if os.path.exists(toml_path):
-            with open(toml_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-            with open(toml_path, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-            print("Successfully synchronized pyproject.toml.")
-        
-        main_path = os.environ['MAIN_SCRIPT']
-        if os.path.exists(main_path):
-            with open(main_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-            with open(main_path, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-            print(f"Successfully synchronized {main_path}.")
+      - name: Synchronize Version
+        shell: python
+        run: |
+          import re
+          import os
+          
+          tag = "${{ github.ref_name }}"
+          # 清洗版本号，提取纯版本数字（例如将 v2.5.4 转换为 2.5.4）
+          version = tag[1:] if tag.lower().startswith('v') else tag 
+          print(f"Target version to sync: {version}") 
+          
+          # 1. 自动同步 pyproject.toml 里的版本字段
+          toml_path = 'pyproject.toml' 
+          if os.path.exists(toml_path): 
+              with open(toml_path, 'r', encoding='utf-8') as f: 
+                  content = f.read() 
+              new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1) 
+              with open(toml_path, 'w', encoding='utf-8') as f: 
+                  f.write(new_content) 
+              print("Successfully synchronized pyproject.toml.") 
+          
+          # 2. 自动同步主控脚本里的 __version__
+          main_path = os.environ['MAIN_SCRIPT'] 
+          if os.path.exists(main_path): 
+              with open(main_path, 'r', encoding='utf-8') as f: 
+                  content = f.read() 
+              new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1) 
+              with open(main_path, 'w', encoding='utf-8') as f: 
+                  f.write(new_content) 
+              print(f"Successfully synchronized {main_path}.") 
 
-    - name: Commit and push version updates back to repository
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        
-        if [ -f "pyproject.toml" ]; then
-          git add pyproject.toml "${{ env.MAIN_SCRIPT }}"
-        else
-          git add "${{ env.MAIN_SCRIPT }}"
-        fi
-        
-        git commit -m "chore: bump version to ${{ github.ref_name }} [skip ci]" || echo "No version changes to commit"
-        git push origin HEAD:main
+      - name: Commit and Push Version Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if [ -f "pyproject.toml" ]; then
+            git add pyproject.toml "${{ env.MAIN_SCRIPT }}"
+          else
+            git add "${{ env.MAIN_SCRIPT }}"
+          fi
+          
+          # 使用 [skip ci] 避免本次推送在 GitHub 上触发冗余的多余 Action 构建
+          git commit -m "chore: bump version to ${{ github.ref_name }} [skip ci]" || echo "No version changes to commit"
+          git push origin HEAD:main
 
-    - name: Install build dependencies
-      if: env.BUILD_PIP_PACKAGE == 'true'
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install build
+      - name: Build Packages
+        if: env.BUILD_PIP_PACKAGE == 'true'
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
 
-    - name: Build sdist and wheel
-      if: env.BUILD_PIP_PACKAGE == 'true'
-      run: python -m build
+      - name: Upload PyPI Artifacts to Job
+        if: env.BUILD_PIP_PACKAGE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pypi-packages
+          path: dist/*
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          dist/*.whl
-          dist/*.tar.gz
-        fail_on_unmatched_files: false
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Publish to PyPI
-      if: env.PUBLISH_TO_PYPI == 'true' && env.BUILD_PIP_PACKAGE == 'true'
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        skip-existing: true
-      continue-on-error: true
-
-  build-executables:
-    name: Build Native Executables
+  # =================== 步骤 2：编译多平台独立可执行文件 (EXE / APP) ===================
+  build-binaries:
+    name: Build Standalone for ${{ matrix.os }} (${{ matrix.arch }})
+    needs: build-pypi-packages # 必须等待版本号更新完成并顺利提交后再拉取编译
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
-    needs: publish-pypi
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            platform: windows
-            archive_ext: .zip
-          - os: macos-latest
-            platform: macos
-            archive_ext: .zip
+            arch: x64
+            artifact_name: QPyPack.exe
+            package_extension: zip
+          - os: macos-13
+            arch: x64
+            artifact_name: QPyPack.app
+            package_extension: zip
+          - os: macos-14
+            arch: arm64
+            artifact_name: QPyPack.app
+            package_extension: zip
           - os: ubuntu-latest
-            platform: linux
-            archive_ext: .tar.gz
+            arch: x64
+            artifact_name: QPyPack
+            package_extension: tar.gz
+
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: main # 拉取最新的 main 分支，保证打包的可执行文件拥有同步后的版本号
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
 
-    - name: Extract version
-      shell: bash
-      run: |
-        TAG_NAME=${{ github.ref_name }}
-        VERSION=${TAG_NAME#v}
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PySide6 Pillow pyinstaller
 
-    - name: Sync version in Workspace
-      shell: python
-      run: |
-        import re
-        import os
-        
-        version = os.environ['VERSION']
-        main_path = os.environ['MAIN_SCRIPT']
-        print(f"Target version to sync on {os.name}: {version}")
-        
-        if os.path.exists(main_path):
-            with open(main_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-            with open(main_path, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-            print(f"Workspace {main_path} synchronized.")
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install PySide6 pyinstaller Pillow
-
-    - name: Generate Windows Version Info File
-      if: matrix.platform == 'windows'
-      shell: python
-      run: |
-        import os
-        import re
-        
-        version = os.environ['VERSION']
-        parts = re.findall(r'\d+', version)
-        v_num = (parts + ['0', '0', '0', '0'])[:4]
-        v_tuple = ",".join(v_num)
-        
-        company = os.environ.get('COMPANY_NAME', 'My Company')
-        product = os.environ.get('PRODUCT_NAME', 'My Product')
-        copyright_str = os.environ.get('LEGAL_COPYRIGHT', 'Copyright')
-        description = os.environ.get('FILE_DESCRIPTION', 'Python Executable')
-        exe_name = os.environ.get('EXE_NAME_PREFIX', 'App')
-        
-        print(f"Windows FileVersion tuple parsed: ({v_tuple})")
-        
-        info_content = f"""
-        VSVersionInfo(
-          ffi=FixedFileInfo(
-            filevers=({v_tuple}),
-            prodvers=({v_tuple}),
-            mask=0x3f,
-            flags=0x0,
-            OS=0x40004,
-            fileType=0x1,
-            subtype=0x0,
-            date=(0,0)
-          ),
-          kids=[
-            StringFileInfo(
-              [
-                StringTable(
-                  '040904B0',
-                  [
-                    StringStruct('CompanyName', '{company}'),
-                    StringStruct('FileDescription', '{description}'),
-                    StringStruct('FileVersion', '{version}'),
-                    StringStruct('InternalName', '{exe_name}'),
-                    StringStruct('LegalCopyright', '{copyright_str}'),
-                    StringStruct('OriginalFilename', '{exe_name}.exe'),
-                    StringStruct('ProductName', '{product}'),
-                    StringStruct('ProductVersion', '{version}')
-                  ]
-                )
-              ]
-            ),
-            VarFileInfo([VarStruct('Translation', [1033, 1200])])
-          ]
-        )
-        """
-        with open('file_version_info.txt', 'w', encoding='utf-8') as f:
-            f.write(info_content.strip())
-
-    - name: Configure Icon Options
-      shell: bash
-      run: |
-        ICON_OPTION=""
-        if [ "${{ matrix.platform }}" = "windows" ]; then
-          if [ -f "${{ env.ICON_PATH }}" ]; then
-            ICON_OPTION="--icon=\"${{ env.ICON_PATH }}\" --add-data=\"${{ env.ICON_PATH }};.\""
+      - name: Build with PyInstaller
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
+          else
+            pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} ${{ env.MAIN_SCRIPT }}
           fi
-        elif [ "${{ matrix.platform }}" = "macos" ]; then
-          # macOS 优先检查工程是否存在标准的 .icns/icon.png，否则采用默认图标降级匹配
-          if [ -f "qpypack/icon.icns" ]; then
-            ICON_OPTION="--icon=\"qpypack/icon.icns\" --add-data=\"qpypack/icon.icns:.\""
-          elif [ -f "qpypack/icon.png" ]; then
-            ICON_OPTION="--icon=\"qpypack/icon.png\" --add-data=\"qpypack/icon.png:.\""
-          elif [ -f "${{ env.ICON_PATH }}" ]; then
-            ICON_OPTION="--icon=\"${{ env.ICON_PATH }}\" --add-data=\"${{ env.ICON_PATH }}:.\""
+
+      # Windows 平台的标准打包格式 (使用 PowerShell Core)
+      - name: Package Artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.ref_name }}".TrimStart('v')
+          $OUT_NAME = "${{ env.EXE_NAME_PREFIX }}-$VERSION-windows-${{ matrix.arch }}"
+          Compress-Archive -Path "dist/${{ matrix.artifact_name }}" -DestinationPath "$OUT_NAME.zip" -Force
+
+      # macOS / Linux 平台的标准打包格式 (使用 Bash)
+      - name: Package Artifact (macOS / Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          OS_NAME=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
+          OUT_NAME="${{ env.EXE_NAME_PREFIX }}-${VERSION}-${OS_NAME}-${{ matrix.arch }}"
+          cd dist
+          if [ "${{ matrix.package_extension }}" = "zip" ]; then
+            zip -r "../${OUT_NAME}.zip" "${{ matrix.artifact_name }}"
+          else
+            tar -czf "../${OUT_NAME}.tar.gz" "${{ matrix.artifact_name }}"
           fi
-        elif [ "${{ matrix.platform }}" = "linux" ]; then
-          if [ -f "qpypack/icon.png" ]; then
-            ICON_OPTION="--add-data=\"qpypack/icon.png:.\""
-          elif [ -f "${{ env.ICON_PATH }}" ]; then
-            ICON_OPTION="--add-data=\"${{ env.ICON_PATH }}:.\""
-          fi
-        fi
-        echo "ICON_OPTION=$ICON_OPTION" >> $GITHUB_ENV
 
-    - name: Build EXE / APP / Binary with PyInstaller
-      shell: bash
-      run: |
-        PYINSTALLER_CMD="pyinstaller --clean --onefile --noconsole"
-        
-        # Windows 元数据配置
-        if [ "${{ matrix.platform }}" = "windows" ] && [ -f "file_version_info.txt" ]; then
-          PYINSTALLER_CMD="$PYINSTALLER_CMD --version-file=file_version_info.txt"
-        fi
-        
-        # macOS Bundle 属性标识符配置
-        if [ "${{ matrix.platform }}" = "macos" ]; then
-          PYINSTALLER_CMD="$PYINSTALLER_CMD --osx-bundle-identifier=\"com.qwejayhuang.qpypack\""
-        fi
-        
-        # 挂载图标参数
-        if [ -n "$ICON_OPTION" ]; then
-          PYINSTALLER_CMD="$PYINSTALLER_CMD $ICON_OPTION"
-        fi
-        
-        TARGET_NAME="${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}"
-        PYINSTALLER_CMD="$PYINSTALLER_CMD --name=\"$TARGET_NAME\" ${{ env.MAIN_SCRIPT }}"
-        
-        echo "Executing build: $PYINSTALLER_CMD"
-        eval $PYINSTALLER_CMD
+      - name: Upload Artifacts to Job
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}-${{ matrix.arch }}
+          path: ${{ env.EXE_NAME_PREFIX }}-*.*
 
-    - name: Compress Build Artifact (Windows)
-      if: matrix.platform == 'windows'
-      shell: pwsh
-      run: |
-        Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.exe" -DestinationPath "dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.zip"
+  # =================== 步骤 3：汇聚所有打包产物，创建 GitHub Release 并上载附件 ===================
+  create-release:
+    name: Create GitHub Release
+    needs: [build-binaries, build-pypi-packages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
 
-    - name: Compress Build Artifact (macOS)
-      if: matrix.platform == 'macos'
-      shell: bash
-      run: |
-        cd dist
-        zip -r "${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.zip" "${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.app"
+      - name: Display Downloaded Files
+        run: ls -R artifacts
 
-    - name: Compress Build Artifact (Linux)
-      if: matrix.platform == 'linux'
-      shell: bash
-      run: |
-        cd dist
-        tar -czvf "${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.tar.gz" "${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}"
-
-    - name: Upload Artifacts to GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}${{ matrix.archive_ext }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
