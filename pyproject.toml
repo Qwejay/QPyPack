@@ -1,50 +1,52 @@
-name: Build and Release
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  # =================== 步骤 1：更新版本号，推回 main 分支，并构建 PyPI 包 ===================
-  build-pypi-packages:
-    name: Build PyPI Wheel and Sdist
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # 必须显式赋予写权限，以便能够向 main 分支推送修改
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: main # 显式切换到实际的 main 分支，而非游离的 Tag 状态
-          fetch-depth: 0
-
-      - name: Update Version Files
+- name: Update Version Files
         shell: python
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           import os
+          import sys
           import re
           
           tag = os.environ["TAG_NAME"]
-          version = tag.lstrip('v') # 剔除 tag 开头的 v 字符以符合规范
-          print(f"当前触发的 Tag 为: {tag}，正在自动同步各文件中的版本号为: {version}")
+          version = tag.lstrip('v') # 剔除 tag 开头的 v 字符
+          print(f"当前触发的 Tag 为: {tag}，正在执行 pyproject.toml 自愈重构与版本号同步: {version}")
           
-          # 1. 自动正则匹配并更新 pyproject.toml 中的项目版本
+          # 1. 强行自愈并安全重写 pyproject.toml（彻底终结编码与冒号语法带来的任何报错）
           toml_path = "pyproject.toml"
-          if os.path.exists(toml_path):
-              content = open(toml_path, "r", encoding="utf-8").read()
-              content = re.sub(
-                  r'(version\s*=\s*")([^"]+)(")',
-                  rf'\g<1>{version}\3',
-                  content,
-                  count=1
-              )
-              open(toml_path, "w", encoding="utf-8").write(content)
-              print("-> 已成功同步 pyproject.toml 的版本字段。")
+          toml_content = f"""[build-system]
+          requires = ["setuptools>=61.0", "wheel"]
+          build-backend = "setuptools.build_meta"
+
+          [project]
+          name = "qpypack"
+          version = "{version}"
+          description = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包配置工具"
+          readme = "README.md"
+          requires-python = ">=3.8"
+          classifiers = [
+              "Programming Language :: Python :: 3",
+              "License :: OSI Approved :: MIT License",
+              "Operating System :: OS Independent",
+          ]
+          dependencies = [
+              "PySide6>=6.0.0",
+              "Pillow>=9.0.0"
+          ]
+          """
           
-          # 2. 自动正则匹配并更新 qpypack/main.py 里的 __version__
+          # 整理多行字符串的缩进，确保输出的 TOML 文件绝对规范
+          cleaned_toml = "\n".join([line.strip() for line in toml_content.strip().split("\n")])
+          
+          # 写入标准 UTF-8 编码的文件
+          open(toml_path, "w", encoding="utf-8").write(cleaned_toml)
+          print("-> 已成功在运行器中重构并覆写最标准的 pyproject.toml 配置文件。")
+          
+          # 2. 自动检测并补齐 README.md，防止 build 工具因缺失 readme 文件而引发构建异常
+          if not os.path.exists("README.md"):
+              open("README.md", "w", encoding="utf-8").write("# QPyPack\n基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包配置工具\n")
+              print("-> 已自动创建 README.md 占位文件。")
+          
+          # 3. 自动正则匹配并更新 qpypack/main.py 里的 __version__
           main_path = "qpypack/main.py"
           if os.path.exists(main_path):
               content = open(main_path, "r", encoding="utf-8").read()
@@ -55,134 +57,6 @@ jobs:
                   count=1
               )
               open(main_path, "w", encoding="utf-8").write(content)
-              print("-> 已成功同步 qpypack/main.py 的内部版本号。")
-
-      - name: Commit and Push Version Bump to main
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml qpypack/main.py || true
-          # 增加 [skip ci] 防止本次推送重新触发 GitHub Actions 引起无限循环
-          git commit -m "chore: 自动同步发布版本号为 ${{ github.ref_name }} [skip ci]" || echo "No changes to commit"
-          git push origin main
-
-      - name: Build Packages
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build
-
-      - name: Upload PyPI Artifacts to Job
-        uses: actions/upload-artifact@v4
-        with:
-          name: pypi-packages
-          path: dist/*
-
-  # =================== 步骤 2：编译多平台独立可执行文件 ===================
-  build-binaries:
-    name: Build Standalone for ${{ matrix.os }} (${{ matrix.arch }})
-    needs: build-pypi-packages # 必须等待版本号推送到 main 之后再运行编译，确保二进制获取到新版号
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            arch: x64
-            artifact_name: QPyPack.exe
-            package_extension: zip
-          - os: macos-13
-            arch: x64
-            artifact_name: QPyPack.app
-            package_extension: zip
-          - os: macos-14
-            arch: arm64
-            artifact_name: QPyPack.app
-            package_extension: zip
-          - os: ubuntu-latest
-            arch: x64
-            artifact_name: QPyPack
-            package_extension: tar.gz
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: main # 这里也拉取最新的 main 分支，从而包含了刚才提交的版本号修改
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install PySide6 Pillow pyinstaller
-
-      - name: Build with PyInstaller
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            pyinstaller --onefile --noconsole --name=QPyPack --icon=qpypack/icon.ico qpypack/main.py
-          elif [ "${{ runner.os }}" = "macOS" ]; then
-            pyinstaller --onefile --noconsole --name=QPyPack --icon=qpypack/icon.ico qpypack/main.py
-          else
-            pyinstaller --onefile --noconsole --name=QPyPack qpypack/main.py
-          fi
-
-      # Windows 平台的标准打包格式 (使用 PowerShell Core)
-      - name: Package Artifact (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $VERSION = "${{ github.ref_name }}".TrimStart('v')
-          $OUT_NAME = "QPyPack-$VERSION-windows-${{ matrix.arch }}"
-          Compress-Archive -Path "dist/${{ matrix.artifact_name }}" -DestinationPath "$OUT_NAME.zip" -Force
-
-      # macOS / Linux 平台的标准打包格式 (使用 Bash)
-      - name: Package Artifact (macOS / Linux)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          OS_NAME=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
-          OUT_NAME="QPyPack-${VERSION}-${OS_NAME}-${{ matrix.arch }}"
-          cd dist
-          if [ "${{ matrix.package_extension }}" = "zip" ]; then
-            zip -r "../${OUT_NAME}.zip" "${{ matrix.artifact_name }}"
-          else
-            tar -czf "../${OUT_NAME}.tar.gz" "${{ matrix.artifact_name }}"
-          fi
-
-      - name: Upload Artifacts to Job
-        uses: actions/upload-artifact@v4
-        with:
-          name: binary-${{ matrix.os }}-${{ matrix.arch }}
-          path: QPyPack-*.*
-
-  # =================== 步骤 3：收集所有资源创建 Release 并上载附件 ===================
-  create-release:
-    name: Create GitHub Release
-    needs: [build-binaries, build-pypi-packages]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Display Downloaded Files
-        run: ls -R artifacts
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/*
-          fail_on_unmatched_files: true
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              print("-> 已成功同步 qpypack/main.py 里的内部版本号。")
+          else:
+              print(f"警告: 未找到主控源文件 '{main_path}'")
