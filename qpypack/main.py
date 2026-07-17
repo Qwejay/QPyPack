@@ -36,7 +36,7 @@ from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.5.2"
+__version__ = "2.5.3"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -80,7 +80,8 @@ def load_config():
             'cpu_cores': str(os.cpu_count() or 2), 'upx_path': '',
             'exclude_modules': '', 'out_mode': '0', 'custom_out_dir': '',
             'sound_notify': 'True', 'auto_save_log': 'False',
-            'use_reqs_file': '', 'add_data_list': '', 'custom_python_path': ''
+            'use_reqs_file': '', 'add_data_list': '', 'custom_python_path': '',
+            'pyi_version': '', 'nuitka_version': '', 'pipreqs_version': ''
         }
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -101,7 +102,10 @@ def load_config():
             'auto_save_log': 'False',
             'use_reqs_file': '',
             'add_data_list': '',
-            'custom_python_path': ''
+            'custom_python_path': '',
+            'pyi_version': '',
+            'nuitka_version': '',
+            'pipreqs_version': ''
         }
         updated = False
         for k, v in default_updates.items():
@@ -228,6 +232,7 @@ def find_system_python():
                 clean_env = os.environ.copy()
                 clean_env.pop("PYTHONHOME", None)
                 clean_env.pop("PYTHONPATH", None)
+                clean_env["PYTHONUTF8"] = "1"
                 proc = subprocess.Popen(
                     [py, "-c", "import sys; print(sys.executable)"], 
                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
@@ -767,7 +772,9 @@ class DropArea(QFrame):
         self.sub_label.setText("环境配置就绪，可执行构建")
 
     def start_build_anim(self):
-        self.sub_label.setText("构建引擎运行中：正在分析应用模块并生成构建包...")
+        self.label.setText("正在初始化构建流程...")
+        self.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
+        self.sub_label.setText("构建引擎准备中...")
         self.icon_widget.start_building()
 
     def stop_build_anim(self):
@@ -895,8 +902,20 @@ class PythonScannerThread(QThread):
                                     candidates.add(os.path.normpath(exe))
                     except: pass
 
+        resolved_candidates = set()
+        for cand in candidates:
+            try:
+                resolved_path = str(Path(cand).resolve())
+                if resolved_path.startswith("\\\\?\\UNC\\"):
+                    resolved_path = "\\\\" + resolved_path[8:]
+                elif resolved_path.startswith("\\\\?\\"):
+                    resolved_path = resolved_path[4:]
+                resolved_candidates.add(resolved_path)
+            except:
+                resolved_candidates.add(os.path.normpath(cand))
+        candidates = resolved_candidates
+
         valid_pythons = {}
-        
         for cand in candidates:
             if os.name == 'nt' and "WindowsApps" in cand:
                 try:
@@ -1033,10 +1052,13 @@ class SettingsPanel(QWidget):
         layout.addLayout(btn_lay)
 
     def populate_python_combo(self, py_dict):
-        current_text = self.python_path_combo.currentText()
+        current_text = self.python_path_combo.currentText().strip()
         self.python_path_combo.clear()
         for path, ver in py_dict.items():
             self.python_path_combo.addItem(f"{path} (Python {ver})", path)
+            
+        if not current_text:
+            current_text = get_python_executable()
             
         if current_text:
             clean_text = current_text
@@ -1084,6 +1106,10 @@ class SettingsPanel(QWidget):
             self.sound_notify_check.setChecked(s.getboolean('sound_notify', True))
             self.auto_save_log_check.setChecked(s.getboolean('auto_save_log', False))
             
+            self.pyi_ver_edit.setText(s.get('pyi_version', ''))
+            self.nuitka_ver_edit.setText(s.get('nuitka_version', ''))
+            self.pipreqs_ver_edit.setText(s.get('pipreqs_version', ''))
+            
             self.add_data_list.clear()
             res_str = s.get('add_data_list', '')
             if res_str:
@@ -1128,6 +1154,10 @@ class SettingsPanel(QWidget):
         s['concise_log'] = str(self.concise_log_check.isChecked())
         s['sound_notify'] = str(self.sound_notify_check.isChecked())
         s['auto_save_log'] = str(self.auto_save_log_check.isChecked())
+        
+        s['pyi_version'] = self.pyi_ver_edit.text().strip()
+        s['nuitka_version'] = self.nuitka_ver_edit.text().strip()
+        s['pipreqs_version'] = self.pipreqs_ver_edit.text().strip()
         
         res_list = []
         for i in range(self.add_data_list.count()):
@@ -1241,15 +1271,15 @@ class SettingsPanel(QWidget):
         c_lay3.addLayout(form2)
         
         c_lay3.addSpacing(5)
-        h_dep = QHBoxLayout()
-        self.venv_check = QCheckBox("使用虚拟环境隔离 (Virtualenv)")
-        self.reqs_check = QCheckBox("强制同步 Requirements 声明")
+        g_dep = QGridLayout()
+        g_dep.setSpacing(10)
+        self.venv_check = QCheckBox("使用虚拟环境 (Virtualenv)")
+        self.reqs_check = QCheckBox("同步 Requirements 声明")
         self.pipreqs_check = QCheckBox("使用 pipreqs 自动分析依赖")
-        h_dep.addWidget(self.venv_check)
-        h_dep.addWidget(self.reqs_check)
-        h_dep.addWidget(self.pipreqs_check)
-        h_dep.addStretch()
-        c_lay3.addLayout(h_dep)
+        g_dep.addWidget(self.venv_check, 0, 0)
+        g_dep.addWidget(self.reqs_check, 0, 1)
+        g_dep.addWidget(self.pipreqs_check, 1, 0, 1, 2)
+        c_lay3.addLayout(g_dep)
         
         card4, c_lay4 = self._create_card("附加资源文件 (Data Files / Folders)")
         self.add_data_list = QListWidget()
@@ -1316,8 +1346,24 @@ class SettingsPanel(QWidget):
         form4.addRow("UPX 压缩工具 (UPX Path):", h_upx_row)
         c_lay6.addLayout(form4)
         
+        card7, c_lay7 = self._create_card("版本锁定 (Version Pinning)")
+        form5 = QFormLayout()
+        form5.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form5.setSpacing(15)
+        self.pyi_ver_edit = QLineEdit()
+        self.pyi_ver_edit.setPlaceholderText("默认最新版 (旧版本可填 6.6.0)")
+        self.nuitka_ver_edit = QLineEdit()
+        self.nuitka_ver_edit.setPlaceholderText("默认最新版 (旧版本可填 4.1.3)")
+        self.pipreqs_ver_edit = QLineEdit()
+        self.pipreqs_ver_edit.setPlaceholderText("默认最新版 (旧版本可填 0.4.13)")
+        form5.addRow("PyInstaller 版本:", self.pyi_ver_edit)
+        form5.addRow("Nuitka 版本:", self.nuitka_ver_edit)
+        form5.addRow("Pipreqs 版本:", self.pipreqs_ver_edit)
+        c_lay7.addLayout(form5)
+        
         lay_adv.addWidget(card5)
         lay_adv.addWidget(card6)
+        lay_adv.addWidget(card7)
         lay_adv.addStretch()
         
         scroll_adv.setWidget(cont_adv)
@@ -1647,6 +1693,10 @@ class PackingThread(QThread):
         clean_env.pop("PYTHONHOME", None)
         clean_env.pop("PYTHONPATH", None)
         
+        clean_env["PYTHONUTF8"] = "1"
+        clean_env["PYTHONIOENCODING"] = "utf-8"
+        clean_env["LANG"] = "en_US.UTF-8"
+        clean_env["LC_ALL"] = "en_US.UTF-8"        
         try:
             kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "cwd": cwd, 
                       "text": True, "errors": "replace", "env": clean_env}
@@ -1715,7 +1765,7 @@ class PackingThread(QThread):
         except FileNotFoundError as e:
             cmd_name = cmd[0] if isinstance(cmd, list) and cmd else str(cmd)
             if "python" in str(cmd_name).lower():
-                self.progress.emit(f"[ERROR] 主控环境异常：无法定位 Python 解释器，请检查环境变量配置。")
+                self.progress.emit(f"[ERROR] 环境异常：无法定位 Python 解释器，请检查环境变量配置。")
             else:
                 self.progress.emit(f"[ERROR] 子进程调用失败：未检测到系统指令或外部程序 \"{cmd_name}\" ({e})")
             return False
@@ -1816,18 +1866,18 @@ class PackingThread(QThread):
             script_posix = build_script_path.as_posix()
 
             system_python_exe = get_python_executable()
-            self.progress.emit(f"[INFO] 主控 Python 解释器路径: {system_python_exe}")
+            self.progress.emit(f"[INFO] Python 解释器路径: {system_python_exe}")
 
             script_imports = set()
             try:
                 script_imports = extract_imports_via_ast(script_posix, system_python_exe)
             except Exception as e:
-                self.progress.emit(f"[WARN] 源码 AST 静态分析异常: {e}")
+                self.progress.emit(f"[WARN] 源码 AST 分析异常: {e}")
 
             pip_args = ["-i", pip_idx] if pip_idx else []
             
             if self.params['use_venv']:
-                self.progress.emit("[INFO] 正在创建独立的虚拟环境隔离沙盒...")
+                self.progress.emit("[INFO] 正在创建虚拟环境...")
                 self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
                 if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
                     return self.finished.emit(False, "[ERROR] 虚拟环境 (virtualenv) 创建失败。当前 Python 环境可能缺失必要模块或权限受限。")
@@ -1839,6 +1889,11 @@ class PackingThread(QThread):
                 python_exe = system_python_exe
 
             engine_pkg = "nuitka" if engine == "Nuitka" else "pyinstaller"
+            
+            if engine == "Nuitka" and self.params.get('nuitka_version'):
+                engine_pkg = f"nuitka=={self.params['nuitka_version']}"
+            elif engine == "PyInstaller" and self.params.get('pyi_version'):
+                engine_pkg = f"pyinstaller=={self.params['pyi_version']}"
             
             self.progress.emit(f"[INFO] 正在安装编译引擎 [{engine_pkg}] 及核心编译依赖...")
             core_pkgs = [engine_pkg]
@@ -1856,7 +1911,7 @@ class PackingThread(QThread):
                     req_file = script_dir / "requirements.txt"
                 
                 if req_file.exists():
-                    self.progress.emit(f"[INFO] 依赖安装 [1/3]: 正在读取并安装声明依赖 ({req_file.name})...")
+                    self.progress.emit(f"[INFO] 依赖安装 [1/3]: 正在安装声明依赖 ({req_file.name})...")
                     try:
                         if is_cloud_locked(req_file): raise ValueError("依赖清单文件已被系统锁定")
                         raw_req = req_file.read_bytes()
@@ -1871,7 +1926,12 @@ class PackingThread(QThread):
 
             if self.params.get('use_pipreqs'):
                 self.progress.emit("[INFO] 依赖安装 [2/3]: 正在调用 pipreqs 分析项目依赖...")
-                self.run_cmd([python_exe, "-m", "pip", "install", "pipreqs", "-q"] + pip_args)
+                
+                pipreqs_pkg = "pipreqs"
+                if self.params.get('pipreqs_version'):
+                    pipreqs_pkg = f"pipreqs=={self.params['pipreqs_version']}"
+                    
+                self.run_cmd([python_exe, "-m", "pip", "install", pipreqs_pkg, "-q"] + pip_args)
                 temp_pipreqs = Path(tempfile.gettempdir()) / f"qpypack_pipreqs_{int(time.time())}.txt"
                 
                 pypi_server = None
@@ -1885,8 +1945,19 @@ class PackingThread(QThread):
                 if pypi_server: 
                     pipreqs_cmd.extend(["--pypi-server", pypi_server])
                     self.progress.emit(f"[INFO] 依赖分析服务源地址: {pypi_server}")
+                self.progress.emit("[INFO] 正在查询各依赖库的版本，请稍候...")
                 
-                if self.run_cmd(pipreqs_cmd, timeout=15) and temp_pipreqs.exists():
+                success_pipreqs = self.run_cmd(pipreqs_cmd, timeout=15)
+                
+                if not success_pipreqs:
+                    self.progress.emit("[INFO] UTF-8 扫描受阻，正在尝试利用系统本地编码重新扫描...")
+                    fallback_cmd = [c for c in pipreqs_cmd if c != "utf-8"]
+                    if "--encoding" in fallback_cmd:
+                        idx = fallback_cmd.index("--encoding")
+                        fallback_cmd.pop(idx)
+                    success_pipreqs = self.run_cmd(fallback_cmd, timeout=15)
+                
+                if success_pipreqs and temp_pipreqs.exists():
                     self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args)
                     temp_pipreqs.unlink(missing_ok=True)
 
@@ -1913,7 +1984,7 @@ class PackingThread(QThread):
 
             if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。")
 
-            self.progress.emit(f"[INFO] 正在启动 {engine} 编译引擎，开始冻结/编译二进制文件...")
+            self.progress.emit(f"[INFO] 正在启动 {engine} 引擎，开始编译二进制文件...")
             cmd = []
             app_name = self.params['app_name']
             icon_path = Path(self.params['icon']).resolve().as_posix() if self.params.get('icon') else None
@@ -2020,14 +2091,14 @@ class PackingThread(QThread):
                     bundle_id = f"com.{comp or 'anonymous'}.{app_name.lower().replace(' ', '')}"
                     cmd.append(f"--macos-signed-app-name={bundle_id}")
                 
-                if 'PyQt5' in script_imports: cmd.append("--enable-plugin=pyqt5")
-                elif 'PyQt6' in script_imports: cmd.append("--enable-plugin=pyqt6")
-                elif 'PySide2' in script_imports: cmd.append("--enable-plugin=pyside2")
-                elif 'PySide6' in script_imports: cmd.append("--enable-plugin=pyside6")
+                imports_lower = {m.lower() for m in script_imports}
+                if 'pyqt5' in imports_lower: cmd.append("--enable-plugin=pyqt5")
+                elif 'pyqt6' in imports_lower: cmd.append("--enable-plugin=pyqt6")
+                elif 'pyside2' in imports_lower: cmd.append("--enable-plugin=pyside2")
+                elif 'pyside6' in imports_lower: cmd.append("--enable-plugin=pyside6")
                 
-                if 'numpy' in script_imports: cmd.append("--enable-plugin=numpy")
-                if 'matplotlib' in script_imports: cmd.append("--enable-plugin=matplotlib")
-                if 'tkinter' in script_imports: cmd.append("--enable-plugin=tk-inter")
+                if 'matplotlib' in imports_lower: cmd.append("--enable-plugin=matplotlib")
+                if 'tkinter' in imports_lower: cmd.append("--enable-plugin=tk-inter")
                 
                 for imp in self.params.get('hidden_imports', '').split(','):
                     if imp.strip(): cmd.append(f"--include-module={imp.strip()}")
@@ -2127,33 +2198,52 @@ class PackingThread(QThread):
                 
         except Exception as e:
             if self.params.get('concise_log', True) and self.all_raw_logs:
-                self.progress.emit("\n" + "!"*10 + " [系统诊断: 崩溃前全局原始日志] " + "!"*10)
+                self.progress.emit("\n" + "!"*10 + " [系统诊断: 原始日志] " + "!"*10)
                 self.progress.emit('\n'.join(self.all_raw_logs[-100:]))
             self.finished.emit(False, f"[ERROR] 构建流程发生致命异常: {str(e)}")
         finally:
             if is_temp and build_script_path and build_script_path.exists():
-                try: build_script_path.unlink()
+                try: 
+                    build_script_path.unlink()
+                    pycache_dir = script_dir / "__pycache__"
+                    if pycache_dir.exists():
+                        robust_rmtree(pycache_dir)
                 except: pass
                 
             if self.params.get('version_file'):
-                try: Path(self.params['version_file']).unlink(missing_ok=True)
+                try:
+                    p = Path(self.params['version_file'])
+                    if p.exists(): p.unlink()
                 except: pass
                 
             if self.params.get('temp_icon_file'):
-                try: Path(self.params['temp_icon_file']).unlink(missing_ok=True)
+                try:
+                    p = Path(self.params['temp_icon_file'])
+                    if p.exists(): p.unlink()
                 except: pass
                 
             if self.params['clean_all']:
-                self.progress.emit("[INFO] 正在释放工作空间，删除虚拟环境及临时编译缓存...")
+                self.progress.emit("[INFO] 正在释放空间，删除虚拟环境及临时编译缓存...")
+                
                 for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir]:
                     if p and p.exists(): robust_rmtree(p)
                     
                 cwd = Path.cwd().resolve()
                 app_name = self.params.get('app_name', 'app')
+                
                 robust_rmtree(cwd / "dist")
                 for p in ["build", "__pycache__", f"{app_name}.build", f"{app_name}.dist", f"{app_name}.onefile-build"]:
                     robust_rmtree(cwd / p)
-                Path(cwd / f"{app_name}.spec").unlink(missing_ok=True)
+                
+                spec_file = cwd / f"{app_name}.spec"
+                if spec_file.exists():
+                    try: spec_file.unlink()
+                    except: pass
+                
+                crash_xml = cwd / "nuitka-crash-report.xml"
+                if crash_xml.exists():
+                    try: crash_xml.unlink()
+                    except: pass
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -2394,19 +2484,15 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "加载失败", "目标脚本处于云盘加密或锁定状态，请解密后重试。")
             return
 
+        if self.script_path and self.script_path != path:
+            self.settings_panel.icon_edit.clear()
+            self.settings_panel.hidden_edit.clear()
+            self.settings_panel.add_data_list.clear()
+
         self.script_path = path
         
         self.drop_area.set_loading(Path(path).name)
         self.set_status(f" 状态: 正在解析源文件 {Path(path).name} ...")
-        self.btn_main.setEnabled(False)
-        
-        if self.analysis_thread and self.analysis_thread.isRunning():
-            try: self.analysis_thread.analysis_done.disconnect()
-            except: pass
-            
-        self.analysis_thread = ScriptAnalysisThread(path)
-        self.analysis_thread.analysis_done.connect(self.on_analysis_finished)
-        self.analysis_thread.start()
 
     def on_analysis_finished(self, app_name, version, author, desc, script_imports):
         path = self.script_path
@@ -2443,9 +2529,9 @@ class MainWindow(QMainWindow):
                     trial = script_dir / f"{name}{ext}"
                     if trial.exists():
                         auto_icon = trial
-                        curr = self.settings_panel.icon_edit.text()
-                        if not curr or not Path(curr).exists():
-                            self.settings_panel.icon_edit.setText(trial.resolve().as_posix())
+                        
+                        self.settings_panel.icon_edit.setText(trial.resolve().as_posix())
+                        
                         found = True
                         break
                 if found: break
@@ -2542,7 +2628,10 @@ class MainWindow(QMainWindow):
             'ver_ver': sp.ver_ver.text(),
             'pip_index_url': sp.pip_source_edit.text().strip(),
             'concise_log': sp.concise_log_check.isChecked(),
-            'auto_save_log': sp.auto_save_log_check.isChecked()
+            'auto_save_log': sp.auto_save_log_check.isChecked(),
+            'pyi_version': sp.pyi_ver_edit.text().strip(),
+            'nuitka_version': sp.nuitka_ver_edit.text().strip(),
+            'pipreqs_version': sp.pipreqs_ver_edit.text().strip()
         }
 
         self.log.clear()
@@ -2605,7 +2694,30 @@ class MainWindow(QMainWindow):
         self.log.append(msg)
         self.log.ensureCursorVisible()
 
+        for line in msg.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            
+            if line.startswith(("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]")):
+                clean_text = line
+                for prefix in ("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]"):
+                    if clean_text.startswith(prefix):
+                        clean_text = clean_text[len(prefix):].strip()
+                        break
+                
+                if self.current_state == "building" and clean_text:
+                    if len(clean_text) > 35:
+                        clean_text = clean_text[:32] + "..."
+                    self.drop_area.label.setText(clean_text)
+                    self.drop_area.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
+
 def main():
+    try:
+        QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setFont(QFont("Microsoft YaHei", 9))
