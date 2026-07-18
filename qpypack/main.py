@@ -2148,7 +2148,6 @@ class PackingThread(QThread):
                 if not self.params.get('use_venv'):
                     self.progress.emit("[WARN] 强烈建议勾选 [虚拟环境] 以最大化精简效果。")
                     
-                # 仅剔除不会被业务代码间接引用的纯开发/测试工具库，避免第三方包因隐藏依赖被误杀导致程序闪退
                 lite_excludes = ['pip', 'setuptools', 'distutils', 'wheel', 'pydoc', 'unittest', 'pytest', 'pdb', 'test']
                 
                 for ex in lite_excludes:
