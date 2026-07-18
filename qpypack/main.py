@@ -36,7 +36,7 @@ from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.5.3"
+__version__ = "2.5.4"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -81,7 +81,8 @@ def load_config():
             'exclude_modules': '', 'out_mode': '0', 'custom_out_dir': '',
             'sound_notify': 'True', 'auto_save_log': 'False',
             'use_reqs_file': '', 'add_data_list': '', 'custom_python_path': '',
-            'pyi_version': '', 'nuitka_version': '', 'pipreqs_version': ''
+            'pyi_version': '', 'nuitka_version': '', 'pipreqs_version': '',
+            'lite_mode': 'False'
         }
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -105,7 +106,8 @@ def load_config():
             'custom_python_path': '',
             'pyi_version': '',
             'nuitka_version': '',
-            'pipreqs_version': ''
+            'pipreqs_version': '',
+            'lite_mode': 'False'
         }
         updated = False
         for k, v in default_updates.items():
@@ -152,7 +154,9 @@ def extract_imports_via_ast(script_path, python_exe):
         env = os.environ.copy()
         env.pop("PYTHONHOME", None)
         env.pop("PYTHONPATH", None)
-        kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True, "env": env}
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
+        kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True, "encoding": "utf-8", "env": env}
         if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
         
         proc = subprocess.run([python_exe, "-c", code_snippet, script_path], **kwargs)
@@ -236,7 +240,7 @@ def find_system_python():
                 proc = subprocess.Popen(
                     [py, "-c", "import sys; print(sys.executable)"], 
                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
-                    text=True, env=clean_env, creationflags=subprocess.CREATE_NO_WINDOW
+                    text=True, encoding="utf-8", env=clean_env, creationflags=subprocess.CREATE_NO_WINDOW
                 )
                 out, _ = proc.communicate(timeout=3)
                 if out and os.path.exists(out.strip()): 
@@ -330,7 +334,7 @@ def find_system_python():
         clean_env.pop("PYTHONPATH", None)
         
         try:
-            kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": clean_env, "timeout": 3}
+            kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True, "encoding": "utf-8", "env": clean_env, "timeout": 3}
             if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
             proc = subprocess.run([cand, "-V"], **kwargs)
             if proc.returncode == 0:
@@ -925,7 +929,9 @@ class PythonScannerThread(QThread):
                 clean_env = os.environ.copy()
                 clean_env.pop("PYTHONHOME", None)
                 clean_env.pop("PYTHONPATH", None)
-                kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True, "env": clean_env, "timeout": 2}
+                clean_env["PYTHONUTF8"] = "1"
+                clean_env["PYTHONIOENCODING"] = "utf-8"
+                kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True, "encoding": "utf-8", "env": clean_env, "timeout": 2}
                 if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
                 proc = subprocess.run([cand, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"], **kwargs)
                 if proc.returncode == 0:
@@ -1105,6 +1111,7 @@ class SettingsPanel(QWidget):
             self.concise_log_check.setChecked(s.getboolean('concise_log', True))
             self.sound_notify_check.setChecked(s.getboolean('sound_notify', True))
             self.auto_save_log_check.setChecked(s.getboolean('auto_save_log', False))
+            self.lite_mode_check.setChecked(s.getboolean('lite_mode', False))
             
             self.pyi_ver_edit.setText(s.get('pyi_version', ''))
             self.nuitka_ver_edit.setText(s.get('nuitka_version', ''))
@@ -1154,6 +1161,7 @@ class SettingsPanel(QWidget):
         s['concise_log'] = str(self.concise_log_check.isChecked())
         s['sound_notify'] = str(self.sound_notify_check.isChecked())
         s['auto_save_log'] = str(self.auto_save_log_check.isChecked())
+        s['lite_mode'] = str(self.lite_mode_check.isChecked())
         
         s['pyi_version'] = self.pyi_ver_edit.text().strip()
         s['nuitka_version'] = self.nuitka_ver_edit.text().strip()
@@ -1334,7 +1342,7 @@ class SettingsPanel(QWidget):
         
         self.upx_check = QCheckBox("启用 UPX 压缩优化")
         self.upx_check.toggled.connect(self.on_upx_toggled)
-        self.upx_path_edit = QLineEdit(); self.upx_path_edit.setPlaceholderText("指定 UPX 工具路径，留空则自动检索环境变量")
+        self.upx_path_edit = QLineEdit(); self.upx_path_edit.setPlaceholderText("留空则自动检测环境变量")
         btn_upx = QPushButton("选择"); btn_upx.setProperty("class", "ToolBtn"); btn_upx.clicked.connect(self.select_upx_path)
         self.upx_path_container = QWidget(); h_upx = QHBoxLayout(self.upx_path_container); h_upx.setContentsMargins(0,0,0,0)
         h_upx.addWidget(self.upx_path_edit); h_upx.addWidget(btn_upx)
@@ -1344,7 +1352,12 @@ class SettingsPanel(QWidget):
         h_upx_row.addWidget(self.upx_check)
         h_upx_row.addWidget(self.upx_path_container)
         form4.addRow("UPX 压缩工具 (UPX Path):", h_upx_row)
+        
+        self.lite_mode_check = QCheckBox("启用精简模式 (剔除测试组件，深度缩减体积)")
+        self.lite_mode_check.setStyleSheet("color: #D93025; font-weight: bold;")
+        self.lite_mode_check.setToolTip("动态排除开发及测试环境冗余依赖，提升构建速度并缩减体积。")
         c_lay6.addLayout(form4)
+        c_lay6.addWidget(self.lite_mode_check)
         
         card7, c_lay7 = self._create_card("版本锁定 (Version Pinning)")
         form5 = QFormLayout()
@@ -1699,7 +1712,7 @@ class PackingThread(QThread):
         clean_env["LC_ALL"] = "en_US.UTF-8"        
         try:
             kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "cwd": cwd, 
-                      "text": True, "errors": "replace", "env": clean_env}
+                      "text": True, "encoding": "utf-8", "errors": "replace", "env": clean_env}
             if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
             
             self.process = subprocess.Popen(cmd, **kwargs)
@@ -1871,6 +1884,16 @@ class PackingThread(QThread):
             script_imports = set()
             try:
                 script_imports = extract_imports_via_ast(script_posix, system_python_exe)
+                if self.params.get('lite_mode'):
+                    scan_count = 0
+                    for py_file in script_dir.rglob("*.py"):
+                        if any(p.startswith('.') or p.lower() in ('venv', 'env', 'site-packages', 'node_modules', '__pycache__') for p in py_file.parts):
+                            continue
+                        if scan_count > 500: break
+                        try:
+                            script_imports.update(extract_imports_via_ast(py_file.as_posix(), system_python_exe))
+                            scan_count += 1
+                        except: pass
             except Exception as e:
                 self.progress.emit(f"[WARN] 源码 AST 分析异常: {e}")
 
@@ -2027,6 +2050,8 @@ class PackingThread(QThread):
                     else:
                         upx_dir_default = (Path.cwd() / "upx").resolve()
                         if upx_dir_default.exists(): cmd.append(f"--upx-dir={upx_dir_default.as_posix()}")
+                else:
+                    cmd.append("--noupx")
                 
                 for imp in self.params.get('hidden_imports', '').split(','):
                     if imp.strip(): cmd.extend(["--hidden-import", imp.strip()])
@@ -2117,6 +2142,22 @@ class PackingThread(QThread):
 
                 for excl in self.params.get('exclude_modules', '').split(','):
                     if excl.strip(): cmd.append(f"--nofollow-import-to={excl.strip()}")
+                    
+            if self.params.get('lite_mode'):
+                self.progress.emit("[INFO] 已开启精简模式，正在执行体积缩减策略...")
+                if not self.params.get('use_venv'):
+                    self.progress.emit("[WARN] 强烈建议勾选 [虚拟环境] 以最大化精简效果。")
+                    
+                # 仅剔除不会被业务代码间接引用的纯开发/测试工具库，避免第三方包因隐藏依赖被误杀导致程序闪退
+                lite_excludes = ['pip', 'setuptools', 'distutils', 'wheel', 'pydoc', 'unittest', 'pytest', 'pdb', 'test']
+                
+                for ex in lite_excludes:
+                    if engine == "PyInstaller": cmd.append(f"--exclude-module={ex}")
+                    elif engine == "Nuitka": cmd.append(f"--nofollow-import-to={ex}")
+                    
+                if engine == "Nuitka":
+                    self.progress.emit("[INFO] 已启用 Nuitka 优化指令 (字节码除冗)...")
+                    cmd.append("--python-flag=-OO")
 
             cmd.append(script_posix)
 
@@ -2481,7 +2522,7 @@ class MainWindow(QMainWindow):
         path = Path(path).resolve().as_posix()
         
         if is_cloud_locked(path):
-            QMessageBox.critical(self, "加载失败", "目标脚本处于云盘加密或锁定状态，请解密后重试。")
+            QMessageBox.critical(self, "加载失败", "目标脚本处于锁定状态，请稍后重试。")
             return
 
         if self.script_path and self.script_path != path:
@@ -2493,6 +2534,14 @@ class MainWindow(QMainWindow):
         
         self.drop_area.set_loading(Path(path).name)
         self.set_status(f" 状态: 正在解析源文件 {Path(path).name} ...")
+        
+        if self.analysis_thread and self.analysis_thread.isRunning():
+            self.analysis_thread.terminate()
+            self.analysis_thread.wait()
+            
+        self.analysis_thread = ScriptAnalysisThread(self.script_path)
+        self.analysis_thread.analysis_done.connect(self.on_analysis_finished)
+        self.analysis_thread.start()
 
     def on_analysis_finished(self, app_name, version, author, desc, script_imports):
         path = self.script_path
@@ -2629,6 +2678,7 @@ class MainWindow(QMainWindow):
             'pip_index_url': sp.pip_source_edit.text().strip(),
             'concise_log': sp.concise_log_check.isChecked(),
             'auto_save_log': sp.auto_save_log_check.isChecked(),
+            'lite_mode': sp.lite_mode_check.isChecked(),
             'pyi_version': sp.pyi_ver_edit.text().strip(),
             'nuitka_version': sp.nuitka_ver_edit.text().strip(),
             'pipreqs_version': sp.pipreqs_ver_edit.text().strip()
