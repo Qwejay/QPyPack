@@ -22,22 +22,23 @@ else:
     winreg = None
 
 os.environ["QT_LOGGING_RULES"] = "qt.text.font.db=false"
-os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
-os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
                              QPushButton, QLabel, QLineEdit, QFileDialog, QCheckBox,
                              QComboBox, QFrame, QStackedLayout, QFormLayout, QTextEdit, 
-                             QGraphicsOpacityEffect, QGroupBox, QGridLayout, QTabWidget,
+                             QGraphicsOpacityEffect, QGridLayout, QTabWidget,
                              QMessageBox, QInputDialog, QFileIconProvider, QSizePolicy, QScrollArea,
                              QGraphicsDropShadowEffect, QSpinBox, QListWidget, QListWidgetItem,
-                             QListView)
-from PySide6.QtCore import Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QFileInfo, QVariantAnimation, QTimer, QPointF, QRectF, QRect
-from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen, QImage, QImageWriter
+                             QListView, QStyledItemDelegate, QMenu)
+from PySide6.QtCore import (Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, 
+                            QParallelAnimationGroup, QFileInfo, QVariantAnimation, 
+                            QTimer, QPointF, QRectF, QRect, QSize)
+from PySide6.QtGui import (QFont, QDragEnterEvent, QDropEvent, QIcon, QPixmap, 
+                           QPainter, QColor, QPen, QImage, QImageWriter)
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.5.6"
+__version__ = "2.5.7"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -79,65 +80,6 @@ DEFAULT_MAPPINGS = {
     'cv2': 'opencv-python', 'PIL': 'pillow', 'Pillow': 'pillow', 'bs4': 'beautifulsoup4', 'sklearn': 'scikit-learn',
     'yaml': 'pyyaml', 'fitz': 'pymupdf', 'dotenv': 'python-dotenv'
 }
-
-def setup_combo_white_theme(combo: QComboBox):
-    combo.setView(QListView())
-    
-    if combo.view():
-        combo.view().setMinimumWidth(520)
-        combo.view().setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        combo.view().setStyleSheet("""
-            QListView {
-                background-color: #ffffff !important;
-                color: #111827 !important;
-                border: 1px solid #d1d5db;
-                border-radius: 6px;
-                outline: none;
-                padding: 4px;
-                font-size: 12px;
-                font-family: Consolas, "Segoe UI", sans-serif;
-            }
-            QListView::item {
-                background-color: #ffffff !important;
-                color: #111827 !important;
-                min-height: 26px;
-                padding: 4px 8px;
-                border-radius: 4px;
-            }
-            QListView::item:hover, QListView::item:selected {
-                background-color: #eff6ff !important;
-                color: #2563eb !important;
-            }
-        """)
-
-    combo.setStyleSheet("""
-        QComboBox {
-            background-color: #ffffff;
-            color: #111827;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            padding: 5px 10px;
-            font-size: 12px;
-            min-height: 22px;
-            font-family: Consolas, "Segoe UI", sans-serif;
-        }
-        QComboBox:hover {
-            border-color: #9ca3af;
-        }
-        QComboBox:focus {
-            border-color: #2563eb;
-        }
-        QComboBox QLineEdit {
-            background-color: transparent;
-            color: #111827;
-            font-size: 12px;
-            selection-background-color: #eff6ff;
-            selection-color: #2563eb;
-        }
-    """)
-    
-    combo.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-    combo.setMinimumWidth(150)
 
 def load_config():
     config = configparser.ConfigParser()
@@ -262,6 +204,103 @@ def get_svg_icon(name, color="#5F6368", size=24):
 
 def get_svg_pixmap(name, color="#5F6368", size=64):
     return get_svg_icon(name, color, size).pixmap(size, size)
+
+_ARROW_ICON_PATH = (_CONFIG_DIR / "dropdown_arrow.png").as_posix()
+
+def ensure_arrow_icon():
+    if not os.path.exists(_ARROW_ICON_PATH):
+        try:
+            pix = get_svg_pixmap('expand_more', color="#5F6368", size=32)
+            pix.save(_ARROW_ICON_PATH, "PNG")
+        except Exception:
+            pass
+
+class ComboItemDelegate(QStyledItemDelegate):
+    def sizeHint(self, option, index):
+        s = super().sizeHint(option, index)
+        return QSize(s.width(), max(s.height() + 12, 30))
+
+def setup_combo_white_theme(combo: QComboBox, min_view_width: int = None):
+    ensure_arrow_icon()
+    
+    list_view = QListView(combo)
+    combo.setView(list_view)
+    combo.setItemDelegate(ComboItemDelegate(combo))
+    
+    if min_view_width and combo.view():
+        combo.view().setMinimumWidth(min_view_width)
+        combo.view().setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+    if combo.view():
+        combo.view().setStyleSheet("""
+            QListView {
+                background-color: #ffffff;
+                color: #111827;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                outline: none;
+                padding: 4px;
+                font-size: 12px;
+                font-family: Consolas, "Segoe UI", sans-serif;
+                selection-background-color: #2563eb;
+                selection-color: #ffffff;
+            }
+            QListView::item {
+                background-color: #ffffff;
+                color: #111827;
+                padding: 4px 8px;
+                border-radius: 4px;
+            }
+            QListView::item:hover, QListView::item:selected {
+                background-color: #2563eb;
+                color: #ffffff;
+            }
+        """)
+
+    arrow_url = _ARROW_ICON_PATH.replace("\\", "/")
+    combo.setStyleSheet(f"""
+        QComboBox {{
+            combobox-popup: 0;
+            background-color: #ffffff;
+            color: #111827;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 5px 26px 5px 10px;
+            font-size: 12px;
+            min-height: 22px;
+            font-family: Consolas, "Segoe UI", sans-serif;
+            selection-background-color: #2563eb;
+            selection-color: #ffffff;
+        }}
+        QComboBox:hover {{
+            border-color: #9ca3af;
+        }}
+        QComboBox:focus {{
+            border-color: #2563eb;
+        }}
+        QComboBox::drop-down {{
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 24px;
+            border: none;
+            background: transparent;
+        }}
+        QComboBox::down-arrow {{
+            image: url("{arrow_url}");
+            width: 14px;
+            height: 14px;
+        }}
+        QComboBox QLineEdit {{
+            background-color: #ffffff;
+            color: #111827;
+            font-size: 12px;
+            selection-background-color: #2563eb;
+            selection-color: #ffffff;
+        }}
+    """)
+    
+    combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    combo.setMinimumWidth(150)
 
 def get_stdlib_names():
     libs = {'os', 'sys', 're', 'math', 'time', 'datetime', 'json', 'urllib', 'sqlite3', 'csv', 
@@ -787,6 +826,7 @@ class DropArea(QFrame):
         
         self.label = QLabel("将 Python 源代码文件 (.py/.pyw) 拖放到此处\n或 点击手动选择文件")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setWordWrap(True)
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
         layout.addWidget(self.label)
         
@@ -794,6 +834,7 @@ class DropArea(QFrame):
         
         self.sub_label = QLabel("自动解析模块依赖、资源文件与隐式导入")
         self.sub_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sub_label.setWordWrap(True)
         self.sub_label.setStyleSheet("QLabel { background: transparent; color: #9AA0A6; font-size: 13px; border: none; }")
         layout.addWidget(self.sub_label)
         
@@ -1025,7 +1066,6 @@ class SettingsPanel(QWidget):
         self.out_dir_container = None
         
         self.setStyleSheet("""
-            /* ===== 根容器：极简清爽微灰背景 ===== */
             SettingsPanel { 
                 background-color: #f9fafb; 
             }
@@ -1036,7 +1076,6 @@ class SettingsPanel(QWidget):
                 background: transparent; 
             }
             
-            /* ===== 极简扁平输入框 ===== */
             QLineEdit, QSpinBox { 
                 color: #111827; 
                 font-size: 12px; 
@@ -1054,7 +1093,6 @@ class SettingsPanel(QWidget):
                 background: #ffffff; 
             }
 
-            /* ===== 极简复选框 ===== */
             QCheckBox { 
                 font-size: 13px; 
                 color: #1f2937; 
@@ -1074,10 +1112,8 @@ class SettingsPanel(QWidget):
             QCheckBox::indicator:checked { 
                 background: #2563eb; 
                 border-color: #2563eb; 
-                image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='white'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg>"); 
             }
             
-            /* ===== 扁平卡片（纯白 + 极细浅灰边框） ===== */
             QFrame#SettingCard { 
                 background-color: #ffffff; 
                 border: 1px solid #e5e7eb; 
@@ -1087,15 +1123,15 @@ class SettingsPanel(QWidget):
                 border-color: #cbd5e1; 
             }
             
-            /* ===== 扁平按钮 ===== */
             QPushButton.ToolBtn { 
                 background: #f3f4f6; 
                 border: 1px solid #e5e7eb; 
                 border-radius: 6px; 
-                padding: 6px 14px; 
+                padding: 6px 12px; 
                 color: #374151; 
                 font-weight: 600; 
                 font-size: 12px; 
+                min-width: 68px;
             }
             QPushButton.ToolBtn:hover { 
                 background: #e5e7eb; 
@@ -1106,16 +1142,12 @@ class SettingsPanel(QWidget):
                 background: #d1d5db; 
             }
             
-            /* ===== 主 TAB 栏 (一级 TAB 居中 + 增大间距) ===== */
             QTabWidget#MainTabWidget::pane { 
                 border: none; 
                 background: transparent; 
             }
             QTabWidget#MainTabWidget::tab-bar {
                 alignment: center;
-            }
-            QTabBar#MainTabBar {
-
             }
             QTabBar#MainTabBar::tab { 
                 background: transparent; 
@@ -1136,15 +1168,12 @@ class SettingsPanel(QWidget):
                 color: #111827; 
             }
             
-            /* ===== 子 TAB 栏 (二级 TAB 居中 + 增大间距) ===== */
             QTabWidget#SubTabWidget::pane { 
                 border: none; 
                 background: transparent; 
             }
             QTabWidget#SubTabWidget::tab-bar {
                 alignment: center;
-            }
-            QTabBar#SubTabBar { 
             }
             QTabBar#SubTabBar::tab { 
                 background: transparent; 
@@ -1166,7 +1195,6 @@ class SettingsPanel(QWidget):
                 color: #111827; 
             }
             
-            /* ===== 列表组件 ===== */
             QListWidget { 
                 border: 1px solid #e5e7eb; 
                 border-radius: 6px; 
@@ -1185,7 +1213,6 @@ class SettingsPanel(QWidget):
                 font-weight: 600; 
             }
 
-            /* ===== 极简细体滚动条 ===== */
             QScrollBar:vertical {
                 border: none;
                 background: transparent;
@@ -1479,13 +1506,13 @@ class SettingsPanel(QWidget):
         self.python_path_combo = QComboBox()
         self.python_path_combo.setEditable(True)
         self.python_path_combo.setPlaceholderText("留空则自动检索当前环境下的默认 Python 解释器")
-        setup_combo_white_theme(self.python_path_combo)
+        setup_combo_white_theme(self.python_path_combo, min_view_width=520)
         
         btn_python_path = QPushButton("浏览")
         btn_python_path.setProperty("class", "ToolBtn")
         btn_python_path.clicked.connect(self.select_python_path)
         py_cont = QWidget(); h_py = QHBoxLayout(py_cont); h_py.setContentsMargins(0,0,0,0)
-        h_py.addWidget(self.python_path_combo); h_py.addWidget(btn_python_path)
+        h_py.addWidget(self.python_path_combo, 1); h_py.addWidget(btn_python_path)
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("默认自适应源文件名")
@@ -1499,7 +1526,7 @@ class SettingsPanel(QWidget):
         btn_icon.setProperty("class", "ToolBtn")
         btn_icon.clicked.connect(self.select_icon)
         icon_cont = QWidget(); h_icon = QHBoxLayout(icon_cont); h_icon.setContentsMargins(0,0,0,0)
-        h_icon.addWidget(self.icon_edit); h_icon.addWidget(self.icon_preview); h_icon.addWidget(btn_icon)
+        h_icon.addWidget(self.icon_edit, 1); h_icon.addWidget(self.icon_preview); h_icon.addWidget(btn_icon)
 
         form1.addRow("编译引擎 (Engine):", self.engine_combo)
         form1.addRow("解释器 (Interpreter):", py_cont)
@@ -1535,11 +1562,11 @@ class SettingsPanel(QWidget):
         
         self.pip_source_combo = QComboBox()
         self.pip_source_combo.setEditable(True)
-        setup_combo_white_theme(self.pip_source_combo)
+        setup_combo_white_theme(self.pip_source_combo, min_view_width=520)
 
         self.pip_backup_combo = QComboBox()
         self.pip_backup_combo.setEditable(True)
-        setup_combo_white_theme(self.pip_backup_combo)
+        setup_combo_white_theme(self.pip_backup_combo, min_view_width=520)
 
         for name, url in PYPI_MIRRORS:
             display_text = f"{name}: {url}"
@@ -1549,14 +1576,14 @@ class SettingsPanel(QWidget):
         self.pip_backup_combo.currentTextChanged.connect(self._check_pip_mirrors)
 
         self.reqs_file_edit = QLineEdit(); self.reqs_file_edit.setPlaceholderText("留空则自动检索当前目录下的 requirements.txt")
-        btn_reqs = QPushButton("选择"); btn_reqs.setProperty("class", "ToolBtn"); btn_reqs.clicked.connect(self.select_reqs_file)
+        btn_reqs = QPushButton("浏览"); btn_reqs.setProperty("class", "ToolBtn"); btn_reqs.clicked.connect(self.select_reqs_file)
         reqs_cont = QWidget(); h_reqs = QHBoxLayout(reqs_cont); h_reqs.setContentsMargins(0,0,0,0)
-        h_reqs.addWidget(self.reqs_file_edit); h_reqs.addWidget(btn_reqs)
+        h_reqs.addWidget(self.reqs_file_edit, 1); h_reqs.addWidget(btn_reqs)
         
         self.hidden_edit = QLineEdit(); self.hidden_edit.setPlaceholderText("显式指定未被隐式导入的依赖，英文逗号分隔 (如: pandas, PyQt5)")
         btn_scan = QPushButton("AST扫描"); btn_scan.setProperty("class", "ToolBtn"); btn_scan.clicked.connect(self.auto_scan_hidden)
         hid_cont = QWidget(); h_hid = QHBoxLayout(hid_cont); h_hid.setContentsMargins(0,0,0,0)
-        h_hid.addWidget(self.hidden_edit); h_hid.addWidget(btn_scan)
+        h_hid.addWidget(self.hidden_edit, 1); h_hid.addWidget(btn_scan)
 
         self.exclude_edit = QLineEdit(); self.exclude_edit.setPlaceholderText("指定不进行打包的模块列表，英文逗号分隔 (如: tkinter, matplotlib)")
         
@@ -1582,6 +1609,7 @@ class SettingsPanel(QWidget):
         self.add_data_list = QListWidget()
         self.add_data_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.add_data_list.setFixedHeight(120)
+        self.add_data_list.setToolTip("双击列表项可修改打包后的相对目标路径")
         self.add_data_list.itemDoubleClicked.connect(self.edit_resource)
         c_lay4.addWidget(self.add_data_list)
         
@@ -1634,7 +1662,7 @@ class SettingsPanel(QWidget):
         self.upx_path_edit = QLineEdit(); self.upx_path_edit.setPlaceholderText("留空则自动检测环境变量")
         btn_upx = QPushButton("选择"); btn_upx.setProperty("class", "ToolBtn"); btn_upx.clicked.connect(self.select_upx_path)
         self.upx_path_container = QWidget(); h_upx = QHBoxLayout(self.upx_path_container); h_upx.setContentsMargins(0,0,0,0)
-        h_upx.addWidget(self.upx_path_edit); h_upx.addWidget(btn_upx)
+        h_upx.addWidget(self.upx_path_edit, 1); h_upx.addWidget(btn_upx)
         self.upx_path_container.setVisible(False)
         
         h_upx_row = QHBoxLayout()
@@ -1697,7 +1725,7 @@ class SettingsPanel(QWidget):
         self.out_dir_edit = QLineEdit(); self.out_dir_edit.setPlaceholderText("选择具体的输出归档路径...")
         btn_out_dir = QPushButton("浏览..."); btn_out_dir.setProperty("class", "ToolBtn"); btn_out_dir.clicked.connect(self.select_out_dir)
         self.out_dir_container = QWidget(); h_out_dir = QHBoxLayout(self.out_dir_container); h_out_dir.setContentsMargins(0, 0, 0, 0)
-        h_out_dir.addWidget(self.out_dir_edit); h_out_dir.addWidget(btn_out_dir)
+        h_out_dir.addWidget(self.out_dir_edit, 1); h_out_dir.addWidget(btn_out_dir)
         self.out_dir_container.setVisible(False)
         
         form1 = QFormLayout()
@@ -2604,8 +2632,8 @@ class MainWindow(QMainWindow):
     def init_style(self):
         self.setWindowTitle(f"{__app_name__} {__version__}")
         
-        self.setMinimumSize(710, 620)
-        self.resize(680, 620)
+        self.setMinimumSize(700, 600)
+        self.resize(740, 640)
         
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
@@ -2660,6 +2688,10 @@ class MainWindow(QMainWindow):
         self.log = QTextEdit()
         self.log.setReadOnly(True)
         self.log.setFixedHeight(120) 
+        
+        self.log.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.log.customContextMenuRequested.connect(self.show_log_context_menu)
+        
         log_lay.addWidget(self.log)
         self.log_container.hide()
         layout.addWidget(self.log_container)
@@ -2883,9 +2915,7 @@ class MainWindow(QMainWindow):
                     trial = script_dir / f"{name}{ext}"
                     if trial.exists():
                         auto_icon = trial
-                        
                         self.settings_panel.icon_edit.setText(trial.resolve().as_posix())
-                        
                         found = True
                         break
                 if found: break
@@ -3068,6 +3098,90 @@ class MainWindow(QMainWindow):
                         clean_text = clean_text[:32] + "..."
                     self.drop_area.label.setText(clean_text)
                     self.drop_area.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
+
+    def append_log(self, msg):
+        self.log.append(msg)
+        self.log.ensureCursorVisible()
+
+        for line in msg.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            
+            if line.startswith(("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]")):
+                clean_text = line
+                for prefix in ("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]"):
+                    if clean_text.startswith(prefix):
+                        clean_text = clean_text[len(prefix):].strip()
+                        break
+                
+                if self.current_state == "building" and clean_text:
+                    if len(clean_text) > 35:
+                        clean_text = clean_text[:32] + "..."
+                    self.drop_area.label.setText(clean_text)
+                    self.drop_area.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
+
+    def show_log_context_menu(self, pos):
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #ffffff;
+                color: #111827;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 20px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-family: Consolas, "Segoe UI", sans-serif;
+            }
+            QMenu::item:selected {
+                background-color: #eff6ff;
+                color: #2563eb;
+                font-weight: 600;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #e5e7eb;
+                margin: 4px 2px;
+            }
+        """)
+        
+        act_copy = menu.addAction("复制")
+        act_copy.setEnabled(self.log.textCursor().hasSelection())
+        act_copy.triggered.connect(self.log.copy)
+
+        act_select_all = menu.addAction("全选")
+        act_select_all.triggered.connect(self.log.selectAll)
+
+        menu.addSeparator()
+
+        act_clear = menu.addAction("清空日志")
+        act_clear.triggered.connect(self.log.clear)
+
+        act_save = menu.addAction("导出日志到文件...")
+        act_save.triggered.connect(self.save_log_file)
+
+        menu.exec(self.log.mapToGlobal(pos))
+
+    def save_log_file(self):
+        content = self.log.toPlainText()
+        if not content.strip():
+            return QMessageBox.information(self, "提示", "当前日志区域暂无内容，无需导出。")
+        
+        default_name = "build.log"
+        if self.script_path:
+            default_name = f"qpypack_{Path(self.script_path).stem}.log"
+            
+        fp, _ = QFileDialog.getSaveFileName(self, "导出日志文件", default_name, "Log Files (*.log);;Text Files (*.txt);;All Files (*)")
+        if fp:
+            try:
+                Path(fp).write_text(content, encoding='utf-8')
+                QMessageBox.information(self, "导出成功", f"编译日志已成功保存至:\n{fp}")
+            except Exception as e:
+                QMessageBox.warning(self, "导出失败", f"写入日志文件失败: {e}")
 
 def main():
     try:
