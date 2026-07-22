@@ -30,13 +30,14 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayo
                              QComboBox, QFrame, QStackedLayout, QFormLayout, QTextEdit, 
                              QGraphicsOpacityEffect, QGroupBox, QGridLayout, QTabWidget,
                              QMessageBox, QInputDialog, QFileIconProvider, QSizePolicy, QScrollArea,
-                             QGraphicsDropShadowEffect, QSpinBox, QListWidget, QListWidgetItem)
+                             QGraphicsDropShadowEffect, QSpinBox, QListWidget, QListWidgetItem,
+                             QListView)
 from PySide6.QtCore import Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QFileInfo, QVariantAnimation, QTimer, QPointF, QRectF, QRect
 from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon, QPixmap, QPainter, QColor, QPen, QImage, QImageWriter
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.5.5"
+__version__ = "2.5.6"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -61,6 +62,17 @@ _CONFIG_DIR = Path.home() / ".qpypack"
 _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = (_CONFIG_DIR / "config.ini").as_posix()
 
+PYPI_MIRRORS = [
+    ("清华源", "https://pypi.tuna.tsinghua.edu.cn/simple"),
+    ("阿里源", "https://mirrors.aliyun.com/pypi/simple/"),
+    ("腾讯源", "https://mirrors.cloud.tencent.com/pypi/simple/"),
+    ("华为源", "https://repo.huaweicloud.com/repository/pypi/simple/"),
+    ("中科大源", "https://mirrors.ustc.edu.cn/pypi/simple/"),
+    ("网易源", "https://mirrors.163.com/pypi/simple/"),
+    ("PyPI 官方源", "https://pypi.org/simple"),
+    ("Test PyPI 源", "https://test.pypi.org/simple"),
+]
+
 DEFAULT_MAPPINGS = {
     'win32com': 'pywin32', 'win32api': 'pywin32', 'win32con': 'pywin32', 'win32gui': 'pywin32',
     'win32clipboard': 'pywin32', 'win32print': 'pywin32', 'win32file': 'pywin32', 'win32security': 'pywin32',
@@ -68,12 +80,73 @@ DEFAULT_MAPPINGS = {
     'yaml': 'pyyaml', 'fitz': 'pymupdf', 'dotenv': 'python-dotenv'
 }
 
+def setup_combo_white_theme(combo: QComboBox):
+    combo.setView(QListView())
+    
+    if combo.view():
+        combo.view().setMinimumWidth(520)
+        combo.view().setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        combo.view().setStyleSheet("""
+            QListView {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                outline: none;
+                padding: 4px;
+                font-size: 12px;
+                font-family: Consolas, "Segoe UI", sans-serif;
+            }
+            QListView::item {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                min-height: 26px;
+                padding: 4px 8px;
+                border-radius: 4px;
+            }
+            QListView::item:hover, QListView::item:selected {
+                background-color: #eff6ff !important;
+                color: #2563eb !important;
+            }
+        """)
+
+    combo.setStyleSheet("""
+        QComboBox {
+            background-color: #ffffff;
+            color: #111827;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 12px;
+            min-height: 22px;
+            font-family: Consolas, "Segoe UI", sans-serif;
+        }
+        QComboBox:hover {
+            border-color: #9ca3af;
+        }
+        QComboBox:focus {
+            border-color: #2563eb;
+        }
+        QComboBox QLineEdit {
+            background-color: transparent;
+            color: #111827;
+            font-size: 12px;
+            selection-background-color: #eff6ff;
+            selection-color: #2563eb;
+        }
+    """)
+    
+    combo.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+    combo.setMinimumWidth(150)
+
 def load_config():
     config = configparser.ConfigParser()
     if not os.path.exists(CONFIG_FILE):
         config['Mappings'] = DEFAULT_MAPPINGS
         config['Settings'] = {
-            'engine': 'PyInstaller', 'pip_index': 'https://pypi.tuna.tsinghua.edu.cn/simple',
+            'engine': 'PyInstaller', 
+            'pip_index': 'https://pypi.tuna.tsinghua.edu.cn/simple',
+            'pip_index_backup': 'https://mirrors.aliyun.com/pypi/simple/',
             'onefile': 'True', 'noconsole': 'True', 'clean_all': 'True',
             'auto_icon': 'True', 'use_venv': 'True', 'use_reqs': 'True',
             'use_pipreqs': 'True', 'upx': 'False', 'concise_log': 'True',
@@ -93,6 +166,8 @@ def load_config():
         if 'Mappings' not in config: config['Mappings'] = DEFAULT_MAPPINGS
         if 'Settings' not in config: config['Settings'] = {}
         default_updates = {
+            'pip_index': 'https://pypi.tuna.tsinghua.edu.cn/simple',
+            'pip_index_backup': 'https://mirrors.aliyun.com/pypi/simple/',
             'concise_log': 'True',
             'cpu_cores': str(os.cpu_count() or 2),
             'upx_path': '',
@@ -141,7 +216,7 @@ def extract_imports_via_ast(script_path, python_exe):
         "    code = raw.decode('utf-8-sig') if raw.startswith(b'\\xef\\xbb\\xbf') else raw.decode('utf-8', errors='ignore')\n"
         "    imports = set()\n"
         "    for node in ast.walk(ast.parse(code)):\n"
-        "        if isinstance(node, ast.Import): imports.update(a.name.split('.')[0] for a in node.names)\n"
+        "        if isinstance(node, ast.Import): imports.update(n.name.split('.')[0] for n in node.names)\n"
         "        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module: imports.add(node.module.split('.')[0])\n"
         "    print('__QPYPACK_RES__:' + json.dumps(list(imports)))\n"
         "except:\n"
@@ -757,7 +832,7 @@ class DropArea(QFrame):
         self.icon_widget.set_file_pixmap(pixmap, 88)
         self.label.setText(f"已载入源文件：{filename}")
         self.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
-        self.sub_label.setText("正在解析依赖依赖与项目元数据，请稍候...")
+        self.sub_label.setText("正在解析依赖与项目元数据，请稍候...")
 
     def set_success(self, filename, custom_icon_path=None):
         pixmap = None
@@ -950,40 +1025,184 @@ class SettingsPanel(QWidget):
         self.out_dir_container = None
         
         self.setStyleSheet("""
-            SettingsPanel { background-color: #f3f4f6; }
-            QLabel { color: #3c4043; font-size: 13px; font-weight: bold; background: transparent; }
-            QComboBox, QLineEdit, QSpinBox { 
-                color: #3c4043; font-size: 13px; padding: 8px 12px; 
-                border: 1px solid #dadce0; border-radius: 6px; background: #f8f9fa; min-height: 20px; 
+            /* ===== 根容器：极简清爽微灰背景 ===== */
+            SettingsPanel { 
+                background-color: #f9fafb; 
             }
-            QComboBox:hover, QLineEdit:hover, QSpinBox:hover { border-color: #bdc1c6; background: #ffffff; }
-            QComboBox:focus, QLineEdit:focus, QSpinBox:focus { border-color: #1A73E8; background: #ffffff; }
-            QCheckBox { font-size: 13px; color: #3c4043; spacing: 10px; background: transparent; }
-            QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #bdc1c6; border-radius: 4px; background: white; }
-            QCheckBox::indicator:hover { border-color: #1A73E8; }
-            QCheckBox::indicator:checked { background: #1A73E8; border-color: #1A73E8; image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='white'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg>"); }
+            QLabel { 
+                color: #111827; 
+                font-size: 13px; 
+                font-weight: 600; 
+                background: transparent; 
+            }
             
-            QFrame#SettingCard { background-color: #ffffff; border: 1px solid #e8eaed; border-radius: 12px; }
-            QFrame#SettingCard:hover { border: 1px solid #d2e3fc; }
+            /* ===== 极简扁平输入框 ===== */
+            QLineEdit, QSpinBox { 
+                color: #111827; 
+                font-size: 12px; 
+                padding: 6px 10px; 
+                border: 1px solid #d1d5db; 
+                border-radius: 6px; 
+                background: #ffffff; 
+                min-height: 22px; 
+            }
+            QLineEdit:hover, QSpinBox:hover { 
+                border-color: #9ca3af; 
+            }
+            QLineEdit:focus, QSpinBox:focus { 
+                border: 1px solid #2563eb; 
+                background: #ffffff; 
+            }
+
+            /* ===== 极简复选框 ===== */
+            QCheckBox { 
+                font-size: 13px; 
+                color: #1f2937; 
+                spacing: 8px; 
+                background: transparent; 
+            }
+            QCheckBox::indicator { 
+                width: 16px; 
+                height: 16px; 
+                border: 1px solid #d1d5db; 
+                border-radius: 4px; 
+                background: #ffffff; 
+            }
+            QCheckBox::indicator:hover { 
+                border-color: #2563eb; 
+            }
+            QCheckBox::indicator:checked { 
+                background: #2563eb; 
+                border-color: #2563eb; 
+                image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='white'><path d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/></svg>"); 
+            }
             
-            QPushButton.ToolBtn { background: #f1f3f4; border: none; border-radius: 6px; padding: 8px 16px; color: #3c4043; font-weight: bold; }
-            QPushButton.ToolBtn:hover { background: #e8eaed; color: #202124; }
-            QPushButton.ToolBtn:pressed { background: #dadce0; }
+            /* ===== 扁平卡片（纯白 + 极细浅灰边框） ===== */
+            QFrame#SettingCard { 
+                background-color: #ffffff; 
+                border: 1px solid #e5e7eb; 
+                border-radius: 8px; 
+            }
+            QFrame#SettingCard:hover { 
+                border-color: #cbd5e1; 
+            }
             
-            QTabWidget#MainTabWidget::pane { border: none; background: transparent; top: -1px; }
-            QTabBar#MainTabBar::tab { background: transparent; border: none; padding: 12px 24px; color: #5f6368; font-weight: bold; font-size: 14px; border-bottom: 3px solid transparent; margin-right: 4px; }
-            QTabBar#MainTabBar::tab:selected { color: #1A73E8; border-bottom: 3px solid #1A73E8; }
-            QTabBar#MainTabBar::tab:hover:!selected { color: #202124; background: rgba(0,0,0,0.03); border-radius: 6px; }
+            /* ===== 扁平按钮 ===== */
+            QPushButton.ToolBtn { 
+                background: #f3f4f6; 
+                border: 1px solid #e5e7eb; 
+                border-radius: 6px; 
+                padding: 6px 14px; 
+                color: #374151; 
+                font-weight: 600; 
+                font-size: 12px; 
+            }
+            QPushButton.ToolBtn:hover { 
+                background: #e5e7eb; 
+                color: #111827; 
+                border-color: #d1d5db; 
+            }
+            QPushButton.ToolBtn:pressed { 
+                background: #d1d5db; 
+            }
             
-            QTabWidget#SubTabWidget::pane { border: none; background: transparent; }
-            QTabBar#SubTabBar { alignment: left; }
-            QTabBar#SubTabBar::tab { background: transparent; border: 1px solid transparent; padding: 6px 18px; color: #5f6368; font-weight: bold; font-size: 13px; margin: 0 8px 12px 0; border-radius: 15px; }
-            QTabBar#SubTabBar::tab:selected { background: #e8f0fe; color: #1A73E8; border: 1px solid #d2e3fc; }
-            QTabBar#SubTabBar::tab:hover:!selected { background: #e8eaed; color: #202124; }
+            /* ===== 主 TAB 栏 (一级 TAB 居中 + 增大间距) ===== */
+            QTabWidget#MainTabWidget::pane { 
+                border: none; 
+                background: transparent; 
+            }
+            QTabWidget#MainTabWidget::tab-bar {
+                alignment: center;
+            }
+            QTabBar#MainTabBar {
+
+            }
+            QTabBar#MainTabBar::tab { 
+                background: transparent; 
+                border: none; 
+                padding: 10px 24px; 
+                color: #6b7280; 
+                font-weight: 600; 
+                font-size: 13px; 
+                border-bottom: 2px solid transparent; 
+                margin: 0 14px; 
+            }
+            QTabBar#MainTabBar::tab:selected { 
+                color: #2563eb; 
+                font-weight: 700;
+                border-bottom: 2px solid #2563eb; 
+            }
+            QTabBar#MainTabBar::tab:hover:!selected { 
+                color: #111827; 
+            }
             
-            QListWidget { border: 1px solid #dadce0; border-radius: 6px; background: #fff; outline: none; font-size: 12px;}
-            QListWidget::item { padding: 8px 12px; border-bottom: 1px solid #f1f3f4; color: #3c4043;}
-            QListWidget::item:selected { background: #e8f0fe; color: #1a73e8; font-weight:bold; border-radius: 4px;}
+            /* ===== 子 TAB 栏 (二级 TAB 居中 + 增大间距) ===== */
+            QTabWidget#SubTabWidget::pane { 
+                border: none; 
+                background: transparent; 
+            }
+            QTabWidget#SubTabWidget::tab-bar {
+                alignment: center;
+            }
+            QTabBar#SubTabBar { 
+            }
+            QTabBar#SubTabBar::tab { 
+                background: transparent; 
+                border: 1px solid transparent; 
+                padding: 6px 18px; 
+                color: #6b7280; 
+                font-weight: 600; 
+                font-size: 12px; 
+                margin: 0 8px 12px 8px; 
+                border-radius: 6px; 
+            }
+            QTabBar#SubTabBar::tab:selected { 
+                background: #eff6ff; 
+                color: #2563eb; 
+                border: 1px solid #bfdbfe; 
+            }
+            QTabBar#SubTabBar::tab:hover:!selected { 
+                background: #f3f4f6; 
+                color: #111827; 
+            }
+            
+            /* ===== 列表组件 ===== */
+            QListWidget { 
+                border: 1px solid #e5e7eb; 
+                border-radius: 6px; 
+                background: #ffffff; 
+                outline: none; 
+                font-size: 12px;
+            }
+            QListWidget::item { 
+                padding: 6px 10px; 
+                border-bottom: 1px solid #f3f4f6; 
+                color: #1f2937;
+            }
+            QListWidget::item:selected { 
+                background: #eff6ff; 
+                color: #2563eb; 
+                font-weight: 600; 
+            }
+
+            /* ===== 极简细体滚动条 ===== */
+            QScrollBar:vertical {
+                border: none;
+                background: transparent;
+                width: 6px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #d1d5db;
+                min-height: 20px;
+                border-radius: 3px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #9ca3af;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
         """)
         self.init_ui()
         self.load_from_config()
@@ -1004,6 +1223,27 @@ class SettingsPanel(QWidget):
             lay.addWidget(lbl)
         return card, lay
 
+    def _get_url_from_combo(self, combo):
+        idx = combo.currentIndex()
+        if idx >= 0 and combo.currentText() == combo.itemText(idx):
+            data = combo.itemData(idx)
+            if data: return data
+        text = combo.currentText().strip()
+        if "http://" in text or "https://" in text:
+            m = re.search(r'https?://[^\s]+', text)
+            if m: return m.group(0)
+        return text
+
+    def _set_combo_value(self, combo, url_val):
+        url_val = (url_val or '').strip()
+        if not url_val: return
+        for i in range(combo.count()):
+            data = combo.itemData(i)
+            if data and data.rstrip('/') == url_val.rstrip('/'):
+                combo.setCurrentIndex(i)
+                return
+        combo.setCurrentText(url_val)
+
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setSpacing(15) 
@@ -1012,6 +1252,7 @@ class SettingsPanel(QWidget):
         self.tabs = QTabWidget()
         self.tabs.setObjectName("MainTabWidget")
         self.tabs.tabBar().setObjectName("MainTabBar")
+        self.tabs.tabBar().setExpanding(False)
         
         self.tab_build = QWidget()
         self.tab_pref = QWidget()
@@ -1091,7 +1332,13 @@ class SettingsPanel(QWidget):
             self.noconsole_check.setChecked(s.getboolean('noconsole', True))
             self.clean_all_check.setChecked(s.getboolean('clean_all', True))
             self.auto_icon_check.setChecked(s.getboolean('auto_icon', True))
-            self.pip_source_edit.setText(s.get('pip_index', 'https://pypi.tuna.tsinghua.edu.cn/simple'))
+            
+            pip_main = s.get('pip_index', 'https://pypi.tuna.tsinghua.edu.cn/simple')
+            self._set_combo_value(self.pip_source_combo, pip_main)
+
+            pip_backup = s.get('pip_index_backup', 'https://mirrors.aliyun.com/pypi/simple/')
+            self._set_combo_value(self.pip_backup_combo, pip_backup)
+
             self.venv_check.setChecked(s.getboolean('use_venv', True))
             self.reqs_check.setChecked(s.getboolean('use_reqs', True))
             self.pipreqs_check.setChecked(s.getboolean('use_pipreqs', True))
@@ -1140,7 +1387,10 @@ class SettingsPanel(QWidget):
         s['noconsole'] = str(self.noconsole_check.isChecked())
         s['clean_all'] = str(self.clean_all_check.isChecked())
         s['auto_icon'] = str(self.auto_icon_check.isChecked())
-        s['pip_index'] = self.pip_source_edit.text().strip()
+        
+        s['pip_index'] = self._get_url_from_combo(self.pip_source_combo)
+        s['pip_index_backup'] = self._get_url_from_combo(self.pip_backup_combo)
+
         s['use_venv'] = str(self.venv_check.isChecked())
         s['use_reqs'] = str(self.reqs_check.isChecked())
         s['use_pipreqs'] = str(self.pipreqs_check.isChecked())
@@ -1175,6 +1425,27 @@ class SettingsPanel(QWidget):
         
         save_config(config)
 
+    def _check_pip_mirrors(self):
+        sender = self.sender()
+        src_text = self.pip_source_combo.currentText()
+        bak_text = self.pip_backup_combo.currentText()
+        
+        if src_text == bak_text and src_text.strip() != "":
+            if sender == self.pip_source_combo:
+                for i in range(self.pip_backup_combo.count()):
+                    if self.pip_backup_combo.itemText(i) != src_text:
+                        self.pip_backup_combo.blockSignals(True)
+                        self.pip_backup_combo.setCurrentIndex(i)
+                        self.pip_backup_combo.blockSignals(False)
+                        break
+            elif sender == self.pip_backup_combo:
+                for i in range(self.pip_source_combo.count()):
+                    if self.pip_source_combo.itemText(i) != bak_text:
+                        self.pip_source_combo.blockSignals(True)
+                        self.pip_source_combo.setCurrentIndex(i)
+                        self.pip_source_combo.blockSignals(False)
+                        break
+
     def build_build_tab(self):
         main_lay = QVBoxLayout(self.tab_build)
         main_lay.setContentsMargins(0, 10, 0, 0)
@@ -1182,6 +1453,7 @@ class SettingsPanel(QWidget):
         self.sub_tabs = QTabWidget()
         self.sub_tabs.setObjectName("SubTabWidget")
         self.sub_tabs.tabBar().setObjectName("SubTabBar")
+        self.sub_tabs.tabBar().setExpanding(False)
         
         tab_basic = QWidget()
         tab_assets = QWidget()
@@ -1201,11 +1473,14 @@ class SettingsPanel(QWidget):
         
         self.engine_combo = QComboBox()
         self.engine_combo.addItems(["PyInstaller", "Nuitka"])
+        setup_combo_white_theme(self.engine_combo)
         self.engine_combo.currentIndexChanged.connect(self.on_engine_changed)
         
         self.python_path_combo = QComboBox()
         self.python_path_combo.setEditable(True)
         self.python_path_combo.setPlaceholderText("留空则自动检索当前环境下的默认 Python 解释器")
+        setup_combo_white_theme(self.python_path_combo)
+        
         btn_python_path = QPushButton("浏览")
         btn_python_path.setProperty("class", "ToolBtn")
         btn_python_path.clicked.connect(self.select_python_path)
@@ -1258,8 +1533,21 @@ class SettingsPanel(QWidget):
         form2.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form2.setSpacing(15)
         
-        self.pip_source_edit = QLineEdit()
-        
+        self.pip_source_combo = QComboBox()
+        self.pip_source_combo.setEditable(True)
+        setup_combo_white_theme(self.pip_source_combo)
+
+        self.pip_backup_combo = QComboBox()
+        self.pip_backup_combo.setEditable(True)
+        setup_combo_white_theme(self.pip_backup_combo)
+
+        for name, url in PYPI_MIRRORS:
+            display_text = f"{name}: {url}"
+            self.pip_source_combo.addItem(display_text, url)
+            self.pip_backup_combo.addItem(display_text, url)
+        self.pip_source_combo.currentTextChanged.connect(self._check_pip_mirrors)
+        self.pip_backup_combo.currentTextChanged.connect(self._check_pip_mirrors)
+
         self.reqs_file_edit = QLineEdit(); self.reqs_file_edit.setPlaceholderText("留空则自动检索当前目录下的 requirements.txt")
         btn_reqs = QPushButton("选择"); btn_reqs.setProperty("class", "ToolBtn"); btn_reqs.clicked.connect(self.select_reqs_file)
         reqs_cont = QWidget(); h_reqs = QHBoxLayout(reqs_cont); h_reqs.setContentsMargins(0,0,0,0)
@@ -1272,7 +1560,8 @@ class SettingsPanel(QWidget):
 
         self.exclude_edit = QLineEdit(); self.exclude_edit.setPlaceholderText("指定不进行打包的模块列表，英文逗号分隔 (如: tkinter, matplotlib)")
         
-        form2.addRow("PIP 源地址 (Index URL):", self.pip_source_edit)
+        form2.addRow("PIP 主镜像源 (Primary):", self.pip_source_combo)
+        form2.addRow("PIP 备用源 (Backup):", self.pip_backup_combo)
         form2.addRow("声明清单 (Requirements):", reqs_cont)
         form2.addRow("隐式导入 (Hidden Imports):", hid_cont)
         form2.addRow("排除模块 (Exclude):", self.exclude_edit)
@@ -1353,7 +1642,7 @@ class SettingsPanel(QWidget):
         h_upx_row.addWidget(self.upx_path_container)
         form4.addRow("UPX 压缩工具 (UPX Path):", h_upx_row)
         
-        self.lite_mode_check = QCheckBox("启用精简模式 (剔除测试组件，深度缩减体积)")
+        self.lite_mode_check = QCheckBox("启用精简模式")
         self.lite_mode_check.setStyleSheet("color: #D93025; font-weight: bold;")
         self.lite_mode_check.setToolTip("动态排除开发及测试环境冗余依赖，提升构建速度并缩减体积。")
         c_lay6.addLayout(form4)
@@ -1402,6 +1691,7 @@ class SettingsPanel(QWidget):
         card1, lay1 = self._create_card("输出设置")
         self.out_mode_combo = QComboBox()
         self.out_mode_combo.addItems(["默认路径 (源文件同级目录)", "自定义归档路径 (自定义目录)"])
+        setup_combo_white_theme(self.out_mode_combo)
         self.out_mode_combo.currentIndexChanged.connect(self.on_out_mode_changed)
         
         self.out_dir_edit = QLineEdit(); self.out_dir_edit.setPlaceholderText("选择具体的输出归档路径...")
@@ -1790,6 +2080,26 @@ class PackingThread(QThread):
             if timer:
                 timer.cancel()
 
+    def run_pip_install(self, python_exe, pkgs_or_args):
+        primary_idx = self.params.get('pip_index_url', '').strip()
+        backup_idx = self.params.get('pip_index_backup', '').strip()
+
+        pip_args = []
+        if primary_idx:
+            pip_args.extend(["-i", primary_idx])
+        if backup_idx and backup_idx != primary_idx:
+            pip_args.extend(["--extra-index-url", backup_idx])
+
+        cmd = [python_exe, "-m", "pip", "install"] + pkgs_or_args + pip_args
+        success = self.run_cmd(cmd)
+
+        if not success and backup_idx and backup_idx != primary_idx:
+            self.progress.emit(f"[WARN] 主镜像源连接超时或失败，正在自动切换至备用源重试: {backup_idx}")
+            fallback_cmd = [python_exe, "-m", "pip", "install"] + pkgs_or_args + ["-i", backup_idx]
+            success = self.run_cmd(fallback_cmd)
+
+        return success
+
     def sanitize_script(self, orig_path: Path):
         if is_cloud_locked(orig_path):
             return None, False, "目标脚本处于云盘加密或锁定状态，请解密后重试。"
@@ -1823,7 +2133,6 @@ class PackingThread(QThread):
         return orig_path, False, ""
 
     def detect_python_syntax_errors(self):
-        import re
         script_path = self.params['script_path']
         script_name = Path(script_path).name
         log_text = "\n".join(self.all_raw_logs)
@@ -1863,6 +2172,7 @@ class PackingThread(QThread):
         os.environ["NUITKA_ACCEPT_DOWNLOADS"] = "yes"
         engine = self.params['engine']
         pip_idx = self.params.get('pip_index_url', '').strip()
+        pip_backup = self.params.get('pip_index_backup', '').strip()
         is_temp = False
         build_script_path = None
         ext = ".exe" if os.name == "nt" else ""
@@ -1896,8 +2206,6 @@ class PackingThread(QThread):
             except Exception as e:
                 self.progress.emit(f"[WARN] 源码 AST 分析异常: {e}")
 
-            pip_args = ["-i", pip_idx] if pip_idx else []
-            
             if self.params['use_venv']:
                 self.progress.emit("[INFO] 正在创建虚拟环境...")
                 self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
@@ -1906,7 +2214,7 @@ class PackingThread(QThread):
                 python_exe = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
                 
                 self.progress.emit("[INFO] 正在同步并升级 pip 包管理器...")
-                self.run_cmd([python_exe, "-m", "pip", "install", "--upgrade", "pip", "-q"] + pip_args)
+                self.run_pip_install(python_exe, ["--upgrade", "pip", "-q"])
             else: 
                 python_exe = system_python_exe
 
@@ -1923,7 +2231,7 @@ class PackingThread(QThread):
                 core_pkgs.append("pillow")
             elif engine == "Nuitka":
                 core_pkgs.append("zstandard")
-            self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + core_pkgs + pip_args)
+            self.run_pip_install(python_exe, ["-q"] + core_pkgs)
                       
             if self.params.get('use_reqs'):
                 custom_reqs = self.params.get('reqs_file', '').strip()
@@ -1942,7 +2250,7 @@ class PackingThread(QThread):
                         
                         temp_req = Path(tempfile.gettempdir()) / f"qpypack_temp_reqs_{int(time.time())}.txt"
                         temp_req.write_text(req_content, encoding='utf-8')
-                        self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_req.as_posix()] + pip_args)
+                        self.run_pip_install(python_exe, ["-q", "-r", temp_req.as_posix()])
                         temp_req.unlink(missing_ok=True)
                     except Exception as e: self.progress.emit(f"[WARN] 依赖清单读取或安装过程发生异常: {e}")
 
@@ -1953,12 +2261,12 @@ class PackingThread(QThread):
                 if self.params.get('pipreqs_version'):
                     pipreqs_pkg = f"pipreqs=={self.params['pipreqs_version']}"
                     
-                self.run_cmd([python_exe, "-m", "pip", "install", pipreqs_pkg, "-q"] + pip_args)
+                self.run_pip_install(python_exe, [pipreqs_pkg, "-q"])
                 temp_pipreqs = Path(tempfile.gettempdir()) / f"qpypack_pipreqs_{int(time.time())}.txt"
                 
                 pypi_server = None
                 if pip_idx:
-                    pypi_server = re.sub(r'/simple/?$', '/pypi', pip_idx.strip(), flags=re.I).rstrip('/')
+                    pypi_server = re.sub(r'/simple/?$', '/pypi', pip_idx, flags=re.I).rstrip('/')
                 
                 pipreqs_cmd = [
                     python_exe, "-m", "pipreqs.pipreqs", script_dir.as_posix(), 
@@ -1969,17 +2277,23 @@ class PackingThread(QThread):
                     self.progress.emit(f"[INFO] 依赖分析服务源地址: {pypi_server}")
                 self.progress.emit("[INFO] 正在查询各依赖库的版本，请稍候...")
                 
-                success_pipreqs = self.run_cmd(pipreqs_cmd, timeout=15, silent_error=True)
+                success_pipreqs = self.run_cmd(pipreqs_cmd, timeout=120, silent_error=True)
                 
+                if not success_pipreqs and pip_backup and pip_backup != pip_idx:
+                    backup_pypi = re.sub(r'/simple/?$', '/pypi', pip_backup, flags=re.I).rstrip('/')
+                    self.progress.emit(f"[INFO] 正在切换至备用 PyPI 查询源重新检索: {backup_pypi}")
+                    backup_pipreqs_cmd = [c if c != pypi_server else backup_pypi for c in pipreqs_cmd]
+                    success_pipreqs = self.run_cmd(backup_pipreqs_cmd, timeout=120, silent_error=True)
+
                 if not success_pipreqs:
-                    self.progress.emit("[INFO] UTF-8 扫描受阻，正在尝试利用兼容编码重新扫描...")
+                    self.progress.emit("[INFO] 正在尝试利用兼容编码进行扫描...")
                     fallback_cmd = ["iso-8859-1" if c == "utf-8" else c for c in pipreqs_cmd]
-                    success_pipreqs = self.run_cmd(fallback_cmd, timeout=15, silent_error=True)
+                    success_pipreqs = self.run_cmd(fallback_cmd, timeout=120, silent_error=True)
                     if not success_pipreqs:
-                        self.progress.emit("[WARN] pipreqs 深度扫描因编码异常中断，已跳过。将由后续 AST 扫描引擎补全依赖。")
+                        self.progress.emit("[WARN] pipreqs 已跳过深度扫描，将由 AST 扫描引擎补全依赖。")
                 
                 if success_pipreqs and temp_pipreqs.exists():
-                    self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args)
+                    self.run_pip_install(python_exe, ["-q", "-r", temp_pipreqs.as_posix()])
                     temp_pipreqs.unlink(missing_ok=True)
 
             config = load_config()
@@ -1998,10 +2312,10 @@ class PackingThread(QThread):
             if ast_pkgs:
                 self.progress.emit(f"[INFO] 依赖安装 [3/3]: 正在通过 AST 静态扫描提取隐式依赖...")
                 self.progress.emit(f"[INFO] 正在解析并安装隐式导入依赖: {', '.join(ast_pkgs)}")
-                if not self.run_cmd([python_exe, "-m", "pip", "install", "-q"] + ast_pkgs + pip_args):
+                if not self.run_pip_install(python_exe, ["-q"] + ast_pkgs):
                     self.progress.emit("[WARN] 批量依赖同步发生冲突，正在转换为顺序安全安装机制...")
                     for pkg in ast_pkgs:
-                        self.run_cmd([python_exe, "-m", "pip", "install", "-q", pkg] + pip_args)
+                        self.run_pip_install(python_exe, ["-q", pkg])
 
             if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。")
 
@@ -2148,14 +2462,14 @@ class PackingThread(QThread):
                 if not self.params.get('use_venv'):
                     self.progress.emit("[WARN] 强烈建议勾选 [虚拟环境] 以最大化精简效果。")
                     
-                lite_excludes = ['pip', 'setuptools', 'distutils', 'wheel', 'pydoc', 'unittest', 'pytest', 'pdb', 'test']
+                lite_excludes = ['pip', 'setuptools', 'distutils', 'wheel', 'pydoc']
                 
                 for ex in lite_excludes:
                     if engine == "PyInstaller": cmd.append(f"--exclude-module={ex}")
                     elif engine == "Nuitka": cmd.append(f"--nofollow-import-to={ex}")
                     
                 if engine == "Nuitka":
-                    self.progress.emit("[INFO] 已启用 Nuitka 优化指令 (字节码除冗)...")
+                    self.progress.emit("[INFO] 已启用 Nuitka 优化指令...")
                     cmd.append("--python-flag=-OO")
 
             cmd.append(script_posix)
@@ -2163,7 +2477,7 @@ class PackingThread(QThread):
             success = self.run_cmd(cmd, cwd=script_dir.as_posix())
             if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。")
 
-            self.progress.emit("[INFO] 编译核心完成，正在提取并归档编译产物...")
+            self.progress.emit("[INFO] 编译核心完成，正在提取并归档编译文件...")
             
             src_out = None
             if engine == "PyInstaller": 
@@ -2290,7 +2604,7 @@ class MainWindow(QMainWindow):
     def init_style(self):
         self.setWindowTitle(f"{__app_name__} {__version__}")
         
-        self.setMinimumSize(680, 620)
+        self.setMinimumSize(710, 620)
         self.resize(680, 620)
         
         icon_path = get_resource_path("icon.ico")
@@ -2616,7 +2930,7 @@ class MainWindow(QMainWindow):
                 desc_escaped = sp.ver_desc.text().replace("'", "\\'")
                 v_str_escaped = v_str.replace("'", "\\'")
                 
-                content = f'''VSVersionInfo(ffi=FixedFileInfo(filevers=({v_tuple}),prodvers=({v_tuple}),mask=0x3f,flags=0x0,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('CompanyName','{comp_escaped}'),StringStruct('FileDescription','{desc_escaped}'),StringStruct('FileVersion','{v_str_escaped}'),StringStruct('ProductVersion','{v_str_escaped}'),StringStruct('OriginalFilename','{app_name}.exe')])])])'''
+                content = f'''VSVersionInfo(ffi=FixedFileInfo(filevers=({v_tuple}),prodvers=({v_tuple}),mask=0x3f,flags=0x0,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('CompanyName','{comp_escaped}'),StringStruct('FileDescription','{desc_escaped}'),StringStruct('FileVersion','{v_str_escaped}'),StringStruct('ProductVersion','{v_str_escaped}'),StringStruct('OriginalFilename','{app_name}.exe')])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])'''
                 version_file = Path(tempfile.gettempdir()) / f"qpypack_{app_name}_version.txt"
                 version_file.write_text(content, encoding='utf-8')
             except: pass
@@ -2640,6 +2954,9 @@ class MainWindow(QMainWindow):
         add_data_items = []
         for i in range(sp.add_data_list.count()):
             add_data_items.append(sp.add_data_list.item(i).data(Qt.ItemDataRole.UserRole))
+
+        main_pip = sp._get_url_from_combo(sp.pip_source_combo)
+        backup_pip = sp._get_url_from_combo(sp.pip_backup_combo)
 
         params = {
             'engine': engine,
@@ -2666,7 +2983,8 @@ class MainWindow(QMainWindow):
             'ver_comp': sp.ver_comp.text(),
             'ver_desc': sp.ver_desc.text(),
             'ver_ver': sp.ver_ver.text(),
-            'pip_index_url': sp.pip_source_edit.text().strip(),
+            'pip_index_url': main_pip,
+            'pip_index_backup': backup_pip,
             'concise_log': sp.concise_log_check.isChecked(),
             'auto_save_log': sp.auto_save_log_check.isChecked(),
             'lite_mode': sp.lite_mode_check.isChecked(),
