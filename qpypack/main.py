@@ -36,7 +36,7 @@ from PySide6.QtGui import QFont, QDragEnterEvent, QDropEvent, QTextCursor, QIcon
 from PySide6.QtSvg import QSvgRenderer
 
 __app_name__ = "QPyPack"
-__version__ = "2.5.4"
+__version__ = "2.5.5"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -1421,11 +1421,11 @@ class SettingsPanel(QWidget):
         card2, lay2 = self._create_card("编译选项")
         lay2.setSpacing(16)
         
-        self.concise_log_check = QCheckBox("精简日志输出 (过滤构建引擎产生的警告信息)")
-        self.auto_save_log_check = QCheckBox("自动保存编译日志 (构建失败时在输出目录落盘生成日志文件)")
-        self.auto_icon_check = QCheckBox("自动检索图标 (自动匹配并绑定源文件同名 ICO/SVG 图标)")
-        self.clean_all_check = QCheckBox("清理构建缓存 (构建完成后自动删除临时目录与缓存文件)")
-        self.sound_notify_check = QCheckBox("启用构建提示音 (构建成功或失败时播放系统音效)")
+        self.concise_log_check = QCheckBox("精简日志输出")
+        self.auto_save_log_check = QCheckBox("自动保存编译日志")
+        self.auto_icon_check = QCheckBox("自动检索图标")
+        self.clean_all_check = QCheckBox("清理构建缓存")
+        self.sound_notify_check = QCheckBox("启用构建提示音")
         
         for chk in (self.concise_log_check, self.auto_save_log_check, self.auto_icon_check, self.clean_all_check, self.sound_notify_check):
             lay2.addWidget(chk)
@@ -1685,6 +1685,7 @@ class PackingThread(QThread):
         self.venv_dir = None
         self.temp_workpath = None
         self.temp_out_dir = None
+        self.temp_dist_dir = None
         self.all_raw_logs = []  
 
     def cancel(self):
@@ -1695,7 +1696,7 @@ class PackingThread(QThread):
                 else: self.process.kill()
             except: pass
 
-    def run_cmd(self, cmd, cwd=None, timeout=None):
+    def run_cmd(self, cmd, cwd=None, timeout=None, silent_error=False):
         if self._is_cancelled: return False
         
         timer = None
@@ -1769,7 +1770,7 @@ class PackingThread(QThread):
                 
             success = self.process.returncode == 0
             
-            if not success and self.params.get('concise_log', True) and cmd_raw_lines:
+            if not success and not silent_error and self.params.get('concise_log', True) and cmd_raw_lines:
                 self.progress.emit("\n" + "!"*10 + " [诊断回溯: 以下是由于该环节执行异常产生的完整原始日志] " + "!"*10)
                 self.progress.emit('\n'.join(cmd_raw_lines))
                 self.progress.emit("!"*60 + "\n")
@@ -1867,9 +1868,7 @@ class PackingThread(QThread):
         ext = ".exe" if os.name == "nt" else ""
 
         try:
-            self.progress.emit("[INFO] 正在初始化工作空间并清除历史构建缓存...")
-            robust_rmtree(Path.cwd() / "build")
-            robust_rmtree(Path.cwd() / "dist")
+            self.progress.emit("[INFO] 正在初始化隔离构建环境...")
             
             script_path = Path(self.params['script_path']).resolve()
             script_dir = script_path.parent
@@ -1970,15 +1969,14 @@ class PackingThread(QThread):
                     self.progress.emit(f"[INFO] 依赖分析服务源地址: {pypi_server}")
                 self.progress.emit("[INFO] 正在查询各依赖库的版本，请稍候...")
                 
-                success_pipreqs = self.run_cmd(pipreqs_cmd, timeout=15)
+                success_pipreqs = self.run_cmd(pipreqs_cmd, timeout=15, silent_error=True)
                 
                 if not success_pipreqs:
-                    self.progress.emit("[INFO] UTF-8 扫描受阻，正在尝试利用系统本地编码重新扫描...")
-                    fallback_cmd = [c for c in pipreqs_cmd if c != "utf-8"]
-                    if "--encoding" in fallback_cmd:
-                        idx = fallback_cmd.index("--encoding")
-                        fallback_cmd.pop(idx)
-                    success_pipreqs = self.run_cmd(fallback_cmd, timeout=15)
+                    self.progress.emit("[INFO] UTF-8 扫描受阻，正在尝试利用兼容编码重新扫描...")
+                    fallback_cmd = ["iso-8859-1" if c == "utf-8" else c for c in pipreqs_cmd]
+                    success_pipreqs = self.run_cmd(fallback_cmd, timeout=15, silent_error=True)
+                    if not success_pipreqs:
+                        self.progress.emit("[WARN] pipreqs 深度扫描因编码异常中断，已跳过。将由后续 AST 扫描引擎补全依赖。")
                 
                 if success_pipreqs and temp_pipreqs.exists():
                     self.run_cmd([python_exe, "-m", "pip", "install", "-q", "-r", temp_pipreqs.as_posix()] + pip_args)
@@ -2014,10 +2012,12 @@ class PackingThread(QThread):
 
             if engine == "PyInstaller":
                 self.temp_workpath = Path(tempfile.mkdtemp(prefix="qpypack_build_")).resolve()
+                self.temp_dist_dir = Path(tempfile.mkdtemp(prefix="qpypack_dist_")).resolve()
                 cmd = [
                     python_exe, "-m", "PyInstaller", 
                     "--clean", 
                     "--noconfirm", 
+                    f"--distpath={self.temp_dist_dir.as_posix()}",
                     f"--workpath={self.temp_workpath.as_posix()}", 
                     f"--name={app_name}"
                 ]
@@ -2160,18 +2160,17 @@ class PackingThread(QThread):
 
             cmd.append(script_posix)
 
-            success = self.run_cmd(cmd, cwd=Path.cwd().resolve().as_posix())
+            success = self.run_cmd(cmd, cwd=script_dir.as_posix())
             if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。")
 
             self.progress.emit("[INFO] 编译核心完成，正在提取并归档编译产物...")
-            cwd = Path.cwd().resolve()
             
             src_out = None
             if engine == "PyInstaller": 
                 if sys.platform == "darwin" and self.params['noconsole']:
-                    src_out = cwd / "dist" / f"{app_name}.app"
+                    src_out = self.temp_dist_dir / f"{app_name}.app"
                 else:
-                    src_out = cwd / "dist" / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
+                    src_out = self.temp_dist_dir / (f"{app_name}{ext}" if self.params['onefile'] else app_name)
             elif engine == "Nuitka": 
                 if self.params['onefile']:
                     if sys.platform == "darwin" and self.params['noconsole']:
@@ -2263,26 +2262,19 @@ class PackingThread(QThread):
                 except: pass
                 
             if self.params['clean_all']:
-                self.progress.emit("[INFO] 正在释放空间，删除虚拟环境及临时编译缓存...")
+                self.progress.emit("[INFO] 正在释放空间，安全清除临时构建环境...")
                 
-                for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir]:
+                for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir, self.temp_dist_dir]:
                     if p and p.exists(): robust_rmtree(p)
                     
-                cwd = Path.cwd().resolve()
                 app_name = self.params.get('app_name', 'app')
                 
-                robust_rmtree(cwd / "dist")
-                for p in ["build", "__pycache__", f"{app_name}.build", f"{app_name}.dist", f"{app_name}.onefile-build"]:
-                    robust_rmtree(cwd / p)
+                for p in ["__pycache__", f"{app_name}.build", f"{app_name}.dist", f"{app_name}.onefile-build"]:
+                    robust_rmtree(script_dir / p)
                 
-                spec_file = cwd / f"{app_name}.spec"
+                spec_file = script_dir / f"{app_name}.spec"
                 if spec_file.exists():
                     try: spec_file.unlink()
-                    except: pass
-                
-                crash_xml = cwd / "nuitka-crash-report.xml"
-                if crash_xml.exists():
-                    try: crash_xml.unlink()
                     except: pass
 
 class MainWindow(QMainWindow):
@@ -2713,12 +2705,10 @@ class MainWindow(QMainWindow):
             self.update_ui_state("failed")
 
     def open_dist(self):
-        if self.settings_panel.out_mode_combo.currentIndex() == 1:
+        if self.settings_panel.out_mode_combo.currentIndex() == 1 and self.settings_panel.out_dir_edit.text().strip():
             target = Path(self.settings_panel.out_dir_edit.text().strip())
-        elif self.settings_panel.clean_all_check.isChecked() and self.script_path:
-            target = Path(self.script_path).parent
-        else: 
-            target = Path.cwd() / "dist"
+        else:
+            target = Path(self.script_path).parent if self.script_path else Path.cwd()
             
         if target.exists():
             try:
