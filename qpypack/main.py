@@ -2179,7 +2179,7 @@ class SettingsPanel(QWidget):
             )
         else:
             self.engine_desc_lbl.setText(
-                "<b>Nuitka</b>：编译为原生 C/C++ 二进制，体积更小且性能更好、支持源码防反编译；但构建耗时较长。适合商业级项目发布。"
+                "<b>Nuitka</b>：编译为原生 C/C++ 二进制，体积更小且性能更好、支持源码防反编译；但构建耗时较长。适合商业级项目发布。(容易被反病毒软件误杀)"
             )
 
         if getattr(self, 'upx_check', None) is not None and getattr(self, 'upx_path_container', None) is not None:
