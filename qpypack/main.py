@@ -47,7 +47,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.5.8"
+__version__ = "2.6.0"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -375,6 +375,25 @@ class ComboItemDelegate(QStyledItemDelegate):
     def sizeHint(self, option, index):
         s = super().sizeHint(option, index)
         return QSize(s.width(), max(s.height() + 12, 30))
+
+class TableItemDelegate(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        editor = QLineEdit(parent)
+        editor.setAutoFillBackground(True)
+        editor.setStyleSheet("""
+            QLineEdit {
+                background-color: #ffffff !important;
+                color: #111827;
+                border: 2px solid #2563eb;
+                border-radius: 4px;
+                padding: 2px 6px;
+                font-size: 12px;
+                font-family: Consolas, "Segoe UI", sans-serif;
+                selection-background-color: #2563eb;
+                selection-color: #ffffff;
+            }
+        """)
+        return editor
 
 def setup_combo_white_theme(combo: QComboBox, min_view_width: int = None):
     ensure_arrow_icon()
@@ -974,7 +993,6 @@ class DropArea(QFrame):
     def _get_default_pixmap(self, size=88):
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
-            # ✅ 改为提取 256x256 高清图层
             pixmap = QIcon(icon_path).pixmap(256, 256)
             if not pixmap.isNull():
                 return pixmap
@@ -1055,10 +1073,10 @@ class DropArea(QFrame):
             pixmap = QIcon(str(custom_icon_path)).pixmap(256, 256)
             if pixmap.isNull():
                 pixmap = None
-            
+                
         if not pixmap:
             pixmap = get_svg_pixmap('package', color="#1A73E8", size=256)
-        
+            
         self.icon_widget.set_file_pixmap(pixmap, 88)
             
         self.label.setText(f"已载入源文件：{filename}")
@@ -1316,12 +1334,13 @@ class SettingsPanel(QWidget):
                 background: #d1d5db; 
             }
             
+            /* === 主 TAB 样式 (居中对齐) === */
             QTabWidget#MainTabWidget::pane { 
                 border: none; 
                 background: transparent; 
             }
             QTabWidget#MainTabWidget::tab-bar {
-                alignment: center;
+                alignment: center; /* ✅ 居中对齐 */
             }
             QTabBar#MainTabBar::tab { 
                 background: transparent; 
@@ -1329,9 +1348,9 @@ class SettingsPanel(QWidget):
                 padding: 10px 24px; 
                 color: #6b7280; 
                 font-weight: 600; 
-                font-size: 13px; 
+                font-size: 14px; 
                 border-bottom: 2px solid transparent; 
-                margin: 0 14px; 
+                margin: 0 16px; 
             }
             QTabBar#MainTabBar::tab:selected { 
                 color: #2563eb; 
@@ -1342,49 +1361,83 @@ class SettingsPanel(QWidget):
                 color: #111827; 
             }
             
+            /* === 次 TAB 样式 (胶囊型 - 居中对齐) === */
             QTabWidget#SubTabWidget::pane { 
                 border: none; 
                 background: transparent; 
             }
             QTabWidget#SubTabWidget::tab-bar {
-                alignment: center;
+                alignment: center; /* ✅ 居中对齐 */
             }
             QTabBar#SubTabBar::tab { 
-                background: transparent; 
-                border: 1px solid transparent; 
-                padding: 6px 18px; 
-                color: #6b7280; 
+                background: #f3f4f6; 
+                border: 1px solid #e5e7eb; 
+                padding: 6px 16px; 
+                color: #4b5563; 
                 font-weight: 600; 
                 font-size: 12px; 
-                margin: 0 8px 12px 8px; 
+                margin: 0 4px 10px 4px; 
                 border-radius: 6px; 
             }
             QTabBar#SubTabBar::tab:selected { 
                 background: #eff6ff; 
                 color: #2563eb; 
                 border: 1px solid #bfdbfe; 
+                font-weight: 700;
             }
             QTabBar#SubTabBar::tab:hover:!selected { 
-                background: #f3f4f6; 
+                background: #e5e7eb; 
                 color: #111827; 
             }
             
             QListWidget, QTableWidget { 
                 border: 1px solid #e5e7eb; 
                 border-radius: 6px; 
-                background: #ffffff; 
+                background-color: #ffffff; 
                 outline: none; 
                 font-size: 12px;
+                gridline-color: #f3f4f6;
             }
             QListWidget::item { 
                 padding: 6px 10px; 
                 border-bottom: 1px solid #f3f4f6; 
                 color: #1f2937;
             }
-            QListWidget::item:selected, QTableWidget::item:selected { 
-                background: #eff6ff; 
+            QListWidget::item:selected { 
+                background-color: #eff6ff; 
                 color: #2563eb; 
                 font-weight: 600; 
+            }
+
+            /* === 修复 QTableWidget 单元格与重影问题 === */
+            QTableWidget::item { 
+                padding: 4px 8px; 
+                color: #1f2937;
+                border-bottom: 1px solid #f3f4f6;
+                background-color: #ffffff;
+            }
+            QTableWidget::item:selected { 
+                background-color: #eff6ff; 
+                color: #2563eb; 
+                font-weight: 600; 
+            }
+
+            /* === 彻底修复表头黑色块 Bug === */
+            QHeaderView {
+                background-color: #f8fafc;
+            }
+            QHeaderView::section {
+                background-color: #f8fafc;
+                color: #475569;
+                font-size: 12px;
+                font-weight: 700;
+                padding: 6px 10px;
+                border: none;
+                border-bottom: 1px solid #e2e8f0;
+                border-right: 1px solid #f1f5f9;
+            }
+            QHeaderView::section:horizontal {
+                border-top: none;
             }
 
             QScrollBar:vertical {
@@ -1424,6 +1477,19 @@ class SettingsPanel(QWidget):
             lay.addWidget(lbl)
         return card, lay
 
+    def _create_scroll_tab(self):
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("background: transparent;")
+        content = QWidget()
+        content.setStyleSheet("background: transparent;")
+        lay = QVBoxLayout(content)
+        lay.setContentsMargins(0, 5, 0, 15)
+        lay.setSpacing(15)
+        scroll.setWidget(content)
+        return scroll, content, lay
+
     def _get_url_from_combo(self, combo):
         idx = combo.currentIndex()
         if idx >= 0 and combo.currentText() == combo.itemText(idx):
@@ -1456,14 +1522,14 @@ class SettingsPanel(QWidget):
         self.tabs.tabBar().setExpanding(False)
         
         self.tab_build = QWidget()
-        self.tab_pref = QWidget()
+        self.tab_pref_scroll, _, self.lay_pref = self._create_scroll_tab()
         self.tab_about = QWidget()
-        
-        self.tabs.addTab(self.tab_build, get_svg_icon('package', "#5F6368", 16), "构建参数")
-        self.tabs.addTab(self.tab_pref, get_svg_icon('settings', "#5F6368", 16), "全局设置")
+
+        self.tabs.addTab(self.tab_build, get_svg_icon('package', "#5F6368", 16), "打包配置")
+        self.tabs.addTab(self.tab_pref_scroll, get_svg_icon('settings', "#5F6368", 16), "全局设置")
         self.tabs.addTab(self.tab_about, get_svg_icon('info', "#5F6368", 16), "关于")
         
-        self.build_build_tab()
+        self.build_build_master_tab()
         self.build_pref_tab()
         self.build_about_tab()
         
@@ -1498,6 +1564,370 @@ class SettingsPanel(QWidget):
         btn_lay.addWidget(self.btn_back)
         
         layout.addLayout(btn_lay)
+
+    def build_build_master_tab(self):
+        main_lay = QVBoxLayout(self.tab_build)
+        main_lay.setContentsMargins(0, 10, 0, 0)
+        
+        self.sub_tabs = QTabWidget()
+        self.sub_tabs.setObjectName("SubTabWidget")
+        self.sub_tabs.tabBar().setObjectName("SubTabBar")
+        self.sub_tabs.tabBar().setExpanding(False)
+        
+        sub_scroll1, _, lay_sub1 = self._create_scroll_tab()
+        sub_scroll2, _, lay_sub2 = self._create_scroll_tab() 
+        sub_scroll3, _, lay_sub3 = self._create_scroll_tab()
+        sub_scroll4, _, lay_sub4 = self._create_scroll_tab()
+        sub_scroll5, _, lay_sub5 = self._create_scroll_tab()
+        
+        self.sub_tabs.addTab(sub_scroll1, "🚀 引擎与模式")
+        self.sub_tabs.addTab(sub_scroll2, "📦 依赖分析")
+        self.sub_tabs.addTab(sub_scroll3, "📂 附加资源")
+        self.sub_tabs.addTab(sub_scroll4, "⚡ 性能与优化")
+        self.sub_tabs.addTab(sub_scroll5, "🗺️ 包名映射")
+        
+        card_engine, c_lay_engine = self._create_card("构建引擎与环境")
+        form_engine = QFormLayout()
+        form_engine.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form_engine.setSpacing(15)
+        
+        self.engine_combo = QComboBox()
+        self.engine_combo.addItems(["PyInstaller", "Nuitka"])
+        setup_combo_white_theme(self.engine_combo)
+        self.engine_combo.currentIndexChanged.connect(self.on_engine_changed)
+
+        self.engine_desc_lbl = QLabel()
+        self.engine_desc_lbl.setWordWrap(True)
+        self.engine_desc_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.engine_desc_lbl.setStyleSheet("""
+            QLabel {
+                background-color: #f8fafc;
+                color: #475569;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 9px 18px;
+                font-size: 12px;
+            }
+        """)
+
+        engine_cont = QWidget()
+        lay_eng = QVBoxLayout(engine_cont)
+        lay_eng.setContentsMargins(0, 0, 0, 0)
+        lay_eng.setSpacing(4)
+        lay_eng.addWidget(self.engine_combo)
+        lay_eng.addWidget(self.engine_desc_lbl)
+        
+        self.python_path_combo = QComboBox(); self.python_path_combo.setEditable(True)
+        self.python_path_combo.setPlaceholderText("留空则自动检索当前环境下的默认 Python 解释器")
+        setup_combo_white_theme(self.python_path_combo, min_view_width=520)
+        
+        btn_python_path = QPushButton("浏览"); btn_python_path.setProperty("class", "ToolBtn"); btn_python_path.clicked.connect(self.select_python_path)
+        py_cont = QWidget(); h_py = QHBoxLayout(py_cont); h_py.setContentsMargins(0,0,0,0)
+        h_py.addWidget(self.python_path_combo, 1); h_py.addWidget(btn_python_path)
+
+        self.name_edit = QLineEdit(); self.name_edit.setPlaceholderText("默认自适应源文件名")
+        
+        self.icon_edit = QLineEdit()
+        self.icon_preview = QLabel(); self.icon_preview.setFixedSize(24, 24); self.icon_preview.setScaledContents(True)
+        self.icon_edit.textChanged.connect(self.update_icon_preview)
+        btn_icon = QPushButton("浏览"); btn_icon.setProperty("class", "ToolBtn"); btn_icon.clicked.connect(self.select_icon)
+        icon_cont = QWidget(); h_icon = QHBoxLayout(icon_cont); h_icon.setContentsMargins(0,0,0,0)
+        h_icon.addWidget(self.icon_edit, 1); h_icon.addWidget(self.icon_preview); h_icon.addWidget(btn_icon)
+
+        form_engine.addRow("构建引擎:", engine_cont)
+        form_engine.addRow("Python 解释器:", py_cont)
+        form_engine.addRow("输出程序名称:", self.name_edit)
+        form_engine.addRow("应用图标 (Icon):", icon_cont)
+        c_lay_engine.addLayout(form_engine)
+
+        card_mode, c_lay_mode = self._create_card("运行模式")
+        h_mode = QHBoxLayout()
+        self.onefile_check = QCheckBox("单文件打包模式 (Standalone)")
+        self.noconsole_check = QCheckBox("无控制台模式 (隐藏终端窗口)")
+        h_mode.addWidget(self.onefile_check)
+        h_mode.addWidget(self.noconsole_check)
+        h_mode.addStretch()
+        c_lay_mode.addLayout(h_mode)
+
+        lay_sub1.addWidget(card_engine)
+        lay_sub1.addWidget(card_mode)
+        lay_sub1.addStretch()
+
+        card_deps, c_lay_deps = self._create_card("镜像源与扫描配置")
+        form_deps = QFormLayout()
+        form_deps.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form_deps.setSpacing(15)
+        
+        self.pip_source_combo = QComboBox(); self.pip_source_combo.setEditable(True)
+        setup_combo_white_theme(self.pip_source_combo, min_view_width=520)
+
+        self.pip_backup_combo = QComboBox(); self.pip_backup_combo.setEditable(True)
+        setup_combo_white_theme(self.pip_backup_combo, min_view_width=520)
+
+        for name, url in PYPI_MIRRORS:
+            display_text = f"{name}: {url}"
+            self.pip_source_combo.addItem(display_text, url)
+            self.pip_backup_combo.addItem(display_text, url)
+        self.pip_source_combo.currentTextChanged.connect(self._check_pip_mirrors)
+        self.pip_backup_combo.currentTextChanged.connect(self._check_pip_mirrors)
+
+        self.reqs_file_edit = QLineEdit(); self.reqs_file_edit.setPlaceholderText("留空则自动检索当前目录下的 requirements.txt")
+        btn_reqs = QPushButton("浏览"); btn_reqs.setProperty("class", "ToolBtn"); btn_reqs.clicked.connect(self.select_reqs_file)
+        reqs_cont = QWidget(); h_reqs = QHBoxLayout(reqs_cont); h_reqs.setContentsMargins(0,0,0,0)
+        h_reqs.addWidget(self.reqs_file_edit, 1); h_reqs.addWidget(btn_reqs)
+        
+        self.hidden_edit = QLineEdit(); self.hidden_edit.setPlaceholderText("显式指定未被隐式导入的依赖，英文逗号分隔 (如: pandas, PyQt5)")
+        btn_scan = QPushButton("AST扫描"); btn_scan.setProperty("class", "ToolBtn"); btn_scan.clicked.connect(self.auto_scan_hidden)
+        hid_cont = QWidget(); h_hid = QHBoxLayout(hid_cont); h_hid.setContentsMargins(0,0,0,0)
+        h_hid.addWidget(self.hidden_edit, 1); h_hid.addWidget(btn_scan)
+
+        self.exclude_edit = QLineEdit(); self.exclude_edit.setPlaceholderText("指定不进行打包的模块列表，英文逗号分隔 (如: tkinter, matplotlib)")
+        
+        form_deps.addRow("PIP 主镜像源:", self.pip_source_combo)
+        form_deps.addRow("PIP 备用源:", self.pip_backup_combo)
+        form_deps.addRow("依赖清单 (requirements):", reqs_cont)
+        form_deps.addRow("隐式导入 (Hidden Imports):", hid_cont)
+        form_deps.addRow("排除模块 (Excludes):", self.exclude_edit)
+        c_lay_deps.addLayout(form_deps)
+        
+        c_lay_deps.addSpacing(5)
+        g_dep = QGridLayout(); g_dep.setSpacing(10)
+        self.venv_check = QCheckBox("启用独立虚拟环境打包 (推荐)")
+        self.reqs_check = QCheckBox("同步安装 requirements.txt 声明")
+        self.pipreqs_check = QCheckBox("自动分析并补全项目依赖 (pipreqs)")
+        g_dep.addWidget(self.venv_check, 0, 0)
+        g_dep.addWidget(self.reqs_check, 0, 1)
+        g_dep.addWidget(self.pipreqs_check, 1, 0, 1, 2)
+        c_lay_deps.addLayout(g_dep)
+
+        lay_sub2.addWidget(card_deps)
+        lay_sub2.addStretch()
+
+        card_res, c_lay_res = self._create_card("附加资源文件与目录 (支持桌面拖拽进列表)")
+        self.add_data_list = DropListWidget()
+        self.add_data_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self.add_data_list.setFixedHeight(180)
+        self.add_data_list.setToolTip("双击修改目标路径；支持直接从桌面拖拽文件或文件夹至此区域")
+        self.add_data_list.itemDoubleClicked.connect(self.edit_resource)
+        self.add_data_list.itemsDropped.connect(self.on_resources_dropped)
+        c_lay_res.addWidget(self.add_data_list)
+        
+        btn_res_lay = QHBoxLayout()
+        self.btn_add_file = QPushButton("添加文件"); self.btn_add_file.setProperty("class", "ToolBtn"); self.btn_add_file.clicked.connect(self.add_resource_files)
+        self.btn_add_dir = QPushButton("添加目录"); self.btn_add_dir.setProperty("class", "ToolBtn"); self.btn_add_dir.clicked.connect(self.add_resource_dir)
+        self.btn_del_res = QPushButton("删除选中"); self.btn_del_res.setProperty("class", "ToolBtn"); self.btn_del_res.clicked.connect(self.del_resource)
+        self.btn_clear_res = QPushButton("清空"); self.btn_clear_res.setProperty("class", "ToolBtn"); self.btn_clear_res.clicked.connect(self.clear_resource)
+        btn_res_lay.addWidget(self.btn_add_file); btn_res_lay.addWidget(self.btn_add_dir); btn_res_lay.addWidget(self.btn_del_res); btn_res_lay.addWidget(self.btn_clear_res); btn_res_lay.addStretch()
+        c_lay_res.addLayout(btn_res_lay)
+
+        lay_sub3.addWidget(card_res)
+        lay_sub3.addStretch()
+
+        card_opt, c_lay_opt = self._create_card("性能与编译优化")
+        form_opt = QFormLayout()
+        form_opt.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form_opt.setSpacing(15)
+        self.cores_spin = QSpinBox(); self.cores_spin.setRange(1, os.cpu_count() or 4); self.cores_spin.setValue(os.cpu_count() or 2)
+        form_opt.addRow("并发构建 CPU 核心数:", self.cores_spin)
+        
+        self.upx_check = QCheckBox("启用 UPX 可执行文件压缩")
+        self.upx_check.toggled.connect(self.on_upx_toggled)
+        self.upx_path_edit = QLineEdit(); self.upx_path_edit.setPlaceholderText("留空则自动检测环境变量")
+        btn_upx = QPushButton("选择"); btn_upx.setProperty("class", "ToolBtn"); btn_upx.clicked.connect(self.select_upx_path)
+        self.upx_path_container = QWidget(); h_upx = QHBoxLayout(self.upx_path_container); h_upx.setContentsMargins(0,0,0,0)
+        h_upx.addWidget(self.upx_path_edit, 1); h_upx.addWidget(btn_upx)
+        self.upx_path_container.setVisible(False)
+        
+        h_upx_row = QHBoxLayout()
+        h_upx_row.addWidget(self.upx_check)
+        h_upx_row.addWidget(self.upx_path_container)
+        form_opt.addRow("UPX 工具路径:", h_upx_row)
+        
+        self.lite_mode_check = QCheckBox("启用精简打包模式 (自动排除开发与测试依赖)")
+        self.lite_mode_check.setStyleSheet("color: #D93025; font-weight: bold;")
+        self.lite_mode_check.setToolTip("动态排除构建环境冗余依赖，提升构建速度并缩减产物体积。")
+        c_lay_opt.addLayout(form_opt)
+        c_lay_opt.addWidget(self.lite_mode_check)
+
+        card_ver, c_lay_ver = self._create_card("锁定核心依赖版本")
+        form_ver = QFormLayout()
+        form_ver.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form_ver.setSpacing(15)
+        self.pyi_ver_edit = QLineEdit(); self.pyi_ver_edit.setPlaceholderText("默认最新版 (指定版本如 6.6.0)")
+        self.nuitka_ver_edit = QLineEdit(); self.nuitka_ver_edit.setPlaceholderText("默认最新版 (指定版本如 4.1.3)")
+        self.pipreqs_ver_edit = QLineEdit(); self.pipreqs_ver_edit.setPlaceholderText("默认最新版 (指定版本如 0.4.13)")
+        form_ver.addRow("PyInstaller 版本:", self.pyi_ver_edit)
+        form_ver.addRow("Nuitka 版本:", self.nuitka_ver_edit)
+        form_ver.addRow("Pipreqs 版本:", self.pipreqs_ver_edit)
+        c_lay_ver.addLayout(form_ver)
+
+        lay_sub4.addWidget(card_opt)
+        lay_sub4.addWidget(card_ver)
+        lay_sub4.addStretch()
+
+        card_map, c_lay_map = self._create_card("第三方库包名映射表")
+        self.mapping_table = QTableWidget()
+        self.mapping_table.setItemDelegate(TableItemDelegate(self.mapping_table))
+        self.mapping_table.setColumnCount(2)
+        self.mapping_table.setHorizontalHeaderLabels(["代码导入名 (import)", "PyPI 包名 (pip)"])
+        self.mapping_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.mapping_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.mapping_table.setFixedHeight(260)
+        c_lay_map.addWidget(self.mapping_table)
+
+        btn_map_lay = QHBoxLayout()
+        btn_add_map = QPushButton("添加映射"); btn_add_map.setProperty("class", "ToolBtn"); btn_add_map.clicked.connect(self.add_mapping_item)
+        btn_del_map = QPushButton("删除选中"); btn_del_map.setProperty("class", "ToolBtn"); btn_del_map.clicked.connect(self.delete_mapping_item)
+        btn_reset_map = QPushButton("重置默认"); btn_reset_map.setProperty("class", "ToolBtn"); btn_reset_map.clicked.connect(self.reset_mapping_default)
+        btn_map_lay.addWidget(btn_add_map); btn_map_lay.addWidget(btn_del_map); btn_map_lay.addWidget(btn_reset_map); btn_map_lay.addStretch()
+        c_lay_map.addLayout(btn_map_lay)
+
+        lay_sub5.addWidget(card_map)
+        lay_sub5.addStretch()
+
+        main_lay.addWidget(self.sub_tabs)
+        self.on_engine_changed()
+
+    def build_pref_tab(self):
+        card_meta, c_lay_meta = self._create_card("应用元数据与工程预设")
+        form_meta = QFormLayout()
+        form_meta.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form_meta.setSpacing(15)
+        self.ver_ver = QLineEdit("1.0.0")
+        self.ver_comp = QLineEdit("My Studio")
+        self.ver_desc = QLineEdit("Python Executable")
+        form_meta.addRow("应用版本:", self.ver_ver)
+        form_meta.addRow("公司/作者名称:", self.ver_comp)
+        form_meta.addRow("应用描述:", self.ver_desc)
+        c_lay_meta.addLayout(form_meta)
+
+        c_lay_meta.addSpacing(10)
+        h_preset = QHBoxLayout()
+        btn_exp_preset = QPushButton("保存工程预设..."); btn_exp_preset.setProperty("class", "ToolBtn"); btn_exp_preset.clicked.connect(self.export_preset)
+        btn_imp_preset = QPushButton("加载工程预设..."); btn_imp_preset.setProperty("class", "ToolBtn"); btn_imp_preset.clicked.connect(self.import_preset)
+        h_preset.addWidget(btn_exp_preset)
+        h_preset.addWidget(btn_imp_preset)
+        h_preset.addStretch()
+        c_lay_meta.addLayout(h_preset)
+
+        card1, lay1 = self._create_card("构建产物输出位置")
+        self.out_mode_combo = QComboBox()
+        self.out_mode_combo.addItems(["源文件同级目录", "自定义输出目录"])
+        setup_combo_white_theme(self.out_mode_combo)
+        self.out_mode_combo.currentIndexChanged.connect(self.on_out_mode_changed)
+        
+        self.out_dir_edit = QLineEdit(); self.out_dir_edit.setPlaceholderText("选择具体的输出归档路径...")
+        btn_out_dir = QPushButton("浏览..."); btn_out_dir.setProperty("class", "ToolBtn"); btn_out_dir.clicked.connect(self.select_out_dir)
+        self.out_dir_container = QWidget(); h_out_dir = QHBoxLayout(self.out_dir_container); h_out_dir.setContentsMargins(0, 0, 0, 0)
+        h_out_dir.addWidget(self.out_dir_edit, 1); h_out_dir.addWidget(btn_out_dir)
+        self.out_dir_container.setVisible(False)
+        
+        form1 = QFormLayout()
+        form1.setVerticalSpacing(15)
+        form1.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form1.addRow("输出路径规则:", self.out_mode_combo)
+        form1.addRow("目标输出目录:", self.out_dir_container)
+        lay1.addLayout(form1)
+
+        card2, lay2 = self._create_card("构建偏好与系统行为")
+        lay2.setSpacing(16)
+        
+        self.concise_log_check = QCheckBox("过滤冗余日志 (精简模式)")
+        self.auto_save_log_check = QCheckBox("自动导出构建日志")
+        self.auto_icon_check = QCheckBox("自动匹配项目图标")
+        self.clean_all_check = QCheckBox("构建完成后清理临时缓存")
+        self.sound_notify_check = QCheckBox("启用音效提示")
+        
+        for chk in (self.concise_log_check, self.auto_save_log_check, self.auto_icon_check, self.clean_all_check, self.sound_notify_check):
+            lay2.addWidget(chk)
+            
+        self.lay_pref.addWidget(card_meta)
+        self.lay_pref.addWidget(card1)
+        self.lay_pref.addWidget(card2)
+        self.lay_pref.addStretch()
+
+    def build_about_tab(self):
+        main_lay = QVBoxLayout(self.tab_about)
+        main_lay.setContentsMargins(40, 20, 40, 20)
+        main_lay.setSpacing(15)
+        
+        main_lay.addStretch(1)
+        
+        logo_lbl = QLabel()
+        icon_path = get_resource_path("icon.ico")
+        if os.path.exists(icon_path):
+            high_res_pixmap = QIcon(icon_path).pixmap(256, 256)
+            if not high_res_pixmap.isNull():
+                logo_pixmap = high_res_pixmap.scaled(110, 110, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                logo_lbl.setPixmap(logo_pixmap)
+            else:
+                logo_lbl.setPixmap(get_svg_pixmap('package', color="#1A73E8", size=110))
+        else:
+            logo_lbl.setPixmap(get_svg_pixmap('package', color="#1A73E8", size=110))
+            
+        logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_lay.addWidget(logo_lbl)
+        
+        title_lbl = QLabel(__app_name__)
+        title_lbl.setStyleSheet("font-size: 36px; font-weight: 900; color: #202124; letter-spacing: -1px; margin-top: 10px;")
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_lay.addWidget(title_lbl)
+        
+        ver_lbl = QLabel(f"Version {__version__}  ·  GPL-3.0")
+        ver_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #1A73E8; margin-bottom: 5px;")
+        ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_lay.addWidget(ver_lbl)
+        
+        desc_lbl = QLabel(__description__)
+        desc_lbl.setStyleSheet("font-size: 14px; color: #5f6368;")
+        desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_lay.addWidget(desc_lbl)
+        
+        main_lay.addSpacing(25)
+        
+        btn_lay = QHBoxLayout()
+        btn_lay.setSpacing(15)
+        btn_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        def create_link_btn(text, url):
+            btn = QPushButton(text)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #f1f3f4;
+                    color: #3c4043;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 10px 20px;
+                    font-size: 13px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #e8eaed;
+                    color: #1A73E8;
+                }
+                QPushButton:pressed {
+                    background-color: #dadce0;
+                }
+            """)
+            btn.clicked.connect(lambda: __import__('webbrowser').open(url))
+            return btn
+            
+        btn_github = create_link_btn("GitHub 仓库", "https://github.com/qwejay/QPyPack")
+        btn_issue = create_link_btn("反馈与建议", "https://github.com/qwejay/QPyPack/issues")
+        btn_pypi = create_link_btn("PyPI 主页", "https://pypi.org/project/qpypack/")
+        
+        btn_lay.addWidget(btn_github)
+        btn_lay.addWidget(btn_issue)
+        btn_lay.addWidget(btn_pypi)
+        
+        main_lay.addLayout(btn_lay)
+        main_lay.addStretch(1) 
+        
+        rights_lbl = QLabel(f"Copyright © {__company__}.")
+        rights_lbl.setStyleSheet("font-size: 12px; color: #bdc1c6; font-weight: bold;")
+        rights_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_lay.addWidget(rights_lbl)
 
     def populate_python_combo(self, py_dict):
         current_text = self.python_path_combo.currentText().strip()
@@ -1740,421 +2170,6 @@ class SettingsPanel(QWidget):
                         self.pip_source_combo.setCurrentIndex(i)
                         self.pip_source_combo.blockSignals(False)
                         break
-
-    def build_build_tab(self):
-        main_lay = QVBoxLayout(self.tab_build)
-        main_lay.setContentsMargins(0, 10, 0, 0)
-        
-        self.sub_tabs = QTabWidget()
-        self.sub_tabs.setObjectName("SubTabWidget")
-        self.sub_tabs.tabBar().setObjectName("SubTabBar")
-        self.sub_tabs.tabBar().setExpanding(False)
-        
-        tab_basic = QWidget()
-        tab_assets = QWidget()
-        tab_advanced = QWidget()
-        
-        self.sub_tabs.addTab(tab_basic, "基础设置")
-        self.sub_tabs.addTab(tab_assets, "资源与依赖")
-        self.sub_tabs.addTab(tab_advanced, "高级控制")
-        
-        lay_basic = QVBoxLayout(tab_basic)
-        lay_basic.setContentsMargins(0, 5, 0, 0)
-        
-        card1, c_lay1 = self._create_card("构建引擎配置")
-        form1 = QFormLayout()
-        form1.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form1.setSpacing(15)
-        
-        self.engine_combo = QComboBox()
-        self.engine_combo.addItems(["PyInstaller", "Nuitka"])
-        setup_combo_white_theme(self.engine_combo)
-        self.engine_combo.currentIndexChanged.connect(self.on_engine_changed)
-
-        self.engine_desc_lbl = QLabel()
-        self.engine_desc_lbl.setWordWrap(True)
-        self.engine_desc_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.engine_desc_lbl.setStyleSheet("""
-            QLabel {
-                background-color: #f8fafc;
-                color: #475569;
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                padding: 10px 14px;
-                font-size: 12px;
-                min-height: 38px; /* 关键修复 2：设置最小高度，保证多行文本上下舒展 */
-            }
-        """)
-        
-        self.python_path_combo = QComboBox()
-        self.python_path_combo.setEditable(True)
-        self.python_path_combo.setPlaceholderText("留空则自动检索当前环境下的默认 Python 解释器")
-        setup_combo_white_theme(self.python_path_combo, min_view_width=520)
-        
-        btn_python_path = QPushButton("浏览")
-        btn_python_path.setProperty("class", "ToolBtn")
-        btn_python_path.clicked.connect(self.select_python_path)
-        py_cont = QWidget(); h_py = QHBoxLayout(py_cont); h_py.setContentsMargins(0,0,0,0)
-        h_py.addWidget(self.python_path_combo, 1); h_py.addWidget(btn_python_path)
-
-        self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("默认自适应源文件名")
-        
-        self.icon_edit = QLineEdit()
-        self.icon_preview = QLabel()
-        self.icon_preview.setFixedSize(24, 24)
-        self.icon_preview.setScaledContents(True)
-        self.icon_edit.textChanged.connect(self.update_icon_preview)
-        btn_icon = QPushButton("浏览")
-        btn_icon.setProperty("class", "ToolBtn")
-        btn_icon.clicked.connect(self.select_icon)
-        icon_cont = QWidget(); h_icon = QHBoxLayout(icon_cont); h_icon.setContentsMargins(0,0,0,0)
-        h_icon.addWidget(self.icon_edit, 1); h_icon.addWidget(self.icon_preview); h_icon.addWidget(btn_icon)
-
-        form1.addRow("构建引擎:", self.engine_combo)
-        form1.addRow("", self.engine_desc_lbl)
-        form1.addRow("Python 解释器:", py_cont)
-        form1.addRow("输出可执行文件名:", self.name_edit)
-        form1.addRow("应用图标:", icon_cont)
-        c_lay1.addLayout(form1)
-        
-        card2, c_lay2 = self._create_card("运行机制")
-        h_mode = QHBoxLayout()
-        self.onefile_check = QCheckBox("单文件打包模式 (Standalone)")
-        self.noconsole_check = QCheckBox("无控制台模式 (隐藏终端窗口)")
-        h_mode.addWidget(self.onefile_check)
-        h_mode.addWidget(self.noconsole_check)
-        h_mode.addStretch()
-        c_lay2.addLayout(h_mode)
-        
-        lay_basic.addWidget(card1)
-        lay_basic.addWidget(card2)
-        lay_basic.addStretch()
-
-        scroll_assets = QScrollArea()
-        scroll_assets.setWidgetResizable(True)
-        scroll_assets.setFrameShape(QFrame.Shape.NoFrame)
-        scroll_assets.setStyleSheet("background: transparent;")
-        cont_assets = QWidget()
-        lay_assets = QVBoxLayout(cont_assets)
-        lay_assets.setContentsMargins(0, 5, 0, 0)
-        
-        card3, c_lay3 = self._create_card("依赖分析与虚拟环境")
-        form2 = QFormLayout()
-        form2.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form2.setSpacing(15)
-        
-        self.pip_source_combo = QComboBox()
-        self.pip_source_combo.setEditable(True)
-        setup_combo_white_theme(self.pip_source_combo, min_view_width=520)
-
-        self.pip_backup_combo = QComboBox()
-        self.pip_backup_combo.setEditable(True)
-        setup_combo_white_theme(self.pip_backup_combo, min_view_width=520)
-
-        for name, url in PYPI_MIRRORS:
-            display_text = f"{name}: {url}"
-            self.pip_source_combo.addItem(display_text, url)
-            self.pip_backup_combo.addItem(display_text, url)
-        self.pip_source_combo.currentTextChanged.connect(self._check_pip_mirrors)
-        self.pip_backup_combo.currentTextChanged.connect(self._check_pip_mirrors)
-
-        self.reqs_file_edit = QLineEdit(); self.reqs_file_edit.setPlaceholderText("留空则自动检索当前目录下的 requirements.txt")
-        btn_reqs = QPushButton("浏览"); btn_reqs.setProperty("class", "ToolBtn"); btn_reqs.clicked.connect(self.select_reqs_file)
-        reqs_cont = QWidget(); h_reqs = QHBoxLayout(reqs_cont); h_reqs.setContentsMargins(0,0,0,0)
-        h_reqs.addWidget(self.reqs_file_edit, 1); h_reqs.addWidget(btn_reqs)
-        
-        self.hidden_edit = QLineEdit(); self.hidden_edit.setPlaceholderText("显式指定未被隐式导入的依赖，英文逗号分隔 (如: pandas, PyQt5)")
-        btn_scan = QPushButton("AST扫描"); btn_scan.setProperty("class", "ToolBtn"); btn_scan.clicked.connect(self.auto_scan_hidden)
-        hid_cont = QWidget(); h_hid = QHBoxLayout(hid_cont); h_hid.setContentsMargins(0,0,0,0)
-        h_hid.addWidget(self.hidden_edit, 1); h_hid.addWidget(btn_scan)
-
-        self.exclude_edit = QLineEdit(); self.exclude_edit.setPlaceholderText("指定不进行打包的模块列表，英文逗号分隔 (如: tkinter, matplotlib)")
-        
-        form2.addRow("PIP 主镜像源:", self.pip_source_combo)
-        form2.addRow("PIP 备用源:", self.pip_backup_combo)
-        form2.addRow("依赖清单 (requirements.txt):", reqs_cont)
-        form2.addRow("隐式导入 (Hidden Imports):", hid_cont)
-        form2.addRow("排除模块 (Excludes):", self.exclude_edit)
-        c_lay3.addLayout(form2)
-        
-        c_lay3.addSpacing(5)
-        g_dep = QGridLayout()
-        g_dep.setSpacing(10)
-        self.venv_check = QCheckBox("启用独立虚拟环境打包 (推荐)")
-        self.reqs_check = QCheckBox("同步安装 requirements.txt 声明")
-        self.pipreqs_check = QCheckBox("自动分析并补全项目依赖 (pipreqs)")
-        g_dep.addWidget(self.venv_check, 0, 0)
-        g_dep.addWidget(self.reqs_check, 0, 1)
-        g_dep.addWidget(self.pipreqs_check, 1, 0, 1, 2)
-        c_lay3.addLayout(g_dep)
-        
-        card4, c_lay4 = self._create_card("附加资源文件与目录 (支持拖拽)")
-        self.add_data_list = DropListWidget()
-        self.add_data_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self.add_data_list.setFixedHeight(120)
-        self.add_data_list.setToolTip("双击修改目标路径；支持直接从桌面拖拽文件或文件夹至此区域")
-        self.add_data_list.itemDoubleClicked.connect(self.edit_resource)
-        self.add_data_list.itemsDropped.connect(self.on_resources_dropped)
-        c_lay4.addWidget(self.add_data_list)
-        
-        btn_res_lay = QHBoxLayout()
-        self.btn_add_file = QPushButton("添加文件"); self.btn_add_file.setProperty("class", "ToolBtn"); self.btn_add_file.clicked.connect(self.add_resource_files)
-        self.btn_add_dir = QPushButton("添加目录"); self.btn_add_dir.setProperty("class", "ToolBtn"); self.btn_add_dir.clicked.connect(self.add_resource_dir)
-        self.btn_del_res = QPushButton("删除选中"); self.btn_del_res.setProperty("class", "ToolBtn"); self.btn_del_res.clicked.connect(self.del_resource)
-        self.btn_clear_res = QPushButton("清空"); self.btn_clear_res.setProperty("class", "ToolBtn"); self.btn_clear_res.clicked.connect(self.clear_resource)
-        btn_res_lay.addWidget(self.btn_add_file); btn_res_lay.addWidget(self.btn_add_dir); btn_res_lay.addWidget(self.btn_del_res); btn_res_lay.addWidget(self.btn_clear_res); btn_res_lay.addStretch()
-        c_lay4.addLayout(btn_res_lay)
-
-        card_map, c_lay_map = self._create_card("第三方库包名映射表")
-        self.mapping_table = QTableWidget()
-        self.mapping_table.setColumnCount(2)
-        self.mapping_table.setHorizontalHeaderLabels(["代码导入名 (import)", "PyPI 包名 (pip)"])
-        self.mapping_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.mapping_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.mapping_table.setFixedHeight(140)
-        c_lay_map.addWidget(self.mapping_table)
-
-        btn_map_lay = QHBoxLayout()
-        btn_add_map = QPushButton("添加映射"); btn_add_map.setProperty("class", "ToolBtn"); btn_add_map.clicked.connect(self.add_mapping_item)
-        btn_del_map = QPushButton("删除选中"); btn_del_map.setProperty("class", "ToolBtn"); btn_del_map.clicked.connect(self.delete_mapping_item)
-        btn_reset_map = QPushButton("重置默认"); btn_reset_map.setProperty("class", "ToolBtn"); btn_reset_map.clicked.connect(self.reset_mapping_default)
-        btn_map_lay.addWidget(btn_add_map); btn_map_lay.addWidget(btn_del_map); btn_map_lay.addWidget(btn_reset_map); btn_map_lay.addStretch()
-        c_lay_map.addLayout(btn_map_lay)
-        
-        lay_assets.addWidget(card3)
-        lay_assets.addWidget(card4)
-        lay_assets.addWidget(card_map)
-        lay_assets.addStretch()
-        
-        scroll_assets.setWidget(cont_assets)
-        lay_tabs_assets = QVBoxLayout(tab_assets)
-        lay_tabs_assets.setContentsMargins(0,0,0,0)
-        lay_tabs_assets.addWidget(scroll_assets)
-
-        scroll_adv = QScrollArea()
-        scroll_adv.setWidgetResizable(True)
-        scroll_adv.setFrameShape(QFrame.Shape.NoFrame)
-        scroll_adv.setStyleSheet("background: transparent;")
-        cont_adv = QWidget()
-        lay_adv = QVBoxLayout(cont_adv)
-        lay_adv.setContentsMargins(0, 5, 0, 0)
-        
-        card5, c_lay5 = self._create_card("应用元数据与版本信息")
-        form3 = QFormLayout()
-        form3.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form3.setSpacing(15)
-        self.ver_ver = QLineEdit("1.0.0")
-        self.ver_comp = QLineEdit("My Studio")
-        self.ver_desc = QLineEdit("Python Executable")
-        form3.addRow("应用版本:", self.ver_ver)
-        form3.addRow("公司/作者名称:", self.ver_comp)
-        form3.addRow("应用描述:", self.ver_desc)
-        c_lay5.addLayout(form3)
-        
-        card6, c_lay6 = self._create_card("性能与构建优化")
-        form4 = QFormLayout()
-        form4.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form4.setSpacing(15)
-        self.cores_spin = QSpinBox(); self.cores_spin.setRange(1, os.cpu_count() or 4); self.cores_spin.setValue(os.cpu_count() or 2)
-        form4.addRow("并发构建 CPU 核心数:", self.cores_spin)
-        
-        self.upx_check = QCheckBox("启用 UPX 可执行文件压缩")
-        self.upx_check.toggled.connect(self.on_upx_toggled)
-        self.upx_path_edit = QLineEdit(); self.upx_path_edit.setPlaceholderText("留空则自动检测环境变量")
-        btn_upx = QPushButton("选择"); btn_upx.setProperty("class", "ToolBtn"); btn_upx.clicked.connect(self.select_upx_path)
-        self.upx_path_container = QWidget(); h_upx = QHBoxLayout(self.upx_path_container); h_upx.setContentsMargins(0,0,0,0)
-        h_upx.addWidget(self.upx_path_edit, 1); h_upx.addWidget(btn_upx)
-        self.upx_path_container.setVisible(False)
-        
-        h_upx_row = QHBoxLayout()
-        h_upx_row.addWidget(self.upx_check)
-        h_upx_row.addWidget(self.upx_path_container)
-        form4.addRow("UPX 工具路径:", h_upx_row)
-        
-        self.lite_mode_check = QCheckBox("启用精简打包模式 (自动排除开发与测试依赖)")
-        self.lite_mode_check.setStyleSheet("color: #D93025; font-weight: bold;")
-        self.lite_mode_check.setToolTip("动态排除构建环境冗余依赖，提升构建速度并缩减产物体积。")
-        c_lay6.addLayout(form4)
-        c_lay6.addWidget(self.lite_mode_check)
-        
-        card7, c_lay7 = self._create_card("锁定核心依赖版本")
-        form5 = QFormLayout()
-        form5.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form5.setSpacing(15)
-        self.pyi_ver_edit = QLineEdit()
-        self.pyi_ver_edit.setPlaceholderText("默认最新版 (指定版本如 6.6.0)")
-        self.nuitka_ver_edit = QLineEdit()
-        self.nuitka_ver_edit.setPlaceholderText("默认最新版 (指定版本如 4.1.3)")
-        self.pipreqs_ver_edit = QLineEdit()
-        self.pipreqs_ver_edit.setPlaceholderText("默认最新版 (指定版本如 0.4.13)")
-        form5.addRow("PyInstaller 版本:", self.pyi_ver_edit)
-        form5.addRow("Nuitka 版本:", self.nuitka_ver_edit)
-        form5.addRow("Pipreqs 版本:", self.pipreqs_ver_edit)
-        c_lay7.addLayout(form5)
-        
-        lay_adv.addWidget(card5)
-        lay_adv.addWidget(card6)
-        lay_adv.addWidget(card7)
-        lay_adv.addStretch()
-        
-        scroll_adv.setWidget(cont_adv)
-        lay_tabs_adv = QVBoxLayout(tab_advanced)
-        lay_tabs_adv.setContentsMargins(0,0,0,0)
-        lay_tabs_adv.addWidget(scroll_adv)
-
-        main_lay.addWidget(self.sub_tabs)
-        self.on_engine_changed()
-
-    def build_pref_tab(self):
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent;")
-        
-        content = QWidget()
-        content.setStyleSheet("background: transparent;")
-        lay = QVBoxLayout(content)
-        lay.setContentsMargins(0, 5, 0, 15)
-        lay.setSpacing(15)
-
-        card0, lay0 = self._create_card("工程预设 (.qpypack)")
-        h_preset = QHBoxLayout()
-        btn_exp_preset = QPushButton("保存工程预设...")
-        btn_exp_preset.setProperty("class", "ToolBtn")
-        btn_exp_preset.clicked.connect(self.export_preset)
-        btn_imp_preset = QPushButton("加载工程预设...")
-        btn_imp_preset.setProperty("class", "ToolBtn")
-        btn_imp_preset.clicked.connect(self.import_preset)
-        h_preset.addWidget(btn_exp_preset)
-        h_preset.addWidget(btn_imp_preset)
-        h_preset.addStretch()
-        lay0.addLayout(h_preset)
-        lay.addWidget(card0)
-        
-        card1, lay1 = self._create_card("构建产物输出位置")
-        self.out_mode_combo = QComboBox()
-        self.out_mode_combo.addItems(["源文件同级目录", "自定义输出目录"])
-        setup_combo_white_theme(self.out_mode_combo)
-        self.out_mode_combo.currentIndexChanged.connect(self.on_out_mode_changed)
-        
-        self.out_dir_edit = QLineEdit(); self.out_dir_edit.setPlaceholderText("选择具体的输出归档路径...")
-        btn_out_dir = QPushButton("浏览..."); btn_out_dir.setProperty("class", "ToolBtn"); btn_out_dir.clicked.connect(self.select_out_dir)
-        self.out_dir_container = QWidget(); h_out_dir = QHBoxLayout(self.out_dir_container); h_out_dir.setContentsMargins(0, 0, 0, 0)
-        h_out_dir.addWidget(self.out_dir_edit, 1); h_out_dir.addWidget(btn_out_dir)
-        self.out_dir_container.setVisible(False)
-        
-        form1 = QFormLayout()
-        form1.setVerticalSpacing(15)
-        form1.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form1.addRow("输出路径规则:", self.out_mode_combo)
-        form1.addRow("目标输出目录:", self.out_dir_container)
-        lay1.addLayout(form1)
-        lay.addWidget(card1)
-
-        card2, lay2 = self._create_card("构建偏好")
-        lay2.setSpacing(16)
-        
-        self.concise_log_check = QCheckBox("过滤冗余日志 (精简模式)")
-        self.auto_save_log_check = QCheckBox("自动导出构建日志")
-        self.auto_icon_check = QCheckBox("自动匹配项目图标")
-        self.clean_all_check = QCheckBox("构建完成后清理临时缓存")
-        self.sound_notify_check = QCheckBox("启用音效")
-        
-        for chk in (self.concise_log_check, self.auto_save_log_check, self.auto_icon_check, self.clean_all_check, self.sound_notify_check):
-            lay2.addWidget(chk)
-            
-        lay.addWidget(card2)
-        lay.addStretch()
-        
-        scroll.setWidget(content)
-        main_lay = QVBoxLayout(self.tab_pref)
-        main_lay.setContentsMargins(0,0,0,0)
-        main_lay.addWidget(scroll)
-
-    def build_about_tab(self):
-        main_lay = QVBoxLayout(self.tab_about)
-        main_lay.setContentsMargins(40, 20, 40, 20)
-        main_lay.setSpacing(15)
-        
-        main_lay.addStretch(1)
-        
-        logo_lbl = QLabel()
-        icon_path = get_resource_path("icon.ico")
-        if os.path.exists(icon_path):
-            high_res_pixmap = QIcon(icon_path).pixmap(256, 256)
-            if not high_res_pixmap.isNull():
-                logo_pixmap = high_res_pixmap.scaled(110, 110, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                logo_lbl.setPixmap(logo_pixmap)
-            else:
-                logo_lbl.setPixmap(get_svg_pixmap('package', color="#1A73E8", size=110))
-        else:
-            logo_lbl.setPixmap(get_svg_pixmap('package', color="#1A73E8", size=110))
-            
-        logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_lay.addWidget(logo_lbl)
-        
-        title_lbl = QLabel(__app_name__)
-        title_lbl.setStyleSheet("font-size: 36px; font-weight: 900; color: #202124; letter-spacing: -1px; margin-top: 10px;")
-        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_lay.addWidget(title_lbl)
-        
-        ver_lbl = QLabel(f"Version {__version__}  ·  GPL-3.0")
-        ver_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #1A73E8; margin-bottom: 5px;")
-        ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_lay.addWidget(ver_lbl)
-        
-        desc_lbl = QLabel(__description__)
-        desc_lbl.setStyleSheet("font-size: 14px; color: #5f6368;")
-        desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_lay.addWidget(desc_lbl)
-        
-        main_lay.addSpacing(25)
-        
-        btn_lay = QHBoxLayout()
-        btn_lay.setSpacing(15)
-        btn_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        def create_link_btn(text, url):
-            btn = QPushButton(text)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #f1f3f4;
-                    color: #3c4043;
-                    border: none;
-                    border-radius: 8px;
-                    padding: 10px 20px;
-                    font-size: 13px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #e8eaed;
-                    color: #1A73E8;
-                }
-                QPushButton:pressed {
-                    background-color: #dadce0;
-                }
-            """)
-            btn.clicked.connect(lambda: __import__('webbrowser').open(url))
-            return btn
-            
-        btn_github = create_link_btn("GitHub 仓库", "https://github.com/qwejay/QPyPack")
-        btn_issue = create_link_btn("反馈与建议", "https://github.com/qwejay/QPyPack/issues")
-        btn_pypi = create_link_btn("PyPI 主页", "https://pypi.org/project/qpypack/")
-        
-        btn_lay.addWidget(btn_github)
-        btn_lay.addWidget(btn_issue)
-        btn_lay.addWidget(btn_pypi)
-        
-        main_lay.addLayout(btn_lay)
-        
-        main_lay.addStretch(1) 
-        
-        rights_lbl = QLabel(f"Copyright © {__company__}.")
-        rights_lbl.setStyleSheet("font-size: 12px; color: #bdc1c6; font-weight: bold;")
-        rights_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_lay.addWidget(rights_lbl)
 
     def on_engine_changed(self):
         engine = self.engine_combo.currentText()
@@ -2455,6 +2470,10 @@ class PackingThread(QThread):
         success = self.run_cmd(cmd)
 
         if not success and backup_idx and backup_idx != primary_idx:
+            last_logs = "\n".join(self.all_raw_logs[-15:]).lower()
+            if "no matching distribution found" in last_logs or "could not find a version" in last_logs:
+                return False
+
             self.progress.emit(f"[WARN] 主镜像源连接超时或失败，正在自动切换至备用源重试: {backup_idx}")
             fallback_cmd = [python_exe, "-m", "pip", "install"] + pkgs_or_args + ["-i", backup_idx]
             success = self.run_cmd(fallback_cmd)
@@ -2485,7 +2504,7 @@ class PackingThread(QThread):
                     "    pass\n"
                 )
                 
-                temp_file = orig_path.parent / f"_qpypack_temp_entry_{int(time.time())}.py"
+                temp_file = Path(tempfile.gettempdir()) / f"_qpypack_temp_entry_{int(time.time())}_{orig_path.name}"
                 temp_file.write_text(code + pause_code, encoding='utf-8')
                 return temp_file, True, ""
             except Exception as e:
@@ -2666,7 +2685,20 @@ class PackingThread(QThread):
                     known_mappings[k] = v
             
             known_mappings_lower = {k.lower(): v for k, v in known_mappings.items()}
-            
+
+            HARDCODED_SAFETY_MAPPINGS = {
+                'pythoncom': 'pywin32', 'pywintypes': 'pywin32', 'win32com': 'pywin32',
+                'win32api': 'pywin32', 'win32con': 'pywin32', 'win32gui': 'pywin32',
+                'win32clipboard': 'pywin32', 'win32print': 'pywin32', 'win32file': 'pywin32',
+                'win32security': 'pywin32', 'win32process': 'pywin32', 'win32evtlog': 'pywin32',
+                'win32service': 'pywin32', 'win32pipe': 'pywin32', 'win32net': 'pywin32',
+                'win32crypt': 'pywin32', 'pythoncom': 'pywin32', 'pywintypes': 'pywin32',
+                'cv2': 'opencv-python', 'pil': 'pillow', 'fitz': 'pymupdf', 'bs4': 'beautifulsoup4',
+                'sklearn': 'scikit-learn', 'yaml': 'pyyaml', 'dotenv': 'python-dotenv'
+            }
+            for k, v in HARDCODED_SAFETY_MAPPINGS.items():
+                known_mappings_lower[k.lower()] = v
+
             local_modules = set()
             for p in script_dir.rglob("*"):
                 if any(part.startswith('.') or part.lower() in ('venv', 'env', 'site-packages', 'node_modules', '__pycache__') for part in p.parts):
@@ -2676,11 +2708,14 @@ class PackingThread(QThread):
                 elif p.is_dir():
                     local_modules.add(p.name.lower())
 
-            ast_pkgs = [
-                known_mappings_lower.get(m.lower(), m) 
-                for m in script_imports 
-                if m not in STD_LIBS and m.lower() not in local_modules
-            ]
+            ast_pkgs_set = set()
+            for m in script_imports:
+                if m in STD_LIBS or m.lower() in local_modules:
+                    continue
+                mapped_name = known_mappings_lower.get(m.lower(), m)
+                ast_pkgs_set.add(mapped_name)
+
+            ast_pkgs = sorted(list(ast_pkgs_set))
             
             if ast_pkgs:
                 self.progress.emit(f"[INFO] 依赖安装 [3/3]: 正在通过 AST 静态扫描提取隐式依赖...")
@@ -2949,7 +2984,7 @@ class PackingThread(QThread):
                 except: pass
                 
             if self.params['clean_all']:
-                self.progress.emit("[INFO] 正在释放空间，安全清除临时构建环境...")
+                self.progress.emit("[INFO] 正在释放空间，清理临时构建环境...")
                 
                 for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir, self.temp_dist_dir]:
                     if p and p.exists(): robust_rmtree(p)
@@ -2977,8 +3012,8 @@ class MainWindow(QMainWindow):
     def init_style(self):
         self.setWindowTitle(f"{__app_name__} {__version__}")
         
-        self.setMinimumSize(700, 670)
-        self.resize(740, 640)
+        self.setMinimumSize(720, 680)
+        self.resize(760, 660)
         
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
@@ -3521,7 +3556,21 @@ def main():
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    app.setFont(QFont("Microsoft YaHei", 9))
+    
+    font = QFont()
+    font.setFamilies([
+        "Segoe UI",
+        "Microsoft YaHei",
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Noto Sans SC",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+    ])
+    font.setPointSize(9)
+    app.setFont(font)
+
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
