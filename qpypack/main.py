@@ -9,6 +9,8 @@ import stat
 import json
 import locale
 import math
+import wave
+import struct
 import threading
 import configparser
 from pathlib import Path
@@ -21,7 +23,7 @@ if os.name == 'nt':
 else:
     winreg = None
 
-os.environ["QT_LOGGING_RULES"] = "qt.text.font.db=false"
+os.environ["QT_LOGGING_RULES"] = "qt.text.font.db=false;qt.multimedia*=false"
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
                              QPushButton, QLabel, QLineEdit, QFileDialog, QCheckBox,
@@ -29,16 +31,23 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayo
                              QGraphicsOpacityEffect, QGridLayout, QTabWidget,
                              QMessageBox, QInputDialog, QFileIconProvider, QSizePolicy, QScrollArea,
                              QGraphicsDropShadowEffect, QSpinBox, QListWidget, QListWidgetItem,
-                             QListView, QStyledItemDelegate, QMenu)
+                             QListView, QStyledItemDelegate, QMenu, QTableWidget, QTableWidgetItem,
+                             QHeaderView)
 from PySide6.QtCore import (Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, 
                             QParallelAnimationGroup, QFileInfo, QVariantAnimation, 
-                            QTimer, QPointF, QRectF, QRect, QSize)
+                            QTimer, QPointF, QRectF, QRect, QSize, QUrl)
 from PySide6.QtGui import (QFont, QDragEnterEvent, QDropEvent, QIcon, QPixmap, 
                            QPainter, QColor, QPen, QImage, QImageWriter)
 from PySide6.QtSvg import QSvgRenderer
 
+try:
+    from PySide6.QtMultimedia import QSoundEffect
+    HAS_QT_AUDIO = True
+except ImportError:
+    HAS_QT_AUDIO = False
+
 __app_name__ = "QPyPack"
-__version__ = "2.5.7"
+__version__ = "2.5.8"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -75,10 +84,60 @@ PYPI_MIRRORS = [
 ]
 
 DEFAULT_MAPPINGS = {
-    'win32com': 'pywin32', 'win32api': 'pywin32', 'win32con': 'pywin32', 'win32gui': 'pywin32',
-    'win32clipboard': 'pywin32', 'win32print': 'pywin32', 'win32file': 'pywin32', 'win32security': 'pywin32',
-    'cv2': 'opencv-python', 'PIL': 'pillow', 'Pillow': 'pillow', 'bs4': 'beautifulsoup4', 'sklearn': 'scikit-learn',
-    'yaml': 'pyyaml', 'fitz': 'pymupdf', 'dotenv': 'python-dotenv'
+    'acoustid': 'pyacoustid',
+    'cv2': 'opencv-python',
+    'PIL': 'pillow',
+    'Pillow': 'pillow',
+    'fitz': 'pymupdf',
+    'skimage': 'scikit-image',
+    'vlc': 'python-vlc',
+    'pyzbar': 'pyzbar',
+
+    'docx': 'python-docx',
+    'pptx': 'python-pptx',
+    'bs4': 'beautifulsoup4',
+    'barcode': 'python-barcode',
+    'pdfplumber': 'pdfplumber',
+
+    'win32com': 'pywin32', 'win32api': 'pywin32', 'win32con': 'pywin32', 
+    'win32gui': 'pywin32', 'win32clipboard': 'pywin32', 'win32print': 'pywin32', 
+    'win32file': 'pywin32', 'win32security': 'pywin32', 'win32process': 'pywin32',
+    'win32evtlog': 'pywin32', 'win32service': 'pywin32', 'win32pipe': 'pywin32',
+    'win32net': 'pywin32', 'win32crypt': 'pywin32', 'pythoncom': 'pywin32', 
+    'pywintypes': 'pywin32',
+    'serial': 'pyserial',
+    'usb': 'pyusb',
+    'bluetooth': 'pybluez',
+
+    'sklearn': 'scikit-learn',
+    'yaml': 'pyyaml',
+    'dateutil': 'python-dateutil',
+    'jwt': 'PyJWT',
+    'Crypto': 'pycryptodome',
+    'crypto': 'pycryptodome',
+    'OpenGL': 'PyOpenGL',
+    'dns': 'dnspython',
+
+    'wx': 'wxPython',
+    'desktop_notifier': 'desktop-notifier',
+
+    'dotenv': 'python-dotenv',
+    'telegram': 'python-telegram-bot',
+    'websocket': 'websocket-client',
+    'git': 'GitPython',
+    'github': 'PyGithub',
+    'gitlab': 'python-gitlab',
+    'discord': 'discord.py',
+    'paho': 'paho-mqtt',
+    'socketio': 'python-socketio',
+    'engineio': 'python-engineio',
+    'kafka': 'kafka-python',
+
+    'OpenSSL': 'pyOpenSSL',
+    'ldap': 'python-ldap',
+    'magic': 'python-magic',
+    'slugify': 'python-slugify',
+    'snappy': 'python-snappy'
 }
 
 def load_config():
@@ -105,7 +164,18 @@ def load_config():
         except: pass
     else:
         config.read(CONFIG_FILE, encoding='utf-8')
-        if 'Mappings' not in config: config['Mappings'] = DEFAULT_MAPPINGS
+        if 'Mappings' not in config: 
+            config['Mappings'] = DEFAULT_MAPPINGS
+        else:
+            updated_map = False
+            for k, v in DEFAULT_MAPPINGS.items():
+                if k not in config['Mappings']:
+                    config['Mappings'][k] = v
+                    updated_map = True
+            if updated_map:
+                try: save_config(config)
+                except: pass
+
         if 'Settings' not in config: config['Settings'] = {}
         default_updates = {
             'pip_index': 'https://pypi.tuna.tsinghua.edu.cn/simple',
@@ -141,6 +211,92 @@ def save_config(config):
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             config.write(f)
     except: pass
+
+def create_pleasant_audio_files():
+    success_wav = _CONFIG_DIR / "sound_success.wav"
+    failure_wav = _CONFIG_DIR / "sound_failure.wav"
+    sample_rate = 44100
+
+    if not success_wav.exists():
+        try:
+            notes = [(523.25, 0.0, 0.35), (659.25, 0.09, 0.35), (784.00, 0.18, 0.35), (1046.50, 0.27, 0.55)]
+            total_duration = 0.75
+            n_samples = int(sample_rate * total_duration)
+            samples = [0.0] * n_samples
+
+            for freq, start, dur in notes:
+                start_idx = int(start * sample_rate)
+                dur_samples = int(dur * sample_rate)
+                for i in range(dur_samples):
+                    idx = start_idx + i
+                    if idx >= n_samples: break
+                    t = i / sample_rate
+                    env = math.sin(math.pi * min(1.0, t / 0.025)) * math.exp(-4.2 * (t / dur))
+                    val = (math.sin(2 * math.pi * freq * t) * 0.75 + 
+                           math.sin(2 * math.pi * freq * 2 * t) * 0.2 +
+                           math.sin(2 * math.pi * freq * 3 * t) * 0.05) * env
+                    samples[idx] += val * 0.28
+
+            with wave.open(success_wav.as_posix(), 'w') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                packed = b''.join(struct.pack('<h', int(max(-1.0, min(1.0, s)) * 32767)) for s in samples)
+                wf.writeframes(packed)
+        except Exception: pass
+
+    if not failure_wav.exists():
+        try:
+            notes = [(392.00, 0.0, 0.3), (311.13, 0.12, 0.45)]
+            total_duration = 0.6
+            n_samples = int(sample_rate * total_duration)
+            samples = [0.0] * n_samples
+
+            for freq, start, dur in notes:
+                start_idx = int(start * sample_rate)
+                dur_samples = int(dur * sample_rate)
+                for i in range(dur_samples):
+                    idx = start_idx + i
+                    if idx >= n_samples: break
+                    t = i / sample_rate
+                    env = math.sin(math.pi * min(1.0, t / 0.02)) * math.exp(-3.2 * (t / dur))
+                    val = (math.sin(2 * math.pi * freq * t) * 0.8 + 
+                           math.sin(2 * math.pi * freq * 2 * t) * 0.2) * env
+                    samples[idx] += val * 0.32
+
+            with wave.open(failure_wav.as_posix(), 'w') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                packed = b''.join(struct.pack('<h', int(max(-1.0, min(1.0, s)) * 32767)) for s in samples)
+                wf.writeframes(packed)
+        except Exception: pass
+
+_AUDIO_EFFECT_REF = None
+
+def play_alert(success=True):
+    """优雅播放音频构建提示音"""
+    global _AUDIO_EFFECT_REF
+    try:
+        config = load_config()
+        if not config['Settings'].getboolean('sound_notify', True):
+            return
+            
+        sound_file = _CONFIG_DIR / ("sound_success.wav" if success else "sound_failure.wav")
+        if not sound_file.exists():
+            create_pleasant_audio_files()
+
+        if sound_file.exists():
+            if HAS_QT_AUDIO:
+                _AUDIO_EFFECT_REF = QSoundEffect()
+                _AUDIO_EFFECT_REF.setSource(QUrl.fromLocalFile(sound_file.as_posix()))
+                _AUDIO_EFFECT_REF.setVolume(0.75)
+                _AUDIO_EFFECT_REF.play()
+            elif os.name == 'nt':
+                import winsound
+                winsound.PlaySound(sound_file.as_posix(), winsound.SND_FILENAME | winsound.SND_ASYNC)
+    except Exception:
+        pass
 
 def is_cloud_locked(filepath):
     try:
@@ -301,6 +457,28 @@ def setup_combo_white_theme(combo: QComboBox, min_view_width: int = None):
     
     combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     combo.setMinimumWidth(150)
+
+class DropListWidget(QListWidget):
+    itemsDropped = Signal(list)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent):
+        urls = event.mimeData().urls()
+        if urls:
+            paths = [u.toLocalFile() for u in urls if u.toLocalFile()]
+            if paths:
+                self.itemsDropped.emit(paths)
 
 def get_stdlib_names():
     libs = {'os', 'sys', 're', 'math', 'time', 'datetime', 'json', 'urllib', 'sqlite3', 'csv', 
@@ -503,17 +681,6 @@ def parse_add_data(add_data_str):
             dst_path = "."
         datas.append((src_path, dst_path))
     return datas
-
-def play_alert(success=True):
-    try:
-        if os.name == 'nt':
-            import winsound
-            winsound.MessageBeep(winsound.MB_OK if success else winsound.MB_ICONHAND)
-        else:
-            sys.stdout.write('\a')
-            sys.stdout.flush()
-    except:
-        pass
 
 def convert_image_to_format(src_path, dest_path, dest_format):
     src = Path(src_path).resolve()
@@ -773,14 +940,20 @@ class TargetIconWidget(QWidget):
                     dy = center.y() + math.sin(angle) * burst_radius_2
                     painter.drawEllipse(QPointF(dx, dy), dot_size_2, dot_size_2)
         
-        pix_rect = QRect(
-            int(center_x - draw_size / 2), 
-            int(icon_center_y - draw_size / 2), 
-            draw_size, 
-            draw_size
+        pix_rect = QRectF(
+            center_x - draw_size / 2.0, 
+            icon_center_y - draw_size / 2.0, 
+            float(draw_size), 
+            float(draw_size)
         )
-        scaled_pix = self.pixmap.scaled(draw_size, draw_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        painter.drawPixmap(pix_rect, scaled_pix)
+        scaled_pix = self.pixmap.scaled(
+            int(draw_size * self.devicePixelRatioF()), 
+            int(draw_size * self.devicePixelRatioF()), 
+            Qt.AspectRatioMode.KeepAspectRatio, 
+            Qt.TransformationMode.SmoothTransformation
+        )
+        scaled_pix.setDevicePixelRatio(self.devicePixelRatioF())
+        painter.drawPixmap(pix_rect, scaled_pix, QRectF(scaled_pix.rect()))
         painter.end()
 
 class DropArea(QFrame):
@@ -801,10 +974,11 @@ class DropArea(QFrame):
     def _get_default_pixmap(self, size=88):
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
-            pixmap = QIcon(icon_path).pixmap(size, size)
+            # ✅ 改为提取 256x256 高清图层
+            pixmap = QIcon(icon_path).pixmap(256, 256)
             if not pixmap.isNull():
                 return pixmap
-        return get_svg_pixmap('python', color="#9AA0A6", size=size)
+        return get_svg_pixmap('python', color="#9AA0A6", size=256)
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -878,13 +1052,13 @@ class DropArea(QFrame):
     def set_success(self, filename, custom_icon_path=None):
         pixmap = None
         if custom_icon_path and Path(custom_icon_path).exists():
-            pixmap = QIcon(str(custom_icon_path)).pixmap(88, 88)
+            pixmap = QIcon(str(custom_icon_path)).pixmap(256, 256)
             if pixmap.isNull():
                 pixmap = None
-                
-        if not pixmap:
-            pixmap = get_svg_pixmap('package', color="#1A73E8", size=88)
             
+        if not pixmap:
+            pixmap = get_svg_pixmap('package', color="#1A73E8", size=256)
+        
         self.icon_widget.set_file_pixmap(pixmap, 88)
             
         self.label.setText(f"已载入源文件：{filename}")
@@ -904,7 +1078,7 @@ class DropArea(QFrame):
         size = 128
         pixmap_set = False
         if custom_icon_path and Path(custom_icon_path).exists():
-            pix = QIcon(str(custom_icon_path)).pixmap(size, size)
+            pix = QIcon(str(custom_icon_path)).pixmap(256, 256)
             if not pix.isNull():
                 self.icon_widget.set_custom_pixmap(pix, size)
                 pixmap_set = True
@@ -1195,7 +1369,7 @@ class SettingsPanel(QWidget):
                 color: #111827; 
             }
             
-            QListWidget { 
+            QListWidget, QTableWidget { 
                 border: 1px solid #e5e7eb; 
                 border-radius: 6px; 
                 background: #ffffff; 
@@ -1207,7 +1381,7 @@ class SettingsPanel(QWidget):
                 border-bottom: 1px solid #f3f4f6; 
                 color: #1f2937;
             }
-            QListWidget::item:selected { 
+            QListWidget::item:selected, QTableWidget::item:selected { 
                 background: #eff6ff; 
                 color: #2563eb; 
                 font-weight: 600; 
@@ -1350,6 +1524,96 @@ class SettingsPanel(QWidget):
             if not found:
                 self.python_path_combo.setCurrentText(current_text)
 
+    def populate_mapping_table(self, mappings_dict):
+        self.mapping_table.setRowCount(0)
+        for imp_name, pypi_name in mappings_dict.items():
+            row = self.mapping_table.rowCount()
+            self.mapping_table.insertRow(row)
+            item_imp = QTableWidgetItem(imp_name)
+            item_pypi = QTableWidgetItem(pypi_name)
+            self.mapping_table.setItem(row, 0, item_imp)
+            self.mapping_table.setItem(row, 1, item_pypi)
+
+    def add_mapping_item(self):
+        imp_name, ok1 = QInputDialog.getText(self, "添加包名映射", "请输入代码中的 import 模块名 (如: cv2):")
+        if not ok1 or not imp_name.strip(): return
+        pypi_name, ok2 = QInputDialog.getText(self, "添加包名映射", f"请输入 [{imp_name.strip()}] 在 PyPI 的真实包名 (如: opencv-python):")
+        if not ok2 or not pypi_name.strip(): return
+        
+        row = self.mapping_table.rowCount()
+        self.mapping_table.insertRow(row)
+        self.mapping_table.setItem(row, 0, QTableWidgetItem(imp_name.strip()))
+        self.mapping_table.setItem(row, 1, QTableWidgetItem(pypi_name.strip()))
+
+    def delete_mapping_item(self):
+        rows = set(item.row() for item in self.mapping_table.selectedItems())
+        for r in sorted(rows, reverse=True):
+            self.mapping_table.removeRow(r)
+
+    def reset_mapping_default(self):
+        if QMessageBox.question(self, "确认重置", "确定要将所有包名映射重置为系统默认设置吗？", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+            self.populate_mapping_table(DEFAULT_MAPPINGS)
+
+    def export_preset(self):
+        fp, _ = QFileDialog.getSaveFileName(self, "导出工程预设文件", "project_config.qpypack", "QPyPack Presets (*.qpypack);;JSON Files (*.json)")
+        if fp:
+            try:
+                data = {
+                    "engine": self.engine_combo.currentText(),
+                    "onefile": self.onefile_check.isChecked(),
+                    "noconsole": self.noconsole_check.isChecked(),
+                    "icon": self.icon_edit.text(),
+                    "app_name": self.name_edit.text(),
+                    "ver_ver": self.ver_ver.text(),
+                    "ver_comp": self.ver_comp.text(),
+                    "ver_desc": self.ver_desc.text(),
+                    "hidden_imports": self.hidden_edit.text(),
+                    "exclude_modules": self.exclude_edit.text(),
+                    "use_venv": self.venv_check.isChecked(),
+                    "use_reqs": self.reqs_check.isChecked(),
+                    "use_pipreqs": self.pipreqs_check.isChecked(),
+                    "reqs_file": self.reqs_file_edit.text(),
+                    "pip_source": self._get_url_from_combo(self.pip_source_combo),
+                    "pip_backup": self._get_url_from_combo(self.pip_backup_combo),
+                    "lite_mode": self.lite_mode_check.isChecked(),
+                    "add_data_list": [self.add_data_list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.add_data_list.count())]
+                }
+                Path(fp).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+                QMessageBox.information(self, "导出成功", f"工程配置预设已导出至:\n{fp}")
+            except Exception as e:
+                QMessageBox.warning(self, "导出失败", f"无法导出预设文件: {e}")
+
+    def import_preset(self):
+        fp, _ = QFileDialog.getOpenFileName(self, "加载工程预设文件", "", "QPyPack Presets (*.qpypack *.json);;All Files (*)")
+        if fp:
+            try:
+                data = json.loads(Path(fp).read_text(encoding='utf-8'))
+                if "engine" in data: self.engine_combo.setCurrentText(data["engine"])
+                if "onefile" in data: self.onefile_check.setChecked(bool(data["onefile"]))
+                if "noconsole" in data: self.noconsole_check.setChecked(bool(data["noconsole"]))
+                if "icon" in data: self.icon_edit.setText(data["icon"])
+                if "app_name" in data: self.name_edit.setText(data["app_name"])
+                if "ver_ver" in data: self.ver_ver.setText(data["ver_ver"])
+                if "ver_comp" in data: self.ver_comp.setText(data["ver_comp"])
+                if "ver_desc" in data: self.ver_desc.setText(data["ver_desc"])
+                if "hidden_imports" in data: self.hidden_edit.setText(data["hidden_imports"])
+                if "exclude_modules" in data: self.exclude_edit.setText(data["exclude_modules"])
+                if "use_venv" in data: self.venv_check.setChecked(bool(data["use_venv"]))
+                if "use_reqs" in data: self.reqs_check.setChecked(bool(data["use_reqs"]))
+                if "use_pipreqs" in data: self.pipreqs_check.setChecked(bool(data["use_pipreqs"]))
+                if "reqs_file" in data: self.reqs_file_edit.setText(data["reqs_file"])
+                if "pip_source" in data: self._set_combo_value(self.pip_source_combo, data["pip_source"])
+                if "pip_backup" in data: self._set_combo_value(self.pip_backup_combo, data["pip_backup"])
+                if "lite_mode" in data: self.lite_mode_check.setChecked(bool(data["lite_mode"]))
+                if "add_data_list" in data:
+                    self.add_data_list.clear()
+                    for item in data["add_data_list"]:
+                        if isinstance(item, (list, tuple)) and len(item) == 3:
+                            self._add_resource_item(item[0], item[1], item[2])
+                QMessageBox.information(self, "加载成功", "工程配置预设已成功载入！")
+            except Exception as e:
+                QMessageBox.warning(self, "加载失败", f"预设文件格式错误或已被损坏: {e}")
+
     def load_from_config(self):
         config = load_config()
         if 'Settings' in config:
@@ -1398,12 +1662,9 @@ class SettingsPanel(QWidget):
                     if part.count('|') == 2:
                         r_type, src, dst = part.split('|')
                         self._add_resource_item(r_type, src, dst)
-            else:
-                old_str = s.get('add_data', '')
-                if old_str:
-                    for src, dst in parse_add_data(old_str):
-                        r_type = 'dir' if Path(src).is_dir() else 'file'
-                        self._add_resource_item(r_type, src, dst)
+
+        if 'Mappings' in config:
+            self.populate_mapping_table(dict(config['Mappings']))
 
     def save_to_config(self):
         config = load_config()
@@ -1449,6 +1710,13 @@ class SettingsPanel(QWidget):
             r_type, src, dst = self.add_data_list.item(i).data(Qt.ItemDataRole.UserRole)
             res_list.append(f"{r_type}|{src}|{dst}")
         s['add_data_list'] = "|||".join(res_list)
+
+        config['Mappings'] = {}
+        for r in range(self.mapping_table.rowCount()):
+            k = self.mapping_table.item(r, 0).text().strip()
+            v = self.mapping_table.item(r, 1).text().strip()
+            if k and v:
+                config['Mappings'][k] = v
         
         save_config(config)
 
@@ -1493,7 +1761,7 @@ class SettingsPanel(QWidget):
         lay_basic = QVBoxLayout(tab_basic)
         lay_basic.setContentsMargins(0, 5, 0, 0)
         
-        card1, c_lay1 = self._create_card("编译核心配置")
+        card1, c_lay1 = self._create_card("构建引擎配置")
         form1 = QFormLayout()
         form1.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form1.setSpacing(15)
@@ -1502,6 +1770,21 @@ class SettingsPanel(QWidget):
         self.engine_combo.addItems(["PyInstaller", "Nuitka"])
         setup_combo_white_theme(self.engine_combo)
         self.engine_combo.currentIndexChanged.connect(self.on_engine_changed)
+
+        self.engine_desc_lbl = QLabel()
+        self.engine_desc_lbl.setWordWrap(True)
+        self.engine_desc_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.engine_desc_lbl.setStyleSheet("""
+            QLabel {
+                background-color: #f8fafc;
+                color: #475569;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 10px 14px;
+                font-size: 12px;
+                min-height: 38px; /* 关键修复 2：设置最小高度，保证多行文本上下舒展 */
+            }
+        """)
         
         self.python_path_combo = QComboBox()
         self.python_path_combo.setEditable(True)
@@ -1528,16 +1811,17 @@ class SettingsPanel(QWidget):
         icon_cont = QWidget(); h_icon = QHBoxLayout(icon_cont); h_icon.setContentsMargins(0,0,0,0)
         h_icon.addWidget(self.icon_edit, 1); h_icon.addWidget(self.icon_preview); h_icon.addWidget(btn_icon)
 
-        form1.addRow("编译引擎 (Engine):", self.engine_combo)
-        form1.addRow("解释器 (Interpreter):", py_cont)
-        form1.addRow("可执行文件名 (Name):", self.name_edit)
-        form1.addRow("应用图标 (Icon):", icon_cont)
+        form1.addRow("构建引擎:", self.engine_combo)
+        form1.addRow("", self.engine_desc_lbl)
+        form1.addRow("Python 解释器:", py_cont)
+        form1.addRow("输出可执行文件名:", self.name_edit)
+        form1.addRow("应用图标:", icon_cont)
         c_lay1.addLayout(form1)
         
-        card2, c_lay2 = self._create_card("运行属性 (Run Properties)")
+        card2, c_lay2 = self._create_card("运行机制")
         h_mode = QHBoxLayout()
-        self.onefile_check = QCheckBox("单文件打包模式 (OneFile / Standalone)")
-        self.noconsole_check = QCheckBox("无控制台模式 (Windowed / No Console)")
+        self.onefile_check = QCheckBox("单文件打包模式 (Standalone)")
+        self.noconsole_check = QCheckBox("无控制台模式 (隐藏终端窗口)")
         h_mode.addWidget(self.onefile_check)
         h_mode.addWidget(self.noconsole_check)
         h_mode.addStretch()
@@ -1555,7 +1839,7 @@ class SettingsPanel(QWidget):
         lay_assets = QVBoxLayout(cont_assets)
         lay_assets.setContentsMargins(0, 5, 0, 0)
         
-        card3, c_lay3 = self._create_card("依赖与虚拟环境控制")
+        card3, c_lay3 = self._create_card("依赖分析与虚拟环境")
         form2 = QFormLayout()
         form2.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form2.setSpacing(15)
@@ -1587,30 +1871,31 @@ class SettingsPanel(QWidget):
 
         self.exclude_edit = QLineEdit(); self.exclude_edit.setPlaceholderText("指定不进行打包的模块列表，英文逗号分隔 (如: tkinter, matplotlib)")
         
-        form2.addRow("PIP 主镜像源 (Primary):", self.pip_source_combo)
-        form2.addRow("PIP 备用源 (Backup):", self.pip_backup_combo)
-        form2.addRow("声明清单 (Requirements):", reqs_cont)
+        form2.addRow("PIP 主镜像源:", self.pip_source_combo)
+        form2.addRow("PIP 备用源:", self.pip_backup_combo)
+        form2.addRow("依赖清单 (requirements.txt):", reqs_cont)
         form2.addRow("隐式导入 (Hidden Imports):", hid_cont)
-        form2.addRow("排除模块 (Exclude):", self.exclude_edit)
+        form2.addRow("排除模块 (Excludes):", self.exclude_edit)
         c_lay3.addLayout(form2)
         
         c_lay3.addSpacing(5)
         g_dep = QGridLayout()
         g_dep.setSpacing(10)
-        self.venv_check = QCheckBox("使用虚拟环境 (Virtualenv)")
-        self.reqs_check = QCheckBox("同步 Requirements 声明")
-        self.pipreqs_check = QCheckBox("使用 pipreqs 自动分析依赖")
+        self.venv_check = QCheckBox("启用独立虚拟环境打包 (推荐)")
+        self.reqs_check = QCheckBox("同步安装 requirements.txt 声明")
+        self.pipreqs_check = QCheckBox("自动分析并补全项目依赖 (pipreqs)")
         g_dep.addWidget(self.venv_check, 0, 0)
         g_dep.addWidget(self.reqs_check, 0, 1)
         g_dep.addWidget(self.pipreqs_check, 1, 0, 1, 2)
         c_lay3.addLayout(g_dep)
         
-        card4, c_lay4 = self._create_card("附加资源文件 (Data Files / Folders)")
-        self.add_data_list = QListWidget()
+        card4, c_lay4 = self._create_card("附加资源文件与目录 (支持拖拽)")
+        self.add_data_list = DropListWidget()
         self.add_data_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.add_data_list.setFixedHeight(120)
-        self.add_data_list.setToolTip("双击列表项可修改打包后的相对目标路径")
+        self.add_data_list.setToolTip("双击修改目标路径；支持直接从桌面拖拽文件或文件夹至此区域")
         self.add_data_list.itemDoubleClicked.connect(self.edit_resource)
+        self.add_data_list.itemsDropped.connect(self.on_resources_dropped)
         c_lay4.addWidget(self.add_data_list)
         
         btn_res_lay = QHBoxLayout()
@@ -1620,9 +1905,26 @@ class SettingsPanel(QWidget):
         self.btn_clear_res = QPushButton("清空"); self.btn_clear_res.setProperty("class", "ToolBtn"); self.btn_clear_res.clicked.connect(self.clear_resource)
         btn_res_lay.addWidget(self.btn_add_file); btn_res_lay.addWidget(self.btn_add_dir); btn_res_lay.addWidget(self.btn_del_res); btn_res_lay.addWidget(self.btn_clear_res); btn_res_lay.addStretch()
         c_lay4.addLayout(btn_res_lay)
+
+        card_map, c_lay_map = self._create_card("第三方库包名映射表")
+        self.mapping_table = QTableWidget()
+        self.mapping_table.setColumnCount(2)
+        self.mapping_table.setHorizontalHeaderLabels(["代码导入名 (import)", "PyPI 包名 (pip)"])
+        self.mapping_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.mapping_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.mapping_table.setFixedHeight(140)
+        c_lay_map.addWidget(self.mapping_table)
+
+        btn_map_lay = QHBoxLayout()
+        btn_add_map = QPushButton("添加映射"); btn_add_map.setProperty("class", "ToolBtn"); btn_add_map.clicked.connect(self.add_mapping_item)
+        btn_del_map = QPushButton("删除选中"); btn_del_map.setProperty("class", "ToolBtn"); btn_del_map.clicked.connect(self.delete_mapping_item)
+        btn_reset_map = QPushButton("重置默认"); btn_reset_map.setProperty("class", "ToolBtn"); btn_reset_map.clicked.connect(self.reset_mapping_default)
+        btn_map_lay.addWidget(btn_add_map); btn_map_lay.addWidget(btn_del_map); btn_map_lay.addWidget(btn_reset_map); btn_map_lay.addStretch()
+        c_lay_map.addLayout(btn_map_lay)
         
         lay_assets.addWidget(card3)
         lay_assets.addWidget(card4)
+        lay_assets.addWidget(card_map)
         lay_assets.addStretch()
         
         scroll_assets.setWidget(cont_assets)
@@ -1638,26 +1940,26 @@ class SettingsPanel(QWidget):
         lay_adv = QVBoxLayout(cont_adv)
         lay_adv.setContentsMargins(0, 5, 0, 0)
         
-        card5, c_lay5 = self._create_card("版本信息与元数据 (Metadata)")
+        card5, c_lay5 = self._create_card("应用元数据与版本信息")
         form3 = QFormLayout()
         form3.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form3.setSpacing(15)
         self.ver_ver = QLineEdit("1.0.0")
         self.ver_comp = QLineEdit("My Studio")
         self.ver_desc = QLineEdit("Python Executable")
-        form3.addRow("应用版本 (Version):", self.ver_ver)
-        form3.addRow("公司名称 (Company):", self.ver_comp)
-        form3.addRow("应用描述 (Description):", self.ver_desc)
+        form3.addRow("应用版本:", self.ver_ver)
+        form3.addRow("公司/作者名称:", self.ver_comp)
+        form3.addRow("应用描述:", self.ver_desc)
         c_lay5.addLayout(form3)
         
-        card6, c_lay6 = self._create_card("性能与编译优化")
+        card6, c_lay6 = self._create_card("性能与构建优化")
         form4 = QFormLayout()
         form4.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form4.setSpacing(15)
         self.cores_spin = QSpinBox(); self.cores_spin.setRange(1, os.cpu_count() or 4); self.cores_spin.setValue(os.cpu_count() or 2)
-        form4.addRow("并发构建线程数 (Jobs):", self.cores_spin)
+        form4.addRow("并发构建 CPU 核心数:", self.cores_spin)
         
-        self.upx_check = QCheckBox("启用 UPX 压缩优化")
+        self.upx_check = QCheckBox("启用 UPX 可执行文件压缩")
         self.upx_check.toggled.connect(self.on_upx_toggled)
         self.upx_path_edit = QLineEdit(); self.upx_path_edit.setPlaceholderText("留空则自动检测环境变量")
         btn_upx = QPushButton("选择"); btn_upx.setProperty("class", "ToolBtn"); btn_upx.clicked.connect(self.select_upx_path)
@@ -1668,24 +1970,24 @@ class SettingsPanel(QWidget):
         h_upx_row = QHBoxLayout()
         h_upx_row.addWidget(self.upx_check)
         h_upx_row.addWidget(self.upx_path_container)
-        form4.addRow("UPX 压缩工具 (UPX Path):", h_upx_row)
+        form4.addRow("UPX 工具路径:", h_upx_row)
         
-        self.lite_mode_check = QCheckBox("启用精简模式")
+        self.lite_mode_check = QCheckBox("启用精简打包模式 (自动排除开发与测试依赖)")
         self.lite_mode_check.setStyleSheet("color: #D93025; font-weight: bold;")
-        self.lite_mode_check.setToolTip("动态排除开发及测试环境冗余依赖，提升构建速度并缩减体积。")
+        self.lite_mode_check.setToolTip("动态排除构建环境冗余依赖，提升构建速度并缩减产物体积。")
         c_lay6.addLayout(form4)
         c_lay6.addWidget(self.lite_mode_check)
         
-        card7, c_lay7 = self._create_card("版本锁定 (Version Pinning)")
+        card7, c_lay7 = self._create_card("锁定核心依赖版本")
         form5 = QFormLayout()
         form5.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form5.setSpacing(15)
         self.pyi_ver_edit = QLineEdit()
-        self.pyi_ver_edit.setPlaceholderText("默认最新版 (旧版本可填 6.6.0)")
+        self.pyi_ver_edit.setPlaceholderText("默认最新版 (指定版本如 6.6.0)")
         self.nuitka_ver_edit = QLineEdit()
-        self.nuitka_ver_edit.setPlaceholderText("默认最新版 (旧版本可填 4.1.3)")
+        self.nuitka_ver_edit.setPlaceholderText("默认最新版 (指定版本如 4.1.3)")
         self.pipreqs_ver_edit = QLineEdit()
-        self.pipreqs_ver_edit.setPlaceholderText("默认最新版 (旧版本可填 0.4.13)")
+        self.pipreqs_ver_edit.setPlaceholderText("默认最新版 (指定版本如 0.4.13)")
         form5.addRow("PyInstaller 版本:", self.pyi_ver_edit)
         form5.addRow("Nuitka 版本:", self.nuitka_ver_edit)
         form5.addRow("Pipreqs 版本:", self.pipreqs_ver_edit)
@@ -1715,10 +2017,24 @@ class SettingsPanel(QWidget):
         lay = QVBoxLayout(content)
         lay.setContentsMargins(0, 5, 0, 15)
         lay.setSpacing(15)
+
+        card0, lay0 = self._create_card("工程预设 (.qpypack)")
+        h_preset = QHBoxLayout()
+        btn_exp_preset = QPushButton("保存工程预设...")
+        btn_exp_preset.setProperty("class", "ToolBtn")
+        btn_exp_preset.clicked.connect(self.export_preset)
+        btn_imp_preset = QPushButton("加载工程预设...")
+        btn_imp_preset.setProperty("class", "ToolBtn")
+        btn_imp_preset.clicked.connect(self.import_preset)
+        h_preset.addWidget(btn_exp_preset)
+        h_preset.addWidget(btn_imp_preset)
+        h_preset.addStretch()
+        lay0.addLayout(h_preset)
+        lay.addWidget(card0)
         
-        card1, lay1 = self._create_card("输出设置")
+        card1, lay1 = self._create_card("构建产物输出位置")
         self.out_mode_combo = QComboBox()
-        self.out_mode_combo.addItems(["默认路径 (源文件同级目录)", "自定义归档路径 (自定义目录)"])
+        self.out_mode_combo.addItems(["源文件同级目录", "自定义输出目录"])
         setup_combo_white_theme(self.out_mode_combo)
         self.out_mode_combo.currentIndexChanged.connect(self.on_out_mode_changed)
         
@@ -1736,14 +2052,14 @@ class SettingsPanel(QWidget):
         lay1.addLayout(form1)
         lay.addWidget(card1)
 
-        card2, lay2 = self._create_card("编译选项")
+        card2, lay2 = self._create_card("构建偏好")
         lay2.setSpacing(16)
         
-        self.concise_log_check = QCheckBox("精简日志输出")
-        self.auto_save_log_check = QCheckBox("自动保存编译日志")
-        self.auto_icon_check = QCheckBox("自动检索图标")
-        self.clean_all_check = QCheckBox("清理构建缓存")
-        self.sound_notify_check = QCheckBox("启用构建提示音")
+        self.concise_log_check = QCheckBox("过滤冗余日志 (精简模式)")
+        self.auto_save_log_check = QCheckBox("自动导出构建日志")
+        self.auto_icon_check = QCheckBox("自动匹配项目图标")
+        self.clean_all_check = QCheckBox("构建完成后清理临时缓存")
+        self.sound_notify_check = QCheckBox("启用音效")
         
         for chk in (self.concise_log_check, self.auto_save_log_check, self.auto_icon_check, self.clean_all_check, self.sound_notify_check):
             lay2.addWidget(chk)
@@ -1841,8 +2157,17 @@ class SettingsPanel(QWidget):
         main_lay.addWidget(rights_lbl)
 
     def on_engine_changed(self):
+        engine = self.engine_combo.currentText()
+        if engine == "PyInstaller":
+            self.engine_desc_lbl.setText(
+                "<b>PyInstaller</b>：构建速度快、兼容性强，但单文件体积偏大。适合快速迭代与大多数常规应用。"
+            )
+        else:
+            self.engine_desc_lbl.setText(
+                "<b>Nuitka</b>：编译为原生 C/C++ 二进制，体积更小且性能更好、支持源码防反编译；但构建耗时较长。适合商业级项目发布。"
+            )
+
         if getattr(self, 'upx_check', None) is not None and getattr(self, 'upx_path_container', None) is not None:
-            engine = self.engine_combo.currentText()
             is_pyi = (engine == "PyInstaller")
             self.upx_check.setVisible(is_pyi)
             self.upx_path_container.setVisible(is_pyi and self.upx_check.isChecked())
@@ -1903,6 +2228,14 @@ class SettingsPanel(QWidget):
             QMessageBox.information(self, "AST 分析完成", f"语法树解析成功，共定位到 {len(hidden)} 项非标准库依赖。")
         except Exception as e: 
             QMessageBox.warning(self, "分析异常", f"AST 语法树解析过程中发生异常: {e}")
+
+    def on_resources_dropped(self, paths):
+        for p_str in paths:
+            p = Path(p_str).resolve()
+            if p.is_file():
+                self._add_resource_item('file', p.as_posix(), ".")
+            elif p.is_dir():
+                self._add_resource_item('dir', p.as_posix(), p.name)
 
     def add_resource_files(self):
         files, _ = QFileDialog.getOpenFileNames(self, "选择附加文件", "", "All Files (*)")
@@ -1993,7 +2326,7 @@ class ScriptAnalysisThread(QThread):
 
 class PackingThread(QThread):
     progress = Signal(str)
-    finished = Signal(bool, str)
+    finished = Signal(bool, str, list)
 
     def __init__(self, params):
         super().__init__()
@@ -2204,6 +2537,7 @@ class PackingThread(QThread):
         is_temp = False
         build_script_path = None
         ext = ".exe" if os.name == "nt" else ""
+        failed_packages = []
 
         try:
             self.progress.emit("[INFO] 正在初始化隔离构建环境...")
@@ -2212,7 +2546,7 @@ class PackingThread(QThread):
             script_dir = script_path.parent
             
             build_script_path, is_temp, err_msg = self.sanitize_script(script_path)
-            if not build_script_path and err_msg: return self.finished.emit(False, f"[ERROR] I/O 异常: {err_msg}")
+            if not build_script_path and err_msg: return self.finished.emit(False, f"[ERROR] I/O 异常: {err_msg}", [])
             script_posix = build_script_path.as_posix()
 
             system_python_exe = get_python_executable()
@@ -2238,7 +2572,7 @@ class PackingThread(QThread):
                 self.progress.emit("[INFO] 正在创建虚拟环境...")
                 self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
                 if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
-                    return self.finished.emit(False, "[ERROR] 虚拟环境 (virtualenv) 创建失败。当前 Python 环境可能缺失必要模块或权限受限。")
+                    return self.finished.emit(False, "[ERROR] 虚拟环境 (virtualenv) 创建失败。当前 Python 环境可能缺失必要模块或权限受限。", [])
                 python_exe = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
                 
                 self.progress.emit("[INFO] 正在同步并升级 pip 包管理器...")
@@ -2253,12 +2587,13 @@ class PackingThread(QThread):
             elif engine == "PyInstaller" and self.params.get('pyi_version'):
                 engine_pkg = f"pyinstaller=={self.params['pyi_version']}"
             
-            self.progress.emit(f"[INFO] 正在安装编译引擎 [{engine_pkg}] 及核心编译依赖...")
+            self.progress.emit(f"[INFO] 正在安装构建引擎 [{engine_pkg}] 及核心编译依赖...")
             core_pkgs = [engine_pkg]
             if engine == "PyInstaller": 
                 core_pkgs.append("pillow")
             elif engine == "Nuitka":
                 core_pkgs.append("zstandard")
+                self.progress.emit("[INFO] Nuitka 提示：若首次构建提示下载 GCC/MinGW 编译器，请保持网络正常。")
             self.run_pip_install(python_exe, ["-q"] + core_pkgs)
                       
             if self.params.get('use_reqs'):
@@ -2330,22 +2665,32 @@ class PackingThread(QThread):
                 for k, v in config['Mappings'].items():
                     known_mappings[k] = v
             
-            local_files = {p.stem.lower() for p in script_dir.glob("*")}
+            known_mappings_lower = {k.lower(): v for k, v in known_mappings.items()}
+            
+            local_modules = set()
+            for p in script_dir.rglob("*"):
+                if any(part.startswith('.') or part.lower() in ('venv', 'env', 'site-packages', 'node_modules', '__pycache__') for part in p.parts):
+                    continue
+                if p.is_file() and p.suffix.lower() == '.py':
+                    local_modules.add(p.stem.lower())
+                elif p.is_dir():
+                    local_modules.add(p.name.lower())
+
             ast_pkgs = [
-                known_mappings.get(m, m) 
+                known_mappings_lower.get(m.lower(), m) 
                 for m in script_imports 
-                if m not in STD_LIBS and m.lower() not in local_files
+                if m not in STD_LIBS and m.lower() not in local_modules
             ]
             
             if ast_pkgs:
                 self.progress.emit(f"[INFO] 依赖安装 [3/3]: 正在通过 AST 静态扫描提取隐式依赖...")
                 self.progress.emit(f"[INFO] 正在解析并安装隐式导入依赖: {', '.join(ast_pkgs)}")
-                if not self.run_pip_install(python_exe, ["-q"] + ast_pkgs):
-                    self.progress.emit("[WARN] 批量依赖同步发生冲突，正在转换为顺序安全安装机制...")
-                    for pkg in ast_pkgs:
-                        self.run_pip_install(python_exe, ["-q", pkg])
+                for pkg in ast_pkgs:
+                    if not self.run_pip_install(python_exe, ["-q", pkg]):
+                        failed_packages.append(pkg)
+                        self.progress.emit(f"[ERROR] ⚠️ 警告：依赖库 [{pkg}] 安装失败！可能导致打包后的软件运行时崩溃。")
 
-            if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。")
+            if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。", failed_packages)
 
             self.progress.emit(f"[INFO] 正在启动 {engine} 引擎，开始编译二进制文件...")
             cmd = []
@@ -2503,7 +2848,7 @@ class PackingThread(QThread):
             cmd.append(script_posix)
 
             success = self.run_cmd(cmd, cwd=script_dir.as_posix())
-            if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。")
+            if self._is_cancelled: return self.finished.emit(False, "[INFO] 构建已被终止。", failed_packages)
 
             self.progress.emit("[INFO] 编译核心完成，正在提取并归档编译文件...")
             
@@ -2558,7 +2903,7 @@ class PackingThread(QThread):
                         log_file.write_text('\n'.join(self.all_raw_logs), encoding='utf-8')
                         self.progress.emit(f"[INFO] 编译日志已导出至: {log_file.as_posix()}")
                     except: pass
-                self.finished.emit(True, f"[SUCCESS] 编译已完成，输出路径: {final_out.resolve().as_posix()}")
+                self.finished.emit(True, f"[SUCCESS] 编译已完成，输出路径: {final_out.resolve().as_posix()}", failed_packages)
             else: 
                 err_info = self.detect_python_syntax_errors()
                 if err_info["is_code_error"]:
@@ -2575,13 +2920,13 @@ class PackingThread(QThread):
                         self.progress.emit("\n" + "!"*10 + " [诊断回溯: 以下为最后段编译运行日志汇总] " + "!"*10)
                         self.progress.emit('\n'.join(self.all_raw_logs[-100:])) 
                     msg = "[FAILED] 编译异常中断，请参阅上方日志以定位构建异常。"
-                self.finished.emit(False, msg)
+                self.finished.emit(False, msg, failed_packages)
                 
         except Exception as e:
             if self.params.get('concise_log', True) and self.all_raw_logs:
                 self.progress.emit("\n" + "!"*10 + " [系统诊断: 原始日志] " + "!"*10)
                 self.progress.emit('\n'.join(self.all_raw_logs[-100:]))
-            self.finished.emit(False, f"[ERROR] 构建流程发生致命异常: {str(e)}")
+            self.finished.emit(False, f"[ERROR] 构建流程发生致命异常: {str(e)}", failed_packages)
         finally:
             if is_temp and build_script_path and build_script_path.exists():
                 try: 
@@ -2632,7 +2977,7 @@ class MainWindow(QMainWindow):
     def init_style(self):
         self.setWindowTitle(f"{__app_name__} {__version__}")
         
-        self.setMinimumSize(700, 600)
+        self.setMinimumSize(700, 670)
         self.resize(740, 640)
         
         icon_path = get_resource_path("icon.ico")
@@ -2688,10 +3033,8 @@ class MainWindow(QMainWindow):
         self.log = QTextEdit()
         self.log.setReadOnly(True)
         self.log.setFixedHeight(120) 
-        
         self.log.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.log.customContextMenuRequested.connect(self.show_log_context_menu)
-        
         log_lay.addWidget(self.log)
         self.log_container.hide()
         layout.addWidget(self.log_container)
@@ -3035,12 +3378,11 @@ class MainWindow(QMainWindow):
         self.update_ui_state("building")
         self.drop_area.start_build_anim()
 
-    def on_pack_finished(self, success, msg):
+    def on_pack_finished(self, success, msg, failed_pkgs=None):
         self.append_log("\n" + "━"*50 + "\n" + msg)
         self.drop_area.stop_build_anim()
         
-        if self.settings_panel.sound_notify_check.isChecked():
-            play_alert(success)
+        play_alert(success)
             
         if success:
             icon_path = self.settings_panel.icon_edit.text().strip()
@@ -3051,6 +3393,16 @@ class MainWindow(QMainWindow):
             self.drop_area.show_failure()
             self.set_status(" 状态: 构建失败")
             self.update_ui_state("failed")
+
+        if failed_pkgs:
+            pkgs_str = ", ".join(failed_pkgs)
+            QMessageBox.warning(
+                self, 
+                "依赖缺失隐患警告", 
+                f"构建任务已结束，但在预构建阶段以下第三方依赖库安装失败：\n\n  👉 {pkgs_str}\n\n"
+                f"⚠️ 提示：生成的可执行文件可能因缺少依赖，在运行时发生 ModuleNotFoundError 崩溃！\n"
+                f"建议检查是否写错 import 名称，或在设置中补充正确的包名映射后重新构建。"
+            )
 
     def open_dist(self):
         if self.settings_panel.out_mode_combo.currentIndex() == 1 and self.settings_panel.out_dir_edit.text().strip():
@@ -3076,28 +3428,6 @@ class MainWindow(QMainWindow):
         self.drop_area.reset()
         self.set_status(" 状态: 工作区已重置")
         self.update_ui_state("idle")
-
-    def append_log(self, msg):
-        self.log.append(msg)
-        self.log.ensureCursorVisible()
-
-        for line in msg.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            
-            if line.startswith(("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]")):
-                clean_text = line
-                for prefix in ("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]"):
-                    if clean_text.startswith(prefix):
-                        clean_text = clean_text[len(prefix):].strip()
-                        break
-                
-                if self.current_state == "building" and clean_text:
-                    if len(clean_text) > 35:
-                        clean_text = clean_text[:32] + "..."
-                    self.drop_area.label.setText(clean_text)
-                    self.drop_area.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
 
     def append_log(self, msg):
         self.log.append(msg)
