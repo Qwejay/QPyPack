@@ -2807,6 +2807,18 @@ class PackingThread(QThread):
                     f"--output-filename={app_name}{ext}"
                 ]
                 
+                if os.name == "nt":
+                    has_msvc = shutil.which('cl.exe') is not None
+                    if not has_msvc:
+                        vswhere = Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
+                        if vswhere.exists():
+                            try:
+                                res = subprocess.run([vswhere.as_posix(), "-latest", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                                if res.stdout.strip(): has_msvc = True
+                            except: pass
+                    if has_msvc:
+                        cmd.append("--msvc=latest")
+                        self.progress.emit("[INFO] 发现本地 MSVC 环境，优先使用原生 C++ 编译器。")                
                 cores = self.params.get('cpu_cores', os.cpu_count() or 2)
                 cmd.append(f"--jobs={cores}")
                 
