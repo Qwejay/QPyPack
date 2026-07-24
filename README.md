@@ -26,8 +26,9 @@ QPyPack 是一款致力于简化 Python 应用打包流程的可视化工具。�
 ## 📷 界面预览 (Screenshots)
 
 <p align="center">
-<img width="1023" height="977" alt="image" src="https://github.com/user-attachments/assets/5201ce6f-e908-443b-b6aa-733cf4d4c4ad" />
-<img width="1023" height="977" alt="image" src="https://github.com/user-attachments/assets/cfa93356-1def-4b39-9cc9-5cb6914c783e" />
+<img width="1143" height="1067" alt="image" src="https://github.com/user-attachments/assets/8658aaef-5867-470d-ba4d-07892309ab1a" />
+<img width="1142" height="1067" alt="image" src="https://github.com/user-attachments/assets/b64d9b89-8bfd-4bf8-8fec-9c75f61305dd" />
+
 </p>
 
 ---
@@ -79,6 +80,12 @@ qpypack
 
 ## 📅 更新日志 (Changelog)
 
+### [2.6.1] - 2026-07-25
+
+* **消除依赖污染**：修复了开启“精简模式”时，AST 引擎错误遍历整个父目录的 Bug，解决打包产物被混入无关依赖的问题。
+* **构建沙盒隔离**：默认将目标脚本放入独立沙盒中解析，杜绝同目录其他脚本的依赖干扰；同时在 UI 界面新增“允许扫描同目录所有文件”开关。
+* **MSVC 智能检测**：引入本地 C++ 编译环境智能嗅探。若系统已安装 MSVC，Nuitka 将自动启用 --msvc=latest，优先使用系统原生编译器，提升兼容性并免除耗时的 MinGW 下载。
+* **UPX 警告静默**：自动识别并跳过系统核心动态库的 UPX 压缩报错，并小幅提升了构建速度。
 
 ### [2.6.0] - 2026-07-24
 
@@ -208,18 +215,23 @@ qpypack
 
 ---
 
-## 📄 开源协议 (License)
+## 💖 赞助支持 (Sponsorship)
 
-本项目基于 **GPL-3.0** 开源许可协议。在遵守该开源许可协议的前提下，您可以自由分发、修改和二次开发。
+QPyPack 是一个完全开源且免费的项目，由个人利用业余时间开发与维护。如果本项目帮助您提高了开发效率或解决了打包难题，欢迎通过以下方式对项目进行**自愿赞助**。您的支持将是本项目持续更新与维护的重要动力：
+
+- ⚡ **请作者喝咖啡**：[赞助支持 QPyPack](https://www.ifdian.net/a/qwejay)（支持微信 / 支付宝）
+
+> **赞助说明**：赞助完全出于自愿，属于对开源项目的无偿鼓励，不包含任何商业服务绑定或特定功能开发承诺。非常感谢每一位支持开源创作的朋友！
 
 ---
 
-## 📈 Star History
+## 📄 开源协议 (License)
 
-<a href="https://www.star-history.com/?repos=Qwejay%2FQPyPack&type=date&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Qwejay/QPyPack&type=date&legend=top-left" />
- </picture>
-</a>
+本项目基于 [GNU General Public License v3.0](LICENSE) 开源，允许在遵循协议条款的前提下自由分发、修改和二次开发。
+
+> [!NOTE]
+> **关于打包产物的版权**：
+> 使用 QPyPack 构建生成的二进制文件/应用程序，其版权和开源许可**完全由使用者自行决定**，QPyPack 的 GPL-3.0 协议不会影响用户打包后的程序。
+
+Copyright (C) 2026 QwejayHuang.
+```
