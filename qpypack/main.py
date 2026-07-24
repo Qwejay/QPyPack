@@ -47,7 +47,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.6.0"
+__version__ = "2.6.1"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "基于 PyInstaller 与 Nuitka 的跨平台 Python 应用打包构建工具"
@@ -150,7 +150,7 @@ def load_config():
             'pip_index_backup': 'https://mirrors.aliyun.com/pypi/simple/',
             'onefile': 'True', 'noconsole': 'True', 'clean_all': 'True',
             'auto_icon': 'True', 'use_venv': 'True', 'use_reqs': 'True',
-            'use_pipreqs': 'True', 'upx': 'False', 'concise_log': 'True',
+            'use_pipreqs': 'True', 'use_pipreqs_dir': 'False', 'upx': 'False', 'concise_log': 'True',
             'cpu_cores': str(os.cpu_count() or 2), 'upx_path': '',
             'exclude_modules': '', 'out_mode': '0', 'custom_out_dir': '',
             'sound_notify': 'True', 'auto_save_log': 'False',
@@ -1695,9 +1695,11 @@ class SettingsPanel(QWidget):
         self.venv_check = QCheckBox("启用独立虚拟环境打包 (推荐)")
         self.reqs_check = QCheckBox("同步安装 requirements.txt 声明")
         self.pipreqs_check = QCheckBox("自动分析并补全项目依赖 (pipreqs)")
+        self.pipreqs_dir_check = QCheckBox("允许 pipreqs 扫描同目录所有文件")
         g_dep.addWidget(self.venv_check, 0, 0)
         g_dep.addWidget(self.reqs_check, 0, 1)
-        g_dep.addWidget(self.pipreqs_check, 1, 0, 1, 2)
+        g_dep.addWidget(self.pipreqs_check, 1, 0)
+        g_dep.addWidget(self.pipreqs_dir_check, 1, 1)
         c_lay_deps.addLayout(g_dep)
 
         lay_sub2.addWidget(card_deps)
@@ -2002,6 +2004,7 @@ class SettingsPanel(QWidget):
                     "use_venv": self.venv_check.isChecked(),
                     "use_reqs": self.reqs_check.isChecked(),
                     "use_pipreqs": self.pipreqs_check.isChecked(),
+                    "use_pipreqs_dir": self.pipreqs_dir_check.isChecked(),
                     "reqs_file": self.reqs_file_edit.text(),
                     "pip_source": self._get_url_from_combo(self.pip_source_combo),
                     "pip_backup": self._get_url_from_combo(self.pip_backup_combo),
@@ -2031,6 +2034,7 @@ class SettingsPanel(QWidget):
                 if "use_venv" in data: self.venv_check.setChecked(bool(data["use_venv"]))
                 if "use_reqs" in data: self.reqs_check.setChecked(bool(data["use_reqs"]))
                 if "use_pipreqs" in data: self.pipreqs_check.setChecked(bool(data["use_pipreqs"]))
+                if "use_pipreqs_dir" in data: self.pipreqs_dir_check.setChecked(bool(data["use_pipreqs_dir"]))
                 if "reqs_file" in data: self.reqs_file_edit.setText(data["reqs_file"])
                 if "pip_source" in data: self._set_combo_value(self.pip_source_combo, data["pip_source"])
                 if "pip_backup" in data: self._set_combo_value(self.pip_backup_combo, data["pip_backup"])
@@ -2063,6 +2067,7 @@ class SettingsPanel(QWidget):
             self.venv_check.setChecked(s.getboolean('use_venv', True))
             self.reqs_check.setChecked(s.getboolean('use_reqs', True))
             self.pipreqs_check.setChecked(s.getboolean('use_pipreqs', True))
+            self.pipreqs_dir_check.setChecked(s.getboolean('use_pipreqs_dir', False))
             self.reqs_file_edit.setText(s.get('use_reqs_file', ''))
             self.python_path_combo.setCurrentText(s.get('custom_python_path', ''))
             
@@ -2112,6 +2117,7 @@ class SettingsPanel(QWidget):
         s['use_venv'] = str(self.venv_check.isChecked())
         s['use_reqs'] = str(self.reqs_check.isChecked())
         s['use_pipreqs'] = str(self.pipreqs_check.isChecked())
+        s['use_pipreqs_dir'] = str(self.pipreqs_dir_check.isChecked())
         s['use_reqs_file'] = self.reqs_file_edit.text().strip()
         
         raw_py = self.python_path_combo.currentText().strip()
@@ -2405,6 +2411,8 @@ class PackingThread(QThread):
                 l_lower = l.lower()
                 if "error:" in l_lower:
                     return False
+                if "upx" in l_lower and ("subprocess.calledprocesserror" in l_lower or "notcompressibleexception" in l_lower):
+                    return True
                 return any(kw in l_lower for kw in ["warning:", "info:", "deprecation:", "userwarning:", "futurewarning:"])
 
             for line in self.process.stdout:
@@ -2574,16 +2582,6 @@ class PackingThread(QThread):
             script_imports = set()
             try:
                 script_imports = extract_imports_via_ast(script_posix, system_python_exe)
-                if self.params.get('lite_mode'):
-                    scan_count = 0
-                    for py_file in script_dir.rglob("*.py"):
-                        if any(p.startswith('.') or p.lower() in ('venv', 'env', 'site-packages', 'node_modules', '__pycache__') for p in py_file.parts):
-                            continue
-                        if scan_count > 500: break
-                        try:
-                            script_imports.update(extract_imports_via_ast(py_file.as_posix(), system_python_exe))
-                            scan_count += 1
-                        except: pass
             except Exception as e:
                 self.progress.emit(f"[WARN] 源码 AST 分析异常: {e}")
 
@@ -2639,6 +2637,16 @@ class PackingThread(QThread):
             if self.params.get('use_pipreqs'):
                 self.progress.emit("[INFO] 依赖安装 [2/3]: 正在调用 pipreqs 分析项目依赖...")
                 
+                sandbox_dir = None
+                if not self.params.get('use_pipreqs_dir', False):
+                    sandbox_dir = Path(tempfile.mkdtemp(prefix="qpypack_sandbox_")).resolve()
+                    shutil.copy2(build_script_path, sandbox_dir / build_script_path.name)
+                    target_scan_dir = sandbox_dir
+                    self.progress.emit("[INFO] 已启用单文件沙盒模式：仅对当前脚本解析，防止同目录其他文件污染。")
+                else:
+                    target_scan_dir = script_dir
+                    self.progress.emit("[WARN] 已允许全目录扫描模式：正在扫描当前目录下所有 Python 文件...")
+
                 pipreqs_pkg = "pipreqs"
                 if self.params.get('pipreqs_version'):
                     pipreqs_pkg = f"pipreqs=={self.params['pipreqs_version']}"
@@ -2651,7 +2659,7 @@ class PackingThread(QThread):
                     pypi_server = re.sub(r'/simple/?$', '/pypi', pip_idx, flags=re.I).rstrip('/')
                 
                 pipreqs_cmd = [
-                    python_exe, "-m", "pipreqs.pipreqs", script_dir.as_posix(), 
+                    python_exe, "-m", "pipreqs.pipreqs", target_scan_dir.as_posix(), 
                     "--encoding", "utf-8", "--force", "--savepath", temp_pipreqs.as_posix()
                 ]
                 if pypi_server: 
@@ -2677,6 +2685,9 @@ class PackingThread(QThread):
                 if success_pipreqs and temp_pipreqs.exists():
                     self.run_pip_install(python_exe, ["-q", "-r", temp_pipreqs.as_posix()])
                     temp_pipreqs.unlink(missing_ok=True)
+                    
+                if sandbox_dir and sandbox_dir.exists():
+                    robust_rmtree(sandbox_dir)
 
             config = load_config()
             known_mappings = DEFAULT_MAPPINGS.copy()
@@ -2772,6 +2783,8 @@ class PackingThread(QThread):
                     else:
                         upx_dir_default = (Path.cwd() / "upx").resolve()
                         if upx_dir_default.exists(): cmd.append(f"--upx-dir={upx_dir_default.as_posix()}")
+                    if os.name == "nt":
+                        cmd.extend(["--upx-exclude=python3.dll", "--upx-exclude=python*.dll", "--upx-exclude=vcruntime140.dll"])
                 else:
                     cmd.append("--noupx")
                 
@@ -3375,6 +3388,7 @@ class MainWindow(QMainWindow):
             'icon': icon_path_str,
             'use_reqs': sp.reqs_check.isChecked(),
             'use_pipreqs': sp.pipreqs_check.isChecked(),
+            'use_pipreqs_dir': sp.pipreqs_dir_check.isChecked(),
             'reqs_file': sp.reqs_file_edit.text().strip(),
             'hidden_imports': sp.hidden_edit.text(),
             'add_data_list': add_data_items,
