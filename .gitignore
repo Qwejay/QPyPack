@@ -1,0 +1,71 @@
+# ==========================================
+# 1. Python 字节码与缓存文件
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# ==========================================
+# 2. 虚拟环境 (Virtual Environments)
+# ==========================================
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ==========================================
+# 3. PyPI 打包与构建产物 (Build & Distribution)
+# ==========================================
+build/
+bdist.*/
+sdist/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# ==========================================
+# 4. QPyPack 临时打包引擎缓存 (PyInstaller & Nuitka)
+# ==========================================
+*.build/
+*.dist/
+*.onefile-build/
+*.spec
+qpypack_*_version.txt
+qpypack_temp_*
+_qpypack_temp_*
+
+# ==========================================
+# 5. 本地运行日志、配置与生成的临时测试文件
+# ==========================================
+config.ini
+*.log
+qpypack_build_*.log
+*.qpypack
+dropdown_arrow.png
+sound_success.wav
+sound_failure.wav
+
+# ==========================================
+# 6. IDE 与编辑器配置文件
+# ==========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ==========================================
+# 7. 操作系统自动生成文件 (macOS / Windows)
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
