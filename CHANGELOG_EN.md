@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **English** | [中文版](./CHANGELOG.md)
 
 ---
+## [2.7.1] - 2026-08-02
+
+### Added
+* **Lock-Prevention Temp Directory Option**: Added a "Temp Directory" location setting on the Settings page, allowing Nuitka's intermediate compilation sandbox to be switched to the system Temp directory. This resolves build interruption issues caused by OneDrive or antivirus software locking files.
+
+### Improved
+* **Seamless Multi-Version Rebuilding**: After packaging is completed, switching Python interpreters or saving and returning from configuration changes now automatically retains the loaded script state. Icons, version metadata, implicit imports, and additional resources are 100% preserved, eliminating the tedious workflow of repeatedly dragging files or reloading presets.
+
+---
 
 ## [2.7.0] - 2026-08-01
 

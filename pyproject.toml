@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qpypack"
-version = "2.7.0"
+version = "2.7.1"
 description = "A cross-platform GUI packaging and compilation suite based on PyInstaller and Nuitka."
 readme = "README.md"
 authors = [
@@ -37,7 +37,7 @@ dependencies = [
 "Homepage" = "https://github.com/qwejay/QPyPack"
 "Bug Tracker" = "https://github.com/qwejay/QPyPack/issues"
 "Source Code" = "https://github.com/qwejay/QPyPack"
-"Documentation" = "https://github.com/qwejay/QPyPack#readme"
+"Documentation" = "https://github.com/Qwejay/QPyPack/blob/main/README_EN.md"
 
 [project.scripts]
 qpypack = "qpypack.main:main"
