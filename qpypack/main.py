@@ -49,7 +49,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.0"
+__version__ = "2.7.1"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -162,9 +162,12 @@ ZH_CN_DICT = {
     "Version:": "版本:",
     "Author/Company:": "作者/公司:",
     "Description:": "描述:",
-    "Output Rule:": "输出规则:",
-    "Target Directory:": "目标目录:",
-    "Source File Directory": "源文件目录",
+    "Output Location:": "保存位置:",
+    "Target Directory:": "自定义路径:",
+    "Temporary Directory:": "临时目录:",
+    "Source Directory (.qpypack_build)": "源码同级目录 (.qpypack_build)",
+    "System Temp Directory": "系统 Temp 目录",
+    "Source File Directory": "源码同级目录",
     "Custom Directory": "自定义目录",
     "Import Name": "导入名",
     "PyPI Package Name": "PyPI 包名",
@@ -174,6 +177,7 @@ ZH_CN_DICT = {
     "Target relative path:": "目标相对路径:",
     "Import name (e.g. cv2):": "导入名 (如 cv2):",
     "PyPI package name for [{imp_name}]:": "[{imp_name}] 对应 PyPI 包名:",
+    "Script and settings retained. Ready to rebuild.": "已保留当前脚本与配置，可直接重新构建。",
 
     # 7. 复选框、占位符与悬停提示 (Checkboxes, Placeholders & Tooltips)
     "One-File Mode (--onefile)": "单文件 (--onefile)",
@@ -525,6 +529,7 @@ def load_config(retry=True):
             'use_pipreqs': 'True', 'use_pipreqs_dir': 'False', 'upx': 'False', 'concise_log': 'True',
             'cpu_cores': str(os.cpu_count() or 2), 'upx_path': '',
             'exclude_modules': '', 'out_mode': '0', 'custom_out_dir': '',
+            'temp_sandbox_mode': '0',
             'sound_notify': 'True', 'auto_save_log': 'False',
             'use_reqs_file': '', 'add_data_list': '', 'custom_python_path': '',
             'pyi_version': '', 'nuitka_version': '', 'pipreqs_version': '',
@@ -573,6 +578,7 @@ def load_config(retry=True):
             'exclude_modules': '',
             'out_mode': '0',
             'custom_out_dir': '',
+            'temp_sandbox_mode': '0',
             'sound_notify': 'True',
             'auto_save_log': 'False',
             'use_reqs_file': '',
@@ -2187,6 +2193,13 @@ class SettingsPanel(QWidget):
         setup_combo_white_theme(self.out_mode_combo)
         self.out_mode_combo.currentIndexChanged.connect(self.on_out_mode_changed)
         
+        self.sandbox_mode_combo = QComboBox()
+        self.sandbox_mode_combo.addItems([
+            _("Source Directory (.qpypack_build)"), 
+            _("System Temp Directory (Anti-Lock / Cloud-Friendly)")
+        ])
+        setup_combo_white_theme(self.sandbox_mode_combo)
+
         self.out_dir_edit = QLineEdit()
         self.btn_out_dir = QPushButton(_("Browse"))
         self.btn_out_dir.setProperty("class", "ToolBtn")
@@ -2203,11 +2216,13 @@ class SettingsPanel(QWidget):
         self.form_out.setVerticalSpacing(15)
         self.form_out.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         
-        self.lbl_out_rule_title = QLabel(_("Output Rule:"))
+        self.lbl_out_rule_title = QLabel(_("Output Location:"))
         self.lbl_target_out_title = QLabel(_("Target Directory:"))
+        self.lbl_sandbox_title = QLabel(_("Temporary Directory:"))
         
         self.form_out.addRow(self.lbl_out_rule_title, self.out_mode_combo)
         self.form_out.addRow(self.lbl_target_out_title, self.out_dir_container)
+        self.form_out.addRow(self.lbl_sandbox_title, self.sandbox_mode_combo)
         lay1.addLayout(self.form_out)
 
         self.card2, lay2 = self._create_card(_("Preferences & System Behavior"))
@@ -2380,8 +2395,11 @@ class SettingsPanel(QWidget):
         self.lbl_ver_title.setText(_("Version:"))
         self.lbl_company_title.setText(_("Author/Company:"))
         self.lbl_desc_title.setText(_("Description:"))
-        self.lbl_out_rule_title.setText(_("Output Rule:"))
+        self.lbl_out_rule_title.setText(_("Output Location:"))
         self.lbl_target_out_title.setText(_("Target Directory:"))
+        self.lbl_sandbox_title.setText(_("Temporary Directory:"))
+        self.sandbox_mode_combo.setItemText(0, _("Source Directory (.qpypack_build)"))
+        self.sandbox_mode_combo.setItemText(1, _("System Temp Directory"))
 
         if hasattr(self, 'pip_source_combo') and hasattr(self, 'pip_backup_combo'):
             cur_main = self._get_url_from_combo(self.pip_source_combo)
@@ -2632,6 +2650,7 @@ class SettingsPanel(QWidget):
             self.exclude_edit.setText(s.get('exclude_modules', ''))
             self.out_mode_combo.setCurrentIndex(int(s.get('out_mode', '0')))
             self.out_dir_edit.setText(s.get('custom_out_dir', ''))
+            self.sandbox_mode_combo.setCurrentIndex(int(s.get('temp_sandbox_mode', '0')))
             self.on_out_mode_changed(self.out_mode_combo.currentIndex())
             
             self.concise_log_check.setChecked(s.getboolean('concise_log', True))
@@ -2682,6 +2701,7 @@ class SettingsPanel(QWidget):
         s['exclude_modules'] = self.exclude_edit.text().strip()
         s['out_mode'] = str(self.out_mode_combo.currentIndex())
         s['custom_out_dir'] = self.out_dir_edit.text().strip()
+        s['temp_sandbox_mode'] = str(self.sandbox_mode_combo.currentIndex())
         s['concise_log'] = str(self.concise_log_check.isChecked())
         s['sound_notify'] = str(self.sound_notify_check.isChecked())
         s['auto_save_log'] = str(self.auto_save_log_check.isChecked())
@@ -3448,8 +3468,12 @@ class PackingThread(QThread):
                     cmd.extend(["--collect-data", "moviepy"])
 
             elif engine == "Nuitka":
-                self.temp_out_dir = (script_dir / ".qpypack_build").resolve()
-                self.temp_out_dir.mkdir(parents=True, exist_ok=True)
+                sandbox_mode = int(self.params.get('temp_sandbox_mode', 0) or 0)
+                if sandbox_mode == 1:
+                    self.temp_out_dir = Path(tempfile.mkdtemp(prefix="qpypack_nuitka_")).resolve()
+                else:
+                    self.temp_out_dir = (script_dir / ".qpypack_build").resolve()
+                    self.temp_out_dir.mkdir(parents=True, exist_ok=True)
                 
                 cmd = [
                     python_exe, "-m", "nuitka", "--remove-output", "--assume-yes-for-downloads",
@@ -4027,8 +4051,10 @@ class MainWindow(QMainWindow):
                 self.btn_main.setStyleSheet(self.danger_btn_style)
 
     def on_left_btn_clicked(self):
-        if self.current_state in ("done", "failed"): self.reset_all()
-        else: self.toggle_log()
+        if self.current_state in ("done", "failed"): 
+            self.reset_to_ready()
+        else: 
+            self.toggle_log()
 
     def on_main_btn_clicked(self):
         if self.current_state in ("idle", "ready", "failed"): self.start_pack()
@@ -4045,10 +4071,14 @@ class MainWindow(QMainWindow):
     def show_main(self):
         self.settings_panel.load_from_config()
         self._animate_switch(self.main_panel)
+        if self.script_path and self.current_state in ("done", "failed"):
+            self.reset_to_ready()
 
     def save_settings_and_return(self):
         self.settings_panel.save_to_config()
         self._animate_switch(self.main_panel)
+        if self.script_path and self.current_state in ("done", "failed"):
+            self.reset_to_ready()
 
     def _animate_switch(self, target_widget):
         current_widget = self.stacked_layout.currentWidget()
@@ -4309,6 +4339,7 @@ class MainWindow(QMainWindow):
             'exclude_modules': sp.exclude_edit.text().strip(),
             'out_mode': sp.out_mode_combo.currentIndex(),
             'custom_out_dir': sp.out_dir_edit.text().strip(),
+            'temp_sandbox_mode': sp.sandbox_mode_combo.currentIndex(), 
             'use_venv': sp.venv_check.isChecked(),
             'clean_all': sp.clean_all_check.isChecked(),
             'version_file': version_file.as_posix() if version_file else None,
@@ -4371,6 +4402,15 @@ class MainWindow(QMainWindow):
                 QDesktopServices.openUrl(QUrl.fromLocalFile(target.resolve().as_posix()))
             except: pass
 
+    def reset_to_ready(self):
+        if self.script_path and Path(self.script_path).exists():
+            icon_path = self.settings_panel.icon_edit.text().strip()
+            self.drop_area.set_success(Path(self.script_path).name, custom_icon_path=icon_path)
+            self.update_ui_state("ready")
+            self.set_status(_("Status: Ready"))
+            self.show_notification(_("Script and settings retained. Ready to rebuild."))
+        else:
+            self.reset_all()
 
     def reset_all(self):
         self.script_path = ""

@@ -71,7 +71,7 @@ jobs:
     - name: Commit and push version updates back to repository
       run: |
         git config --global user.name "QwejayHuang"
-        git config --global user.email "QwejayHaung@****.com"
+        git config --global user.email "QwejayHuang@****.com"
         git add pyproject.toml "${{ env.MAIN_SCRIPT }}"
         git commit -m "chore: bump version to ${{ github.ref_name }} [skip ci]" || echo "No version changes to commit"
         git push origin HEAD:main
@@ -203,7 +203,7 @@ jobs:
     - name: Build with PyInstaller (Windows with Version Info)
       if: runner.os == 'Windows'
       run: |
-        pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Single" ${{ env.MAIN_SCRIPT }}
+        pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Standalone" ${{ env.MAIN_SCRIPT }}
         
         pyinstaller --clean --onedir --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Portable" ${{ env.MAIN_SCRIPT }}
 
@@ -212,10 +212,10 @@ jobs:
       shell: bash
       run: |
         if [ "${{ runner.os }}" = "macOS" ]; then
-          pyinstaller --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Single" --icon=${{ env.ICON_PATH }} --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
+          pyinstaller --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Standalone" --icon=${{ env.ICON_PATH }} --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
           pyinstaller --onedir --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Portable" --icon=${{ env.ICON_PATH }} --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
         else
-          pyinstaller --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Single" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
+          pyinstaller --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Standalone" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
           pyinstaller --onedir --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Portable" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
         fi
 
@@ -225,7 +225,7 @@ jobs:
       run: |
         $BASE_NAME = "${{ env.EXE_NAME_PREFIX }}-${{ env.VERSION }}-windows-${{ matrix.arch }}"
         
-        Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_Single.exe" -DestinationPath "$BASE_NAME-SingleFile.zip" -Force
+        Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_Standalone.exe" -DestinationPath "$BASE_NAME-Standalone.zip" -Force
         
         Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_Portable" -DestinationPath "$BASE_NAME-Portable.zip" -Force
 
@@ -239,18 +239,18 @@ jobs:
         cd dist
         
         if [ "${{ runner.os }}" = "macOS" ]; then
-          TARGET_SINGLE="${{ env.EXE_NAME_PREFIX }}_Single.app"
+          TARGET_STANDALONE="${{ env.EXE_NAME_PREFIX }}_Standalone.app"
           TARGET_PORTABLE="${{ env.EXE_NAME_PREFIX }}_Portable.app"
         else
-          TARGET_SINGLE="${{ env.EXE_NAME_PREFIX }}_Single"
+          TARGET_STANDALONE="${{ env.EXE_NAME_PREFIX }}_Standalone"
           TARGET_PORTABLE="${{ env.EXE_NAME_PREFIX }}_Portable"
         fi
         
         if [ "${{ matrix.package_extension }}" = "zip" ]; then
-          zip -r "../${BASE_NAME}-SingleFile.zip" "$TARGET_SINGLE"
+          zip -r "../${BASE_NAME}-Standalone.zip" "$TARGET_STANDALONE"
           zip -r "../${BASE_NAME}-Portable.zip" "$TARGET_PORTABLE"
         else
-          tar -czf "../${BASE_NAME}-SingleFile.tar.gz" "$TARGET_SINGLE"
+          tar -czf "../${BASE_NAME}-Standalone.tar.gz" "$TARGET_STANDALONE"
           tar -czf "../${BASE_NAME}-Portable.tar.gz" "$TARGET_PORTABLE"
         fi
 
