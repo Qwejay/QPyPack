@@ -203,24 +203,31 @@ jobs:
     - name: Build with PyInstaller (Windows with Version Info)
       if: runner.os == 'Windows'
       run: |
-        pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --name="${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}" ${{ env.MAIN_SCRIPT }}
+        pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Single" ${{ env.MAIN_SCRIPT }}
+        
+        pyinstaller --clean --onedir --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Portable" ${{ env.MAIN_SCRIPT }}
 
     - name: Build with PyInstaller (macOS / Linux)
       if: runner.os != 'Windows'
       shell: bash
       run: |
         if [ "${{ runner.os }}" = "macOS" ]; then
-          pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} --icon=${{ env.ICON_PATH }} ${{ env.MAIN_SCRIPT }}
+          pyinstaller --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Single" --icon=${{ env.ICON_PATH }} --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
+          pyinstaller --onedir --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Portable" --icon=${{ env.ICON_PATH }} --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
         else
-          pyinstaller --onefile --noconsole --name=${{ env.EXE_NAME_PREFIX }} ${{ env.MAIN_SCRIPT }}
+          pyinstaller --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Single" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
+          pyinstaller --onedir --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Portable" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
         fi
 
     - name: Package Artifact (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        $OUT_NAME = "${{ env.EXE_NAME_PREFIX }}-${{ env.VERSION }}-windows-${{ matrix.arch }}"
-        Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_${{ env.VERSION }}.exe" -DestinationPath "$OUT_NAME.zip" -Force
+        $BASE_NAME = "${{ env.EXE_NAME_PREFIX }}-${{ env.VERSION }}-windows-${{ matrix.arch }}"
+        
+        Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_Single.exe" -DestinationPath "$BASE_NAME-SingleFile.zip" -Force
+        
+        Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_Portable" -DestinationPath "$BASE_NAME-Portable.zip" -Force
 
     - name: Package Artifact (macOS / Linux)
       if: runner.os != 'Windows'
@@ -228,17 +235,28 @@ jobs:
       run: |
         VERSION=${{ env.VERSION }}
         OS_NAME=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
-        OUT_NAME="${{ env.EXE_NAME_PREFIX }}-${VERSION}-${OS_NAME}-${{ matrix.arch }}"
+        BASE_NAME="${{ env.EXE_NAME_PREFIX }}-${VERSION}-${OS_NAME}-${{ matrix.arch }}"
         cd dist
-        if [ "${{ matrix.package_extension }}" = "zip" ]; then
-          zip -r "../${OUT_NAME}.zip" "${{ matrix.artifact_name }}"
+        
+        if [ "${{ runner.os }}" = "macOS" ]; then
+          TARGET_SINGLE="${{ env.EXE_NAME_PREFIX }}_Single.app"
+          TARGET_PORTABLE="${{ env.EXE_NAME_PREFIX }}_Portable.app"
         else
-          tar -czf "../${OUT_NAME}.tar.gz" "${{ matrix.artifact_name }}"
+          TARGET_SINGLE="${{ env.EXE_NAME_PREFIX }}_Single"
+          TARGET_PORTABLE="${{ env.EXE_NAME_PREFIX }}_Portable"
+        fi
+        
+        if [ "${{ matrix.package_extension }}" = "zip" ]; then
+          zip -r "../${BASE_NAME}-SingleFile.zip" "$TARGET_SINGLE"
+          zip -r "../${BASE_NAME}-Portable.zip" "$TARGET_PORTABLE"
+        else
+          tar -czf "../${BASE_NAME}-SingleFile.tar.gz" "$TARGET_SINGLE"
+          tar -czf "../${BASE_NAME}-Portable.tar.gz" "$TARGET_PORTABLE"
         fi
 
     - name: Append Standalone Binary to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: ${{ env.EXE_NAME_PREFIX }}-*.*
+        files: ${{ env.EXE_NAME_PREFIX }}-*.*   
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

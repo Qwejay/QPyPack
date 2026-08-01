@@ -14,66 +14,99 @@
 </p>
 
 <p align="center">
-  <strong>A Cross-Platform GUI Packaging & Compilation Suite based on PyInstaller and Nuitka</strong>
+  <strong>A Modern Cross-Platform Python Application Packaging & Compilation Suite Powered by PyInstaller and Nuitka</strong>
 </p>
 
 <p align="center">
+  <!-- PyPI Version -->
   <a href="https://pypi.org/project/qpypack/">
-    <img src="https://img.shields.io/pypi/v/qpypack.svg?color=blue" alt="PyPI version" />
+    <img src="https://img.shields.io/pypi/v/qpypack.svg?color=blue&logo=pypi&logoColor=white" alt="PyPI version" />
   </a>
+  <!-- Python Versions -->
   <a href="https://pypi.org/project/qpypack/">
-    <img src="https://img.shields.io/pypi/pyversions/qpypack.svg" alt="Python versions" />
+    <img src="https://img.shields.io/pypi/pyversions/qpypack.svg?logo=python&logoColor=white" alt="Python versions" />
   </a>
+  <!-- PyPI Downloads -->
+  <a href="https://pypistats.org/packages/qpypack">
+    <img src="https://img.shields.io/pypi/dm/qpypack?color=orange&logo=pypi&logoColor=white" alt="PyPI Downloads" />
+  </a>
+  <!-- Supported Platforms -->
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational" alt="Platform Support" />
+  <br>
+  <!-- Release Date -->
+  <a href="https://github.com/Qwejay/QPyPack/releases">
+    <img src="https://img.shields.io/github/release-date/Qwejay/QPyPack?color=brightgreen&logo=github" alt="Release Date" />
+  </a>
+  <!-- Last Commit -->
+  <a href="https://github.com/Qwejay/QPyPack/commits/main">
+    <img src="https://img.shields.io/github/last-commit/Qwejay/QPyPack" alt="Last Commit" />
+  </a>
+  <!-- GitHub License -->
   <a href="https://github.com/Qwejay/QPyPack/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/Qwejay/QPyPack.svg" alt="License" />
   </a>
+  <!-- GitHub Stars -->
   <a href="https://github.com/Qwejay/QPyPack/stargazers">
-    <img src="https://img.shields.io/github/stars/Qwejay/QPyPack.svg" alt="GitHub stars" />
+    <img src="https://img.shields.io/github/stars/Qwejay/QPyPack.svg?logo=github" alt="GitHub stars" />
   </a>
 </p>
 
-QPyPack is a visual GUI tool designed to simplify Python application packaging workflows. It deeply integrates two major compilation engines—PyInstaller and Nuitka—converting tedious CLI arguments into an intuitive graphical interface, helping developers generate cross-platform native executables efficiently.
+QPyPack is a visual GUI tool designed to simplify Python application packaging workflows. It deeply integrates two major compilation engines—**PyInstaller** and **Nuitka**—converting tedious CLI arguments into an intuitive graphical interface, helping developers generate cross-platform native executables efficiently and reliably.
 
 ---
 
 ## 📷 Screenshots
 
 <p align="center">
-<img width="1173" height="1067" alt="image" src="https://github.com/user-attachments/assets/3895da6b-b872-4862-a4ad-34aa439e7e3f" />
-<img width="1173" height="1067" alt="image" src="https://github.com/user-attachments/assets/a83026ab-e553-41e4-9a25-b69cc4aefc47" />
-<img width="1173" height="1067" alt="image" src="https://github.com/user-attachments/assets/ce992be7-9d06-493b-afd9-a89721a53fdc" />
-<img width="1173" height="1067" alt="image" src="https://github.com/user-attachments/assets/8a490923-fc7b-4977-94dc-9c5c91e7a184" />
-<img width="1173" height="1067" alt="image" src="https://github.com/user-attachments/assets/44520551-56d5-4283-834d-3dab7705e520" />
-
+  <img width="32%" alt="主界面英文预览" src="https://github.com/user-attachments/assets/9d16c68e-d283-4020-86c1-9d4791756c29" />
+  <img width="32%" alt="主界面中文预览" src="https://github.com/user-attachments/assets/0147460d-1e9e-4612-9b52-9d347d81b7c5" />
+  <img width="32%" alt="设置面板预览" src="https://github.com/user-attachments/assets/0ad4db6d-b008-4018-bd69-40a369a10b7d" />
+  <br />
+  <img width="32%" alt="依赖管理预览" src="https://github.com/user-attachments/assets/c7fd1218-d079-4898-a97c-aa980c4d1375" />
+  <img width="32%" alt="高级优化预览" src="https://github.com/user-attachments/assets/e5b7500e-2a0d-4c6d-b20b-7d8d2d3bac8d" />
+  <img width="32%" alt="关于页面预览" src="https://github.com/user-attachments/assets/e652b222-49f5-44cd-ad3f-d93369ede26b" />
 </p>
 
 ---
 
 ## 🚀 Key Features
 
-To reduce configuration overhead in traditional CLI builds and resolve cross-platform environment/dependency conflicts, QPyPack provides the following integrated engineering features:
+QPyPack addresses configuration complexity, missing implicit dependencies, cross-platform glitches, and high compilation failure rates in traditional CLI workflows:
 
-### 1. Intuitive Visual Interaction
-* 📥 **Drag & Drop Loading**: Simply drag `.py` or `.pyw` source files into the app window; QPyPack will automatically parse and load them into the workspace.
-* 🎨 **Smart Icon Search & Adaptation**: Automatically searches for common icon assets in the source directory (`icon.ico`, `logo.ico`, `icon.svg`, `logo.svg`), performs format conversion, binds them, and provides high-res previews.
-* 🌐 **Internationalization (i18n) Support**: Native multi-language interface support (English, Simplified Chinese, etc.) with real-time switching, providing a seamless, obstacle-free experience for global developers.
+### 1. Modern UI & Intuitive UX
+* 📥 **Drag & Drop Workspace**: Simply drop `.py` or `.pyw` source files into the window; QPyPack will automatically parse and initialize the workspace.
+* 🎨 **Pure Vector Icon Stack (Material Design SVG)**：Cleaned up emoji icons in favor of Google Material SVG vector icons, completely eliminating font fallback issues and alignment glitches across Linux and older Windows systems.
+* 🌐 **Native i18n Support**: Multilingual UI support out-of-the-box (English, Simplified/Traditional Chinese, German, French, Japanese, Korean, etc.) with auto-detection and live switching.
+* 📊 **Dual-Mode Live Log Viewer**: Toggle between "Concise" and "Detailed" log panels with real-time build status tracking, error highlighting, and log export.
 
-### 2. Dependency Resolution & Sandbox Isolation
-* 🛡️ **Virtualenv Sandbox**: One-click creation of isolated temporary virtual environments to install only minimal required dependencies, significantly reducing output binary size.
-* 🔍 **Multi-dimensional Dependency Scanning**:
-  * **Config Sync**: Automatically detects and prioritizes `requirements.txt` in the project directory.
-  * **AST Static Analysis**: Provides deep Abstract Syntax Tree (AST) scanning to extract non-standard modules and automatically complete hidden imports.
-* ⚡ **Built-in PyPI Acceleration Mirrors**: Presets mainstream PyPI mirror channels to drastically speed up package downloading in the sandbox.
+### 2. Dual Compilation Backends & Compiler Sniffing
+* ⚙️ **PyInstaller & Nuitka Integration**: Seamlessly switch engines via GUI, with dynamic UI controls that adapt based on the selected backend.
+* 🔍 **Smart Compiler Auto-Detection**: Automatically sniffs and prioritizes system C/C++ compilers for Nuitka, including **MSVC**, **Clang** (LLVM), and **Zig** (optimized for Python 3.13+ C backends).
+* 💻 **Platform Compatibility Matrix**: Real-time status cards displaying OS support (Windows 7/8/10/11, macOS, Linux) for selected Python interpreters with official download shortcuts.
 
-### 3. Advanced Compilation Control
-* ⚙️ **Dual-Engine Adaptive Switch**: Seamlessly switch between PyInstaller and Nuitka. Parameter panels dynamically adapt based on the selected engine.
-* 📝 **Application Metadata Injection**: Write version numbers, company names, and descriptions directly in the UI without editing spec/version files (Supports Windows PE metadata & macOS Info.plist).
-* 📂 **Visual Data Files Management**: Add files or folders via GUI lists with double-click editing support for output relative destination paths.
+### 3. Robust Dependency Resolution & Zero-Config Presets
+* 🛡️ **Isolated Virtualenv Sandbox**: Create pristine temporary build sandboxes with one click, eliminating global package pollution and minimizing output binary sizes.
+* 🔍 **Triple-Layer Dependency Protection**: Reads `requirements.txt`, runs deep native **AST (Abstract Syntax Tree)** static analysis, and executes `pipreqs` to automatically catch hidden imports.
+* 📦 **Zero-Config Third-Party Presets**: Built-in automated handling for error-prone libraries like `ttkbootstrap`, `customtkinter`, `playwright`, `moviepy`, and more.
+* ⚡ **Multi-Mirror PIP Management**: Integrated PyPI mirror presets with automatic fallback to secondary index sources on network timeout.
+
+### 4. Build Resilience & Self-Healing Fallbacks
+* 📏 **Pre-flight Resource Evaluation**: Assesses available RAM and disk space before build, dynamically adjusting CPU concurrency.
+* 🛡️ **OOM Fallback Recovery**: Automatically triggers single-thread retry mode (`--jobs=1`) when catching `ZstdError` / Out-Of-Memory exceptions.
+* 🛡️ **Antivirus/Icon Lock Resilience**: Automatically strips icon parameters and retries build if icon resource writing is blocked by security software or system locks.
+* ☁️ **Cloud Storage Lock Alerts**: Detects file synchronization locks caused by OneDrive, Dropbox, or other cloud drives and provides clear diagnostic tips.
+
+### 5. Data File Management & Metadata Injection
+* 📝 **PE / Plist Metadata Injection**: Configure version strings, company names, and application descriptions via GUI; automatically writes Windows PE VersionInfo or macOS `Info.plist` bundles.
+* 📂 **Visual Data Files Management**: Manage supplementary files and directories in a structured list with inline double-click editing for relative output destination paths.
+
 ---
 
 ## ⚡ Quick Start
 
 ### Method 1: Install via pip
+
+Ensure you are using Python >= 3.8:
 
 ```bash
 # Install QPyPack
@@ -85,24 +118,33 @@ qpypack
 
 ### Method 2: Download Standalone Binaries
 
-Download pre-compiled binaries directly from the [GitHub Releases](https://github.com/Qwejay/QPyPack/releases) page.
+Download pre-compiled standalone executables directly from GitHub Releases:
+👉 [GitHub Releases](https://github.com/Qwejay/QPyPack/releases)
 
 ---
 
 ## 📅 Changelog
 
-For detailed release notes and update history, please refer to [CHANGELOG.md](CHANGELOG.md) or [GitHub Releases](https://github.com/Qwejay/QPyPack/releases).
+For detailed update history and release notes, please refer to [CHANGELOG.md](CHANGELOG.md) or [GitHub Releases](https://github.com/Qwejay/QPyPack/releases).
 
 ---
 
-## 🤝 Contributing
+## 💖 Sponsorship
 
-Issues and Pull Requests are welcome on [GitHub Issues](https://github.com/Qwejay/QPyPack/issues)!
+QPyPack is an open-source project developed and maintained by the author in their free time. If QPyPack has improved your efficiency or solved packaging challenges, consider supporting the project with a voluntary donation:
+
+- ⚡ **Buy the Author a Coffee**: [Sponsor QPyPack](https://www.ifdian.net/a/qwejay)
+
+> **Note**: Sponsorship is completely voluntary and represents unconditional encouragement to open-source development, involving no commercial commitments or specific feature promises. Thank you for your support!
 
 ---
 
 ## 📄 License
 
-Open-sourced under [GNU General Public License v3.0](LICENSE).
+Open-sourced under the [GNU General Public License v3.0](LICENSE).
+
+> [!NOTE]
+> **Regarding Binary Product Licensing**:
+> Binaries and applications built using QPyPack are **entirely owned by the user**. QPyPack's GPL-3.0 license does not restrict or apply to your compiled output binaries.
 
 Copyright (C) 2026 QwejayHuang.

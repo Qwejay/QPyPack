@@ -27,7 +27,7 @@ dist/
 *.egg-info/
 .eggs/
 *.egg
-
+*.exe
 # ==========================================
 # 4. QPyPack 临时打包引擎缓存 (PyInstaller & Nuitka)
 # ==========================================
@@ -69,3 +69,4 @@ sound_failure.wav
 .Trashes
 ehthumbs.db
 Thumbs.db
+

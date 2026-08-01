@@ -13,6 +13,8 @@ import struct
 import threading
 import configparser
 import locale
+import ast
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 if os.name == 'nt':
@@ -37,7 +39,7 @@ from PySide6.QtCore import (Qt, QThread, Signal, QPropertyAnimation, QEasingCurv
                             QParallelAnimationGroup, QFileInfo, QVariantAnimation, 
                             QTimer, QPointF, QRectF, QRect, QSize, QUrl, QLocale, QObject)
 from PySide6.QtGui import (QFont, QDragEnterEvent, QDropEvent, QIcon, QPixmap, 
-                           QPainter, QColor, QPen, QImage, QImageWriter)
+                           QPainter, QColor, QPen, QImage, QImageWriter, QDesktopServices)
 from PySide6.QtSvg import QSvgRenderer
 
 try:
@@ -47,176 +49,271 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.6.2"
+__version__ = "2.7.0"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
-__description__ = "Cross-platform Python Application Packaging Tool"
+__description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
 
 _CONFIG_DIR = Path.home() / ".qpypack"
 _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = (_CONFIG_DIR / "config.ini").as_posix()
 
 ZH_CN_DICT = {
-    "Drag & Drop Python script (.py/.pyw) here\nor Click to Browse": "将 Python 脚本 (.py/.pyw) 拖放至此\n或 点击浏览文件",
-    "Auto-parse dependencies, resources, and implicit imports": "自动解析依赖、附加资源及隐式导入",
+    # 1. 源镜像名称 (PIP Mirrors)
+    "PyPI Official (Global Default)": "PyPI 官方源 (默认)",
+    "Python TestPyPI": "TestPyPI 测试源",
+    "AWS PyPI Mirror (US/EU)": "AWS PyPI 镜像 (美/欧)",
+    "Tsinghua University (China)": "清华大学镜像",
+    "Aliyun Cloud (China)": "阿里云镜像",
+    "Tencent Cloud (China)": "腾讯云镜像",
+    "Huawei Cloud (China)": "华为云镜像",
+    "USTC (China)": "中科大镜像",
+
+    # 2. 软件元数据与标语 (Metadata & Taglines)
+    "Modern Cross-Platform Python Application Packager": "现代化的跨平台 Python 应用打包工具",
+    "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka": "基于 PyInstaller 与 Nuitka 的现代化跨平台 Python 打包工具",
+    "Python Packaging, Reimagined.": "重新定义 Python 应用打包体验",
+    "Drop Python source code to start": "拖入 Python 源码，即刻启程",
+
+    # 3. 导航与选项卡 (Tabs & Navigation)
+    "Build Settings": "构建设置",
+    "Preferences": "偏好设置",
+    "About": "关于",
+    "Engine": "构建引擎",
+    "Dependencies": "依赖管理",
+    "Resources": "附加资源",
+    "Optimization": "性能优化",
+    "Package Map": "包名映射",
+    "Execution Log": "执行日志",
+
+    # 4. 主界面状态与引导 (Main UI & Status Prompts)
     "Loaded: {filename}": "已载入: {filename}",
-    "Parsing metadata...": "正在解析元数据...",
-    "Ready, waiting for build.": "就绪，等待构建。",
+    "Parsing metadata...": "解析元数据...",
+    "Ready, waiting for build.": "就绪，等待构建",
     "Initializing build...": "初始化构建...",
     "Preparing engine...": "准备引擎...",
     "Build Successful": "构建成功",
-    "Open output directory or reset workspace.": "前往输出目录查看，或重置工作区。",
+    "Open output directory or reset workspace.": "打开输出目录或重置工作区",
     "Build Failed": "构建失败",
-    "Check log output below for troubleshooting.": "请查看下方日志以排查错误。",
-    "Status: Ready": " 状态: 准备就绪",
-    "Status: Parsing {filename}...": " 状态: 正在解析 {filename}...",
-    "Status: Loaded {filename}{mode}": " 状态: 已载入 {filename}{mode}",
-    "Status: Packaging ({engine}) ...": " 状态: 构建中 ({engine}) ...",
-    "Status: Build Completed": " 状态: 构建完成",
-    "Status: Build Failed": " 状态: 构建失败",
-    "Status: Workspace Reset": " 状态: 工作区已重置",
-    "Start Build": " 开始构建",
-    "Stop Build": " 停止构建",
-    "Open Directory": " 打开目录",
-    "Rebuild": " 重新构建",
-    "Save & Return": " 保存并返回",
-    "Build Settings": "构建设置",
-    "Preferences": "首选项",
-    "About": "关于",
-    "🚀 Engine": "🚀 构建引擎",
-    "📦 Dependencies": "📦 依赖管理",
-    "📂 Resources": "📂 附加资源",
-    "⚡ Optimization": "⚡ 性能优化",
-    "🗺️ Package Map": "🗺️ 包名映射",
-    "Engine & Environment": "构建引擎与环境",
-    "Execution Mode": "运行模式",
-    "Mirrors & Scanner": "镜像源与扫描配置",
-    "Additional Resources (Drag & Drop Supported)": "附加资源文件与目录 (支持桌面拖拽)",
-    "Performance Optimization": "性能与编译优化",
-    "Lock Core Dependencies": "锁定核心依赖版本",
-    "Package Name Mappings": "第三方库包名映射表",
-    "UI Language:": "界面语言:",
-    "App Metadata & Presets": "应用元数据与工程预设",
-    "Output Location": "构建产物输出位置",
-    "Preferences & System Behavior": "构建偏好与系统行为",
-    "Build Engine:": "构建引擎:",
-    "Python Interpreter:": "Python 解释器:",
-    "Output Name:": "输出名称:",
-    "App Icon:": "程序图标:",
-    "Primary PIP Index:": "PIP 主镜像源:",
-    "Backup PIP Index:": "PIP 备用源:",
-    "Requirements File:": "依赖清单 (requirements):",
-    "Hidden Imports:": "隐式导入 (Hidden Imports):",
-    "Exclude Modules:": "排除模块 (Excludes):",
-    "CPU Cores:": "编译并发核心数:",
-    "UPX Path:": "UPX 路径:",
-    "PyInstaller Version:": "PyInstaller 版本:",
-    "Nuitka Version:": "Nuitka 版本:",
-    "Pipreqs Version:": "Pipreqs 版本:",
-    "Version:": "版本号:",
-    "Author/Company:": "开发者/公司:",
-    "Description:": "程序描述:",
-    "Output Rule:": "输出规则:",
-    "Target Directory:": "目标目录:",
-    "One-File Mode (--onefile)": "单文件模式 (--onefile)",
-    "Hide Console (--noconsole)": "隐藏控制台 (--noconsole)",
-    "Use Virtual Environment (Recommended)": "使用独立虚拟环境 (推荐)",
-    "Install requirements.txt": "安装 requirements.txt",
-    "Analyze Dependencies (pipreqs)": "自动分析依赖 (pipreqs)",
-    "Scan Entire Folder": "扫描整个所在目录",
-    "Enable UPX Compression": "启用 UPX 压缩",
-    "Lite Mode (Exclude Dev/Test Dependencies)": "精简模式 (排除开发/测试依赖)",
-    "Concise Log Output": "精简日志输出",
-    "Auto-save Build Log": "自动保存构建日志",
-    "Auto Extract Icon": "自动提取图标",
-    "Clean Temporary Cache After Build": "构建后清理临时缓存",
-    "Sound Notification": "构建完成提示音",
-    "Browse": "浏览",
-    "AST Scan": "AST分析",
+    "Check log output below for troubleshooting.": "检查日志排查错误",
+    "Status: Ready": "状态: 就绪",
+    "Status: Parsing {filename}...": "状态: 解析 {filename}...",
+    "Status: Loaded {filename}{mode}": "状态: 已载入 {filename}{mode}",
+    "Status: Packaging ({engine}) ...": "状态: 构建中 ({engine})...",
+    "Status: Build Completed": "状态: 构建完成",
+    "Status: Build Failed": "状态: 构建失败",
+    "Status: Workspace Reset": "状态: 工作区已重置",
+    " [Console]": " [控制台]",
+    " [No Console]": " [无控制台]",
+
+    # 5. 操作按钮与右键菜单 (Buttons & Context Menus)
+    "Start Build": "开始构建",
+    "Stop Build": "停止构建",
+    "Open Directory": "打开目录",
+    "Rebuild": "重新构建",
+    "Save & Return": "保存并返回",
+    "Browse": "浏览...",
+    "AST Scan": "AST 扫描",
     "Add File": "添加文件",
     "Add Dir": "添加目录",
-    "Remove Selected": "移除选中",
-    "Clear All": "清空",
+    "Remove Selected": "移除选中项",
+    "Clear All": "清空全部",
     "Add Mapping": "添加映射",
     "Restore Defaults": "恢复默认",
     "Export Preset...": "导出预设...",
     "Import Preset...": "导入预设...",
-    "Source File Directory": "源文件所在目录",
-    "Custom Directory": "自定义目录",
-    "Import Name": "代码导入名",
-    "PyPI Package Name": "PyPI 包名",
-    "Reset to Default Config": "重置为默认配置",
-    "Cancel & Return": "放弃修改并返回",
-    "Configure Build Settings": "配置构建参数",
-    "Toggle Execution Log": "显示/隐藏执行日志",
+    "Reset to Default Config": "重置默认配置",
+    "Cancel & Return": "取消并返回",
+    "Configure Build Settings": "构建设置",
+    "Toggle Execution Log": "切换日志",
+    "Detailed Mode": "详细日志",
+    "Concise Mode": "精简日志",
     "Copy": "复制",
     "Select All": "全选",
     "Clear Log": "清空日志",
     "Export Log...": "导出日志...",
-    "A Cross-platform Python Packaging GUI Tool based on PyInstaller & Nuitka": "基于 PyInstaller 和 Nuitka 的 Python 跨平台打包 GUI 工具",
-    " [Console]": " [控制台]",
-    " [No Console]": " [无控制台]",
+
+    # 6. 设置分组卡片与表单标签 (Card Titles & Form Labels)
+    "Engine & Environment": "引擎与环境",
+    "Execution Mode": "执行模式",
+    "Mirrors & Scanner": "镜像与扫描",
+    "Additional Resources (Drag & Drop Supported)": "附加资源 (支持拖拽)",
+    "Performance Optimization": "性能优化",
+    "Lock Core Dependencies": "锁定核心依赖",
+    "Package Name Mappings": "包名映射",
+    "UI Language:": "界面语言:",
+    "App Metadata & Presets": "元数据与预设",
+    "Output Location": "输出位置",
+    "Preferences & System Behavior": "偏好与行为",
+    "Build Engine:": "构建引擎:",
+    "Python Interpreter:": "Python 解释器:",
+    "Output Name:": "输出名称:",
+    "App Icon:": "应用图标:",
+    "Primary PIP Index:": "主 PIP 源:",
+    "Backup PIP Index:": "备用 PIP 源:",
+    "Requirements File:": "依赖清单 (requirements):",
+    "Hidden Imports:": "隐式导入 (hidden-imports):",
+    "Exclude Modules:": "排除模块 (excludes):",
+    "CPU Cores:": "CPU 核心数:",
+    "UPX Path:": "UPX 路径:",
+    "PyInstaller Version:": "PyInstaller 版本:",
+    "Nuitka Version:": "Nuitka 版本:",
+    "Pipreqs Version:": "Pipreqs 版本:",
+    "Version:": "版本:",
+    "Author/Company:": "作者/公司:",
+    "Description:": "描述:",
+    "Output Rule:": "输出规则:",
+    "Target Directory:": "目标目录:",
+    "Source File Directory": "源文件目录",
+    "Custom Directory": "自定义目录",
+    "Import Name": "导入名",
+    "PyPI Package Name": "PyPI 包名",
     "File": "文件",
     "Directory": "目录",
-    "<b>PyInstaller</b>: Fast build speed, excellent compatibility. Ideal for rapid iteration.": "<b>PyInstaller</b>: 构建速度快，兼容性极佳。适合快速迭代与常规应用。",
-    "<b>Nuitka</b>: Compiles to native C/C++ binary. Better performance and source code protection.": "<b>Nuitka</b>: 编译为原生 C/C++ 二进制。运行性能更好，且具有源码防反编译保护。",
-    "Leave blank to auto-detect system default Python": "留空则自动检测系统默认 Python",
-    "Leave blank to auto-match script name": "留空则自动匹配脚本名称",
-    "Leave blank to auto-search requirements.txt in current directory": "留空则自动检索当前目录 requirements.txt",
-    "Comma separated (e.g. pandas, PyQt5)": "逗号分隔 (如: pandas, PyQt5)",
-    "Comma separated (e.g. tkinter, matplotlib)": "逗号分隔 (如: tkinter, matplotlib)",
-    "Leave blank to auto-detect from environment variables": "留空则从环境变量自动检测",
-    "Dynamically exclude redundant dependencies in build environment, improving speed and reducing size.": "动态排除构建环境冗余依赖，提升构建速度并缩减产物体积。",
-    "Double-click to edit target path; Drag & drop supported": "双击修改目标路径；支持直接从桌面拖拽文件或文件夹至此区域",
-    "Package mappings have been reset to defaults.": "包名映射已重置为默认值。",
-    "Config preset exported to: {path}": "配置预设已导出至: {path}",
-    "Config preset imported successfully.": "配置预设已成功导入。",
-    "AST scan completed, found {count} dependencies.": "AST 解析完成，共发现 {count} 项依赖。",
-    "No log content.": "当前无日志内容。",
-    "Log saved to: {path}": "日志已保存至: {path}",
-    "Attention: Please check the log for details.": "注意：发生异常，请查看日志详情。",
-    "[INFO] Initializing isolated build environment...": "[INFO] 正在初始化隔离构建环境...",
-    "[INFO] Python interpreter path: {path}": "[INFO] Python 解释器路径: {path}",
-    "[INFO] Creating virtual environment...": "[INFO] 正在创建虚拟环境...",
-    "[ERROR] Failed to create virtual environment. Current Python environment might be missing necessary modules or have restricted permissions.": "[ERROR] 虚拟环境创建失败。当前 Python 环境可能缺失必要模块或权限受限。",
-    "[INFO] Synchronizing and upgrading pip package manager...": "[INFO] 正在同步并升级 pip 包管理器...",
-    "[INFO] Installing build engine [{pkg}] and core compilation dependencies...": "[INFO] 正在安装构建引擎 [{pkg}] 及核心编译依赖...",
-    "[INFO] Nuitka Tip: If prompted to download GCC/MinGW compiler on first build, please ensure stable network connection.": "[INFO] Nuitka 提示：若首次构建提示下载 GCC/MinGW 编译器，请保持网络正常。",
-    "[INFO] Dependency installation [1/3]: Installing declared dependencies ({filename})...": "[INFO] 依赖安装 [1/3]: 正在安装声明依赖 ({filename})...",
-    "[INFO] Dependency installation [2/3]: Calling pipreqs to analyze project dependencies...": "[INFO] 依赖安装 [2/3]: 正在调用 pipreqs 分析项目依赖...",
-    "[INFO] Enabled single-file sandbox mode: parsing current script only to prevent pollution from other files.": "[INFO] 已启用单文件沙盒模式：仅对当前脚本解析，防止同目录其他文件污染。",
-    "[WARN] Enabled full-directory scan mode: scanning all Python files in the current directory...": "[WARN] 已允许全目录扫描模式：正在扫描当前目录下所有 Python 文件...",
-    "[INFO] Dependency analysis service source address: {server}": "[INFO] 依赖分析服务源地址: {server}",
-    "[INFO] Querying versions of dependency libraries, please wait...": "[INFO] 正在查询各依赖库的版本，请稍候...",
-    "[INFO] Switching to backup PyPI source for retrieval: {url}": "[INFO] 正在切换至备用 PyPI 查询源重新检索: {url}",
-    "[INFO] Attempting to scan using compatible encoding...": "[INFO] 正在尝试利用兼容编码进行扫描...",
-    "[WARN] pipreqs skipped deep scan, dependencies will be supplemented by AST scanning engine.": "[WARN] pipreqs 已跳过深度扫描，将由 AST 扫描引擎补全依赖。",
-    "[INFO] Dependency installation [3/3]: Extracting implicit dependencies via AST static scan...": "[INFO] 依赖安装 [3/3]: 正在通过 AST 静态扫描提取隐式依赖...",
-    "[INFO] Parsing and installing implicit import dependencies: {pkgs}": "[INFO] 正在解析并安装隐式导入依赖: {pkgs}",
-    "[ERROR] ⚠️ Warning: Failed to install dependency [{pkg}]! May cause runtime crash.": "[ERROR] ⚠️ 警告：依赖库 [{pkg}] 安装失败！可能导致打包后的软件运行时崩溃。",
-    "[INFO] Starting {engine} engine to compile binary files...": "[INFO] 正在启动 {engine} 引擎，开始编译二进制文件...",
-    "[INFO] Found local MSVC environment, prioritizing native C++ compiler.": "[INFO] 发现本地 MSVC 环境，优先使用原生 C++ 编译器。",
-    "[INFO] Lite mode enabled, executing size reduction strategy...": "[INFO] 已开启精简模式，正在执行体积缩减策略...",
-    "[WARN] Strongly recommend checking [Virtual Environment] to maximize lite mode effect.": "[WARN] 强烈建议勾选 [虚拟环境] 以最大化精简效果。",
-    "[INFO] Enabled Nuitka optimization directives...": "[INFO] 已启用 Nuitka 优化指令...",
-    "[INFO] Core compilation completed, extracting and archiving built files...": "[INFO] 编译核心完成，正在提取并归档编译文件...",
-    "[ERROR] Product transfer failed, file might be occupied by system process or lack permission: {error}": "[ERROR] 产物移交失败，文件可能被系统进程占用或权限不足: {error}",
-    "[ERROR] Could not locate valid executable product in temporary build directory: {path}": "[ERROR] 未在临时构建目录中定位到有效可执行产物: {path}",
-    "[INFO] Validating output files and generating final product...": "[INFO] 正在校验输出文件并生成最终产物...",
-    "[INFO] Build log exported to: {path}": "[INFO] 编译日志已导出至: {path}",
-    "[SUCCESS] Compilation completed, output path: {path}": "[SUCCESS] 编译已完成，输出路径: {path}",
-    "[Syntax Error] Source program has syntax or indentation errors!\n  - File: {file}\n  - Type: {type}\n  - Line: near {line}\n  - Desc: {desc}\n\nTip: This is an error in the source code logic. Ensure it runs locally before compiling.": "[语法异常] 源程序存在语法不合规或缩进异常错误！\n  - 错误源文件: {file}\n  - 异常类型: {type}\n  - 异常位置: 第 {line} 行附近\n  - 错误描述: {desc}\n\n提示: 此问题为源码逻辑本身错误。请在确保本地运行无误后，再次执行编译流程。",
-    "\n!!!!!!!!!! [Diagnostic Traceback: Full raw log due to execution exception in this step] !!!!!!!!!!": "\n!!!!!!!!!! [诊断回溯: 以下是由于该环节执行异常产生的完整原始日志] !!!!!!!!!!",
-    "[FAILED] Compilation interrupted with exceptions, refer to the log for troubleshooting.": "[FAILED] 编译异常中断，请参阅日志以定位排查。",
-    "[INFO] Freeing up space, cleaning temporary build environment...": "[INFO] 正在释放空间，清理临时构建环境...",
-    "\\nProgram execution completed, press Enter to exit...": "\\n程序执行完毕，按回车键退出...",
+    "Edit Path": "编辑路径",
+    "Target relative path:": "目标相对路径:",
+    "Import name (e.g. cv2):": "导入名 (如 cv2):",
+    "PyPI package name for [{imp_name}]:": "[{imp_name}] 对应 PyPI 包名:",
+
+    # 7. 复选框、占位符与悬停提示 (Checkboxes, Placeholders & Tooltips)
+    "One-File Mode (--onefile)": "单文件 (--onefile)",
+    "Hide Console (--noconsole)": "隐藏控制台 (--noconsole)",
+    "Use Virtual Environment (Recommended)": "使用虚拟环境 (推荐)",
+    "Install requirements.txt": "安装 requirements.txt",
+    "Analyze Dependencies (pipreqs)": "分析依赖 (pipreqs)",
+    "Scan Entire Folder": "扫描整个文件夹",
+    "Enable UPX Compression": "启用 UPX 压缩",
+    "Lite Mode (Exclude Dev/Test Dependencies)": "精简模式 (排除开发/测试依赖)",
+    "Concise Log Output": "精简日志",
+    "Auto-save Build Log": "自动保存日志",
+    "Auto Extract Icon": "自动提取图标",
+    "Clean Temporary Cache After Build": "构建后清理缓存",
+    "Sound Notification": "完成提示音",
+    "Leave blank to auto-detect system default Python": "留空自动检测系统 Python",
+    "Leave blank to auto-match script name": "留空自动匹配脚本名",
+    "Leave blank to auto-search requirements.txt in current directory": "留空自动检索 requirements.txt",
+    "Comma separated (e.g. pandas, PyQt5)": "逗号分隔 (如 pandas, PyQt5)",
+    "Comma separated (e.g. tkinter, matplotlib)": "逗号分隔 (如 tkinter, matplotlib)",
+    "Leave blank to auto-detect from environment variables": "留空从环境变量自动检测",
+    "Dynamically exclude redundant dependencies in build environment, improving speed and reducing size.": "动态排除构建环境的冗余依赖，提升速度并减小体积。",
+    "Double-click to edit target path; Drag & drop supported": "双击编辑目标路径；支持拖拽",
+
+    # 8. 引擎说明与平台兼容性矩阵 (Engine Help & Platform Matrices)
+    "PyInstaller — Bundles Python interpreter and bytecode. Fast build speed, zero configuration (no C compiler needed), and excellent compatibility.":
+        "PyInstaller — 打包 Python 解释器与字节码。构建快，零配置(无需 C 编译器)，兼容性好。",
+
+    "Nuitka — Compiles source code into native C/C++ binary. Produces smaller package size, faster execution, and deep anti-decompilation protection (requires C compiler).":
+        "Nuitka — 编译源码为原生 C/C++ 二进制。体积更小，执行更快，抗反编译(需 C 编译器)。",
+
+    '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Legacy OS</span> <span style="color:#6b7280; font-size:11px;">Full backward compatibility</span>':
+        '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} 平台支持：</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">下载 Python</a></td></tr></table><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">兼容旧系统</span> <span style="color:#6b7280; font-size:11px;">支持 Windows 7 及旧版操作系统</span>',
+
+    '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>':
+        '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} 平台支持：</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">下载 Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>',
+
+    '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">MinGW64 supported out-of-the-box</span>':
+        '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} 平台支持：</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">下载 Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">开箱支持 MinGW64 编译器</span>',
+
+    '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.15+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#fef3c7; color:#b45309; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#d97706; font-size:11px;">Requires MSVC / Clang / Zig (MinGW64 unsupported)</span>':
+        '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} 平台支持：</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">下载 Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.15+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#fef3c7; color:#b45309; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#d97706; font-size:11px;">需 MSVC / Clang / Zig (不支持 MinGW64)</span>',
+
+    '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python Interpreter</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#6b7280;">Auto-detecting system environment for Windows, macOS & Linux...</span>':
+        '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python 解释器</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">下载 Python</a></td></tr></table><span style="color:#6b7280;">自动检测系统环境 (Win/macOS/Linux)...</span>',
+
+    # 9. 构建日志与异常错误提示 (Log Output, Errors & Warnings)
+    "[INFO] Build Cancelled.": "[INFO] 构建已取消。",
+    "[INFO] Performing pre-flight environment checks...": "[INFO] 执行环境安全检查...",
+    "[INFO] Analyzing source code and project dependencies...": "[INFO] 分析源码与依赖...",
+    "[INFO] Initializing isolated build environment...": "[INFO] 初始化构建环境...",
+    "[INFO] Python interpreter path: {path}": "[INFO] Python 路径: {path}",
+    "[INFO] Creating virtual environment...": "[INFO] 创建虚拟环境...",
+    "[INFO] Synchronizing and upgrading pip package manager...": "[INFO] 更新 pip...",
+    "[INFO] Scanning project source code via pipreqs...": "[INFO] pipreqs 扫描依赖...",
+    "[INFO] Installing build engine [{pkg}] and core compilation dependencies...": "[INFO] 安装构建引擎 [{pkg}] 及核心依赖...",
+    "[INFO] Nuitka Tip: If prompted to download GCC/MinGW compiler on first build, please ensure stable network connection.": "[INFO] Nuitka 提示: 首次构建如需下载 GCC/MinGW，请确保网络畅通。",
+    "[INFO] Successfully installed compatible versions.": "[INFO] 自动匹配兼容版本安装成功。",
+    "[INFO] Resolving project dependencies...": "[INFO] 解析项目依赖...",
+    "Declared in requirements.txt ({count}): {pkgs}": "依赖声明 ({count}): {pkgs}",
+    "Declared in requirements.txt: None": "依赖声明: 无",
+    "Discovered via scanner ({count}): {pkgs}": "扫描发现 ({count}): {pkgs}",
+    "Auto-patched missing ({count}): {pkgs}": "自动补全 ({count}): {pkgs}",
+    "Manifest complete (No missing packages)": "清单完整 (无缺失包)",
+    "Build engine packages ({count}): {pkgs}": "引擎依赖 ({count}): {pkgs}",
+    "[INFO] Installing build environment and project dependencies ({count} packages): {pkgs}": "[INFO] 安装依赖 ({count}): {pkgs}",
+    "[INFO] Switching to backup PyPI source for retrieval: {url}": "[INFO] 切换备用 PyPI 源: {url}",
+    "[INFO] Starting {engine} engine to compile binary files...": "[INFO] 启动 {engine} 引擎编译...",
+    "[INFO] Found local MSVC environment, prioritizing native C++ compiler.": "[INFO] 检测到 MSVC，优先使用原生 C++ 编译器。",
+    "[INFO] Found local Clang environment, prioritizing LLVM Clang compiler.": "[INFO] 检测到 Clang，优先使用 LLVM Clang 编译器。",
+    "[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as C backend.": "[INFO] Python 3.13+: 使用 Zig 编译器。",
+    "[INFO] Using MinGW64 compiler (--mingw64) for C backend.": "[INFO] 使用 MinGW64 编译器。",
+    "[INFO] Evaluating system physical memory (Available: {ram:.1f} GB). Adaptive concurrency adjusted: {cores} -> {safe_jobs} ...": "[INFO] 评估系统内存 (可用: {ram:.1f} GB)。调整并发: {cores} -> {safe_jobs}",
+    "[INFO] Stripping icon parameters and automatically rebuilding...": "[INFO] 剥离图标参数并重新构建...",
+    "[INFO] Writing application icon...": "[INFO] 写入应用图标...",
+    "[INFO] Application icon written successfully.": "[INFO] 应用图标写入成功。",
+    "[INFO] Lite mode enabled, excluding non-essential modules...": "[INFO] 启用精简模式，排除非必要模块...",
+    "[INFO] Enabled Nuitka optimization directives...": "[INFO] 启用 Nuitka 优化指令...",
+    "[INFO] Compilation completed, archiving built files...": "[INFO] 编译完成，归档产物...",
+    "[INFO] Validating output files and generating final product...": "[INFO] 校验并生成最终产物...",
+    "[INFO] Build log exported to: {path}": "[INFO] 日志已导出: {path}",
+    "[INFO] Freeing up space, cleaning temporary build environment...": "[INFO] 清理临时构建环境...",
+    "[SUCCESS] Compilation completed, output path: {path}": "[SUCCESS] 构建成功，输出路径: {path}",
+    "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] 项目位于云同步目录，可能锁定构建文件。",
+    "[WARN] Specified versions failed to install. Stripping version constraints for automatic compatibility match...": "[WARN] 指定版本安装失败，尝试自动匹配兼容版本...",
+    "[WARN] Some dependencies failed to install, build will proceed with risk...": "[WARN] 部分依赖安装失败，继续构建 (有风险)。",
+    "[WARN] Low disk space detected on build target drive (Available: {free:.1f} GB, >= 5.0 GB recommended). Build process may interrupt due to disk exhaustion.": "[WARN] 目标磁盘空间不足 (可用: {free:.1f} GB，推荐 >= 5.0 GB)。",
+    "[WARN] Memory allocation exception caught (ZstdError / OOM). Triggering memory protection fallback: Retrying in single-thread mode...": "[WARN] 捕获内存分配异常 (ZstdError/OOM)。切换单线程重试...",
+    "[WARN] System low memory detected (zstd memory allocation failed). Automatically retrying in single-thread low-memory mode...": "[WARN] 内存不足 (zstd 分配失败)，切换单线程重试...",
+    "[WARN] Icon resource writing blocked (possibly locked by system/antivirus), triggering fallback protection...": "[WARN] 图标写入受阻，触发降级...",
+    "[WARN] Strongly recommend checking [Virtual Environment] to maximize lite mode effect.": "[WARN] 强烈建议开启 [虚拟环境] 以最大化精简效果。",
+    "[WARN] Pause code injection exception: {error}": "[WARN] 注入暂停代码异常: {error}",
+    "[WARN] AST Analysis Exception: {error}": "[WARN] AST 分析异常: {error}",
+    "[WARN] Read requirements.txt warning: {error}": "[WARN] 读取 requirements.txt 警告: {error}",
+    "[WARN] Parse pipreqs output warning: {error}": "[WARN] 解析 pipreqs 警告: {error}",
+    "[WARN] Command timeout (>{timeout}s)": "[WARN] 命令超时 (>{timeout}s)",
+    "[ERROR] Build aborted: Insufficient disk space (NoSpaceLeft / Errno 28). Please clean up drive space (at least 5 GB free space recommended) and try again.": "[ERROR] 构建中止: 磁盘空间不足。请清理至少 5 GB 空间后重试。",
+    "[ERROR] Output directory is missing write permissions: {error}": "[ERROR] 目标输出目录无写入权限: {error}",
+    "[ERROR] Requirements file not found: {path}": "[ERROR] 指定的依赖清单文件不存在: {path}",
+    "[ERROR] Insufficient disk space (Available: {free:.1f} GB). At least 0.5 GB is required to safely initialize the build environment.": "[ERROR] 磁盘空间不足 (可用 {free:.1f} GB)。至少需 0.5 GB 才能安全初始化环境。",
+    "[ERROR] Python interpreter is invalid or not found: {path}": "[ERROR] Python 解释器无效或未找到: {path}",
+    "[ERROR] The specified icon file does not exist: {path}": "[ERROR] 指定的应用图标文件不存在: {path}",
+    "[ERROR] Additional resource file/directory not found: {path}": "[ERROR] 附加数据中的文件/目录不存在: {path}",
+    "[ERROR] Failed to create virtual environment. Current Python environment might be missing necessary modules or have restricted permissions.": "[ERROR] 虚拟环境创建失败。环境可能缺失模块或权限受限。",
+    "[ERROR] Product transfer failed, file might be occupied by system process or lack permission: {error}": "[ERROR] 产物转移失败，可能被占用或无权限: {error}",
+    "[ERROR] Could not locate valid executable product in temporary build directory: {path}": "[ERROR] 临时构建目录未找到可执行产物: {path}",
+    "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[ERROR] 源码语法错误，构建中止:\n  - 文件: {file}\n  - 类型: {type}\n  - 行号: {line}\n  - 详情: {desc}\n\n提示: 请确保源码可在本地运行。",
+    "[FAILED] Compilation interrupted with exceptions, please click 'Detailed Mode' above the log window for troubleshooting.": "[FAILED] 构建异常中断，请查看“详细日志”。",
     "[ERROR] Target file is locked or encrypted by cloud drive. Please decrypt and try again.": "[ERROR] 目标文件被云盘锁定或加密，请解密后重试。",
-    "[ERROR] Please load a valid Python source file first!": "[ERROR] 请先加载有效的 Python 源代码文件！",
-    "[ERROR] Exception occurred during AST parsing: {error}": "[ERROR] AST 语法树解析过程中发生异常: {error}",
-    "[ERROR] Failed to export preset file: {error}": "[ERROR] 无法导出预设文件: {error}",
-    "[ERROR] Preset file format error or corrupted: {error}": "[ERROR] 预设文件格式错误或已被损坏: {error}",
-    "[ERROR] Failed to export log file: {error}": "[ERROR] 无法导出日志文件: {error}",
-    "[ERROR] Build completed, but the following dependencies failed to install during pre-build:\n\n  👉 {pkgs}\n\n⚠️ Tip: The program might crash at runtime due to missing modules!": "[ERROR] 构建已完成，但预构建阶段以下依赖安装失败：\n\n  👉 {pkgs}\n\n⚠️ 提示：程序运行时可能会因缺少模块导致崩溃！"
+    "[ERROR] Please load a valid Python source file first!": "[ERROR] 请加载有效的 Python 源码！",
+    "[ERROR] Exception occurred during AST parsing: {error}": "[ERROR] AST 解析异常: {error}",
+    "[ERROR] Failed to export preset file: {error}": "[ERROR] 导出预设失败: {error}",
+    "[ERROR] Preset file format error or corrupted: {error}": "[ERROR] 预设文件格式错误或已损坏: {error}",
+    "[ERROR] Failed to export log file: {error}": "[ERROR] 导出日志失败: {error}",
+    "[ERROR] Build completed, but the following dependencies failed to install:\n\n  - {pkgs}\n\nNote: The application might raise ModuleNotFoundError at runtime.": "[ERROR] 构建完成，但以下依赖安装失败:\n\n  - {pkgs}\n\n注意: 运行时可能抛出 ModuleNotFoundError。",
+    "[ERROR] Process error: command or binary missing ({error})": "[ERROR] 进程错误: 命令或二进制文件缺失 ({error})",
+    "[ERROR] System execution exception: {error}": "[ERROR] 系统执行异常: {error}",
+    "Dependency Missing Warning: {pkgs} failed to install. Check log for details.": "依赖缺失警告: {pkgs} 安装失败，详情见日志。",
+    "Package mappings have been reset to defaults.": "包映射已重置为默认值。",
+    "Config preset exported to: {path}": "配置预设已导出: {path}",
+    "Config preset imported successfully.": "配置预设导入成功。",
+    "AST scan completed, found {count} dependencies.": "AST 扫描完成，发现 {count} 个依赖。",
+    "No log content.": "无日志内容。",
+    "Log saved to: {path}": "日志已保存: {path}",
+    "Attention: Please check the log for details.": "注意：发生异常，请查看日志详情。",
+    "Are you sure you want to reset all preferences to default?": "确定要将全局偏好设置重置为默认值吗？",
+    "Global configuration has been reset.": "全局配置已重置为默认值。",
+    "\\nProgram execution completed, press Enter to exit...": "\\n程序执行完成，按回车键退出...",
+    "Project-specific. Not saved to global preferences. Use 'Export Preset' to save config.": 
+        "提示：此处的资源仅对当前工作区生效（不保存到全局偏好）。如需长期复用请使用【导出预设】。",
+    "GitHub Repository": "GitHub 仓库",
+    "Issues & Feedback": "问题与反馈",
+    "PyPI Home": "PyPI 主页",
+    "Sponsor": "赞助支持",
+    "QPyPack is a free and open-source tool. If it has improved your efficiency or solved packaging problems, consider buying the author a coffee!": "QPyPack 是一款免费的开源工具。如果它为您提升了效率或解决了打包难题，欢迎请作者喝杯奶茶！",
+    "* Sponsorship is completely voluntary, serves as an unconditional encouragement to the open-source community, and involves no commercial commitments. Thank you for your support!": "* 赞助完全出于自愿，属于对开源社区的无偿鼓励，不涉及任何商业承诺。感谢您的支持！",
+    "Python Environment Required": "需要 Python 环境",
+    "<b>Python is not detected on your system!</b><br><br>QPyPack requires a Python environment to compile your code.<br>If you haven't installed Python, please download and install it (remember to check <b>'Add Python.exe to PATH'</b> during installation).": "<b>未在系统中检测到有效的 Python！</b><br><br>QPyPack 需要依赖 Python 环境才能编译代码。<br>如果您尚未安装，请前往官网下载安装（小白提示：安装界面的底部请务必勾选 <b>'Add Python.exe to PATH'</b>）。",
+    "Download Python": "前往下载 Python",
+    "Unknown": "未知"
 }
 
 class TranslationEngine(QObject):
@@ -224,23 +321,23 @@ class TranslationEngine(QObject):
     DEFAULT_LOCALE = "en_US"
 
     LANG_META = {
-        "en_US": {"native": "English", "flag": "🇺🇸"},
-        "zh_CN": {"native": "简体中文", "flag": "🇨🇳"},
-        "zh_TW": {"native": "繁體中文", "flag": "🇹🇼"},
-        "ja_JP": {"native": "日本語", "flag": "🇯🇵"},
-        "ko_KR": {"native": "한국어", "flag": "🇰🇷"},
-        "de_DE": {"native": "Deutsch", "flag": "🇩🇪"},
-        "fr_FR": {"native": "Français", "flag": "🇫🇷"},
-        "es_ES": {"native": "Español", "flag": "🇪🇸"},
-        "ru_RU": {"native": "Русский", "flag": "🇷🇺"},
-        "pt_BR": {"native": "Português (Brasil)", "flag": "🇧🇷"},
-        "it_IT": {"native": "Italiano", "flag": "🇮🇹"},
-        "nl_NL": {"native": "Nederlands", "flag": "🇳🇱"},
-        "pl_PL": {"native": "Polski", "flag": "🇵🇱"},
-        "tr_TR": {"native": "Türkçe", "flag": "🇹🇷"},
-        "vi_VN": {"native": "Tiếng Việt", "flag": "🇻🇳"},
-        "th_TH": {"native": "ไทย", "flag": "🇹🇭"},
-        "ar_SA": {"native": "العربية", "flag": "🇸🇦"},
+        "en_US": {"native": "English"},
+        "zh_CN": {"native": "简体中文"},
+        "zh_TW": {"native": "繁體中文"},
+        "ja_JP": {"native": "日本語"},
+        "ko_KR": {"native": "한국어"},
+        "de_DE": {"native": "Deutsch"},
+        "fr_FR": {"native": "Français"},
+        "es_ES": {"native": "Español"},
+        "ru_RU": {"native": "Русский"},
+        "pt_BR": {"native": "Português (Brasil)"},
+        "it_IT": {"native": "Italiano"},
+        "nl_NL": {"native": "Nederlands"},
+        "pl_PL": {"native": "Polski"},
+        "tr_TR": {"native": "Türkçe"},
+        "vi_VN": {"native": "Tiếng Việt"},
+        "th_TH": {"native": "ไทย"},
+        "ar_SA": {"native": "العربية"},
     }
 
     def __init__(self, locales_dir: Path):
@@ -305,22 +402,17 @@ class TranslationEngine(QObject):
             sys_native = qloc.nativeLanguageName().capitalize() or sys_code
 
         langs = {"auto": f"System Default ({sys_native})"}
-        
         all_codes = set(self.translations.keys()) | {self.DEFAULT_LOCALE, "zh_CN"}
         
         for code in sorted(all_codes):
             if code in self.LANG_META:
-                meta = self.LANG_META[code]
-                flag = meta.get("flag", "")
-                prefix = f"{flag} " if flag and flag != "🌐" else ""
-                langs[code] = f"{prefix}{meta['native']}"
+                langs[code] = self.LANG_META[code]["native"]
             else:
                 qloc = QLocale(code)
                 native_name = qloc.nativeLanguageName()
                 if not native_name or native_name == code:
                     native_name = qloc.languageToString(qloc.language())
-                native_name = native_name.capitalize() if native_name else code
-                langs[code] = native_name
+                langs[code] = native_name.capitalize() if native_name else code
                 
         return langs
 
@@ -364,21 +456,33 @@ PYPI_MIRRORS_GLOBAL = [
 
 DEFAULT_MAPPINGS = {
     'acoustid': 'pyacoustid', 'cv2': 'opencv-python', 'PIL': 'pillow', 'Pillow': 'pillow',
-    'fitz': 'pymupdf', 'skimage': 'scikit-image', 'vlc': 'python-vlc', 'pyzbar': 'pyzbar',
-    'docx': 'python-docx', 'pptx': 'python-pptx', 'bs4': 'beautifulsoup4', 'barcode': 'python-barcode',
-    'pdfplumber': 'pdfplumber', 'win32com': 'pywin32', 'win32api': 'pywin32', 'win32con': 'pywin32',
+    'skimage': 'scikit-image', 'vlc': 'python-vlc', 'pyzbar': 'pyzbar', 'OpenGL': 'PyOpenGL',
+    
+    'pyside6_addons': 'PySide6', 'pyside6_essentials': 'PySide6',
+    'pyside6-addons': 'PySide6', 'pyside6-essentials': 'PySide6',
+    'pyqt5-plugins': 'PyQt5', 'pyqt5-tools': 'PyQt5', 'pyqt5_plugins': 'PyQt5',
+    
+    'fitz': 'pymupdf', 'docx': 'python-docx', 'pptx': 'python-pptx', 
+    'bs4': 'beautifulsoup4', 'barcode': 'python-barcode', 'pdfplumber': 'pdfplumber',
+    
+    'win32com': 'pywin32', 'win32api': 'pywin32', 'win32con': 'pywin32',
     'win32gui': 'pywin32', 'win32clipboard': 'pywin32', 'win32print': 'pywin32', 'win32file': 'pywin32',
     'win32security': 'pywin32', 'win32process': 'pywin32', 'win32evtlog': 'pywin32', 'win32service': 'pywin32',
     'win32pipe': 'pywin32', 'win32net': 'pywin32', 'win32crypt': 'pywin32', 'pythoncom': 'pywin32',
-    'pywintypes': 'pywin32', 'serial': 'pyserial', 'usb': 'pyusb', 'bluetooth': 'pybluez',
+    'pywintypes': 'pywin32',
+    
+    'serial': 'pyserial', 'usb': 'pyusb', 'bluetooth': 'pybluez', 'dns': 'dnspython',
+    'websocket': 'websocket-client', 'paho': 'paho-mqtt', 'socketio': 'python-socketio',
+    'engineio': 'python-engineio', 'kafka': 'kafka-python',
+    
     'sklearn': 'scikit-learn', 'yaml': 'pyyaml', 'dateutil': 'python-dateutil', 'jwt': 'PyJWT',
-    'Crypto': 'pycryptodome', 'crypto': 'pycryptodome', 'OpenGL': 'PyOpenGL', 'dns': 'dnspython',
-    'wx': 'wxPython', 'desktop_notifier': 'desktop-notifier', 'dotenv': 'python-dotenv',
-    'telegram': 'python-telegram-bot', 'websocket': 'websocket-client', 'git': 'GitPython',
-    'github': 'PyGithub', 'gitlab': 'python-gitlab', 'discord': 'discord.py', 'paho': 'paho-mqtt',
-    'socketio': 'python-socketio', 'engineio': 'python-engineio', 'kafka': 'kafka-python',
+    'Crypto': 'pycryptodome', 'wx': 'wxPython', 'desktop_notifier': 'desktop-notifier',
+    'dotenv': 'python-dotenv', 'telegram': 'python-telegram-bot', 'git': 'GitPython',
+    'github': 'PyGithub', 'gitlab': 'python-gitlab', 'discord': 'discord.py',
     'OpenSSL': 'pyOpenSSL', 'ldap': 'python-ldap', 'magic': 'python-magic', 'slugify': 'python-slugify',
-    'snappy': 'python-snappy'
+    'snappy': 'python-snappy',
+    
+    'attr': 'attrs', 'psycopg2': 'psycopg2-binary'
 }
 
 MATERIAL_ICONS = {
@@ -394,10 +498,13 @@ MATERIAL_ICONS = {
     'back': 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
     'info': 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z',
     'python': 'M12.06,1.48c-3.14,0-3.52,0.67-3.52,0.67l-0.01,2.44h3.63v0.52H7.43C5.12,5.11,4.5,6.58,4.5,8.81c0,2.34,0.38,3.48,2.3,3.48 h1.14v-1.62c0-1.48,1.23-2.65,2.7-2.65h3.69c1.47,0,2.66-1.19,2.66-2.65V3.88C16.99,1.83,14.67,1.48,12.06,1.48z M10.22,2.83 c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C9.49,3.16,9.82,2.83,10.22,2.83z M16.71,9.89 v1.62c0,1.48-1.23,2.65-2.7,2.65H10.3c-1.47,0-2.66,1.19-2.66,2.65v1.49c0,2.05,2.32,2.41,4.92,2.41c3.14,0,3.52-0.67,3.52-0.67 l0.01-2.44h-3.63v-0.52h4.73c2.31,0,2.93-1.47,2.93-3.7c0-2.34-0.38-3.48-2.3-3.48H16.71z M13.88,18.96c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C13.15,19.29,13.48,18.96,13.88,18.96z',
-    'close': 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
+    'close': 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+    'engine': 'M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.6C.4 7 1 10 3 12c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.4-.4.4-1.1 0-1.3z',
+    'bolt': 'M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66s.06-.11.08-.15C8.22 11.23 10.3 7.6 13.43 2.15c.18-.32.37-.15.37.15l-1 7h3.5c.58 0 .57.32.38.66s-.06.12-.08.16L11 21z',
+    'link': 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z'
 }
 
-def load_config():
+def load_config(retry=True):
     config = configparser.ConfigParser()
     default_mirror = "https://pypi.org/simple"
     default_backup = "https://test.pypi.org/simple"
@@ -428,7 +535,19 @@ def load_config():
                 config.write(f)
         except: pass
     else:
-        config.read(CONFIG_FILE, encoding='utf-8')
+        try:
+            config.read(CONFIG_FILE, encoding='utf-8')
+        except Exception:
+            if retry:
+                try:
+                    if os.path.exists(CONFIG_FILE):
+                        os.remove(CONFIG_FILE)
+                except Exception:
+                    pass
+                return load_config(retry=False)
+            else:
+                pass
+
         if 'Mappings' not in config: 
             config['Mappings'] = DEFAULT_MAPPINGS
         else:
@@ -575,40 +694,39 @@ def is_cloud_locked(filepath):
     except Exception:
         return False
 
-def extract_imports_via_ast(script_path, python_exe):
-    code_snippet = (
-        "import ast, sys, json, re\n"
-        "code = ''\n"
-        "try:\n"
-        "    with open(sys.argv[1], 'rb') as f: raw = f.read()\n"
-        "    code = raw.decode('utf-8-sig') if raw.startswith(b'\\xef\\xbb\\xbf') else raw.decode('utf-8', errors='ignore')\n"
-        "    imports = set()\n"
-        "    for node in ast.walk(ast.parse(code)):\n"
-        "        if isinstance(node, ast.Import): imports.update(n.name.split('.')[0] for n in node.names)\n"
-        "        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module: imports.add(node.module.split('.')[0])\n"
-        "    print('__QPYPACK_RES__:' + json.dumps(list(imports)))\n"
-        "except:\n"
-        "    try:\n"
-        "        m = re.findall(r'^\\s*(?:from|import)\\s+([a-zA-Z0-9_]+)', code, re.M)\n"
-        "        print('__QPYPACK_RES__:' + json.dumps(list(set(m))))\n"
-        "    except: print('__QPYPACK_RES__:[]')\n"
-    )
+def is_cloud_sync_path(path_obj: Path) -> bool:
+    path_str = path_obj.resolve().as_posix().lower()
+    cloud_keywords = [
+        'onedrive', 'dropbox', 'icloud', 'google drive', 'googledrive', 'gdrive',
+        'box sync', 'box.com', 'pcloud', 'mega', 'megasync', 'nextcloud', 'owncloud',
+        'synology', 'seafile', 'tresorit', 'yandex',
+        'nutstore', '坚果云', '百度云', '百度网盘', '阿里云盘', 'aliyun', '115', '微云'
+    ]
+    return any(kw in path_str for kw in cloud_keywords)
+
+def extract_imports_via_ast(script_path, python_exe=None):
+    code = ""
     try:
-        env = os.environ.copy()
-        env.pop("PYTHONHOME", None)
-        env.pop("PYTHONPATH", None)
-        env["PYTHONUTF8"] = "1"
-        env["PYTHONIOENCODING"] = "utf-8"
-        kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True, "encoding": "utf-8", "env": env}
-        if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-        
-        proc = subprocess.run([python_exe, "-c", code_snippet, script_path], **kwargs)
-        m = re.search(r'__QPYPACK_RES__:(.*)', proc.stdout)
-        if m:
-            return set(json.loads(m.group(1).strip()))
-        return set()
-    except:
-        return set()
+        raw = Path(script_path).read_bytes()
+        try:
+            code = raw.decode('utf-8-sig')
+        except Exception:
+            code = raw.decode(locale.getpreferredencoding(), errors='ignore')
+            
+        imports = set()
+        tree = ast.parse(code, filename=script_path)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imports.update(n.name.split('.')[0] for n in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                imports.add(node.module.split('.')[0])
+        return imports
+    except Exception:
+        try:
+            m = re.findall(r'^\s*(?:from|import)\s+([a-zA-Z0-9_]+)', code, re.M)
+            return set(m)
+        except Exception:
+            return set()
 
 def get_svg_icon(name, color="#5F6368", size=24):
     path_data = MATERIAL_ICONS.get(name, "")
@@ -742,7 +860,9 @@ def get_stdlib_names():
             'tracemalloc', 'tty', 'turtle', 'turtledemo', 'types',
             'unittest', 'uu', 'venv', 'wave', '__future__',
             'weakref', 'webbrowser', 'winsound', 'wsgiref', 'xdrlib',
-            'xmlrpc', 'zipapp', 'zipimport', 'zlib', 'zoneinfo'}
+            'xmlrpc', 'zipapp', 'zipimport', 'zlib', 'zoneinfo',
+            'tomllib', 'graphlib', 'ipaddress', 'builtins', 'gc', 'faulthandler',
+            'plistlib', 'select', 'unicodedata', 'ensurepip', 'rlcompleter', 'msvcrt'}
     if sys.version_info >= (3, 10):
         libs.update(sys.stdlib_module_names)
     return libs
@@ -820,6 +940,7 @@ def find_system_python():
     else:
         unix_bases = [
             "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin",
+            "/Library/Frameworks/Python.framework/Versions/Current/bin",
             os.path.expanduser("~/.pyenv/shims"), os.path.expanduser("~/.local/bin")
         ]
         user_profile = os.environ.get("HOME", "") or os.environ.get("USERPROFILE", "")
@@ -891,19 +1012,22 @@ def get_python_executable():
         
     return find_system_python()
 
-def remove_readonly(func, path, exc_info):
+def remove_readonly(func, path, exc_info=None):
     try: 
         os.chmod(path, stat.S_IWRITE)
         func(path)
-    except: pass
+    except Exception: pass
 
 def robust_rmtree(path: Path, retries=15, delay=0.8):
     if not path.exists(): return True
     for _ in range(retries):
         try:
-            shutil.rmtree(path, onerror=remove_readonly)
+            if sys.version_info >= (3, 12):
+                shutil.rmtree(path, onexc=lambda func, p, exc: remove_readonly(func, p))
+            else:
+                shutil.rmtree(path, onerror=remove_readonly)
             if not path.exists(): return True
-        except: time.sleep(delay)
+        except Exception: time.sleep(delay)
     return False
 
 def convert_image_to_format(src_path, dest_path, dest_format):
@@ -911,36 +1035,94 @@ def convert_image_to_format(src_path, dest_path, dest_format):
     dst = Path(dest_path).resolve()
     fmt = dest_format.lower()
     
-    if sys.platform == "darwin" and fmt == "icns":
-        try:
-            proc = subprocess.run(["sips", "-s", "format", "icns", src.as_posix(), "--out", dst.as_posix()], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            if proc.returncode == 0 and dst.exists(): return True
-        except: pass
-
-    try:
-        img = QImage(src.as_posix())
-        if not img.isNull():
-            if fmt == "ico": img = img.scaled(256, 256, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            elif fmt == "icns": img = img.scaled(512, 512, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            writer = QImageWriter(dst.as_posix(), fmt.upper().encode('utf-8'))
-            if writer.write(img): return True
-    except: pass
-
     try:
         from PIL import Image
         img = Image.open(src.as_posix())
         if fmt == "ico":
-            img.save(dst.as_posix(), format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (32, 32), (16, 16)])
+            ico_sizes = [(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)]
+            resample_filter = getattr(Image.Resampling, 'LANCZOS', getattr(Image, 'LANCZOS', Image.BICUBIC))
+            img.save(dst.as_posix(), format="ICO", sizes=ico_sizes, resample=resample_filter)
             return True
         elif fmt == "icns":
             img.save(dst.as_posix(), format="ICNS", sizes=[(512, 512), (256, 256), (128, 128), (64, 64)])
             return True
-        else:
-            img.save(dst.as_posix(), format=dest_format.upper())
-            return True
-    except: pass
+    except Exception:
+        pass
+
+    try:
+        img = QImage(src.as_posix())
+        if not img.isNull():
+            if fmt == "ico": 
+                img = img.scaled(256, 256, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            writer = QImageWriter(dst.as_posix(), fmt.upper().encode('utf-8'))
+            if writer.write(img): 
+                return True
+    except Exception:
+        pass
+
+    if fmt == "ico":
+        try:
+            png_bytes = None
+            img = QImage(src.as_posix())
+            if not img.isNull():
+                img_scaled = img.scaled(256, 256, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                temp_png = Path(tempfile.gettempdir()) / f"qpypack_ico_fallback_{int(time.time())}.png"
+                if img_scaled.save(temp_png.as_posix(), "PNG"):
+                    png_bytes = temp_png.read_bytes()
+                    temp_png.unlink(missing_ok=True)
+            elif src.suffix.lower() == '.png':
+                png_bytes = src.read_bytes()
+
+            if png_bytes:
+                header = struct.pack('<HHH', 0, 1, 1)
+                entry = struct.pack('<BBBBHHII', 0, 0, 0, 0, 1, 32, len(png_bytes), 22)
+                dst.write_bytes(header + entry + png_bytes)
+                return True
+        except Exception:
+            pass
         
     return False
+
+def get_free_disk_gb(path="."):
+    try:
+        total, used, free = shutil.disk_usage(path)
+        return free / (1024 ** 3)
+    except Exception:
+        return 10.0
+
+def get_free_ram_gb():
+    if os.name == 'nt':
+        try:
+            import ctypes
+            from ctypes import wintypes
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ('dwLength', wintypes.DWORD), ('dwMemoryLoad', wintypes.DWORD),
+                    ('ullTotalPhys', ctypes.c_uint64), ('ullAvailPhys', ctypes.c_uint64),
+                    ('ullTotalPageFile', ctypes.c_uint64), ('ullAvailPageFile', ctypes.c_uint64),
+                    ('ullTotalVirtual', ctypes.c_uint64), ('ullAvailVirtual', ctypes.c_uint64),
+                    ('sullAvailExtendedVirtual', ctypes.c_uint64),
+                ]
+            stat = MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                return stat.ullAvailPhys / (1024 ** 3)
+        except Exception: pass
+    elif sys.platform == 'darwin':
+        try:
+            out = subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True)
+            return int(out.strip()) / (1024 ** 3)
+        except Exception: pass
+    else:
+        try:
+            with open('/proc/meminfo', 'r') as f:
+                for line in f:
+                    if line.startswith('MemAvailable:'):
+                        kb = int(line.split()[1])
+                        return kb / (1024 ** 2)
+        except Exception: pass
+        
+    return 8.0
 
 class AnimatedButton(QPushButton):
     def __init__(self, text="", parent=None):
@@ -948,11 +1130,6 @@ class AnimatedButton(QPushButton):
         self.opacity_effect = QGraphicsOpacityEffect(self)
         self.setGraphicsEffect(self.opacity_effect)
         self.opacity_effect.setOpacity(1.0)
-        
-        self.animation_group = QParallelAnimationGroup()
-        self.pos_anim = QPropertyAnimation(self, b"geometry")
-        self.pos_anim.setDuration(150)
-        self.pos_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         
         self.op_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
         self.op_anim.setDuration(200)
@@ -962,29 +1139,25 @@ class AnimatedButton(QPushButton):
     def enterEvent(self, event):
         if not self.is_hovered and self.isEnabled():
             self.is_hovered = True
-            geom = self.geometry()
-            self.pos_anim.setStartValue(geom)
-            self.pos_anim.setEndValue(geom.adjusted(0, -2, 0, -2))
-            self.op_anim.setStartValue(1.0)
-            self.op_anim.setEndValue(0.85)
-            self.animation_group.start()
+            self.op_anim.stop()
+            self.op_anim.setStartValue(self.opacity_effect.opacity())
+            self.op_anim.setEndValue(0.80)
+            self.op_anim.start()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         if self.is_hovered and self.isEnabled():
             self.is_hovered = False
-            geom = self.geometry()
-            self.pos_anim.setStartValue(geom)
-            self.pos_anim.setEndValue(geom.adjusted(0, 2, 0, 2))
-            self.op_anim.setStartValue(0.85)
+            self.op_anim.stop()
+            self.op_anim.setStartValue(self.opacity_effect.opacity())
             self.op_anim.setEndValue(1.0)
-            self.animation_group.start()
+            self.op_anim.start()
         super().leaveEvent(event)
 
 class TargetIconWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(200, 200)
+        self.setFixedSize(160, 160)
         self.pixmap = None
         self.base_pixmap = None
         self.file_pixmap = None
@@ -1104,60 +1277,62 @@ class TargetIconWidget(QWidget):
     def paintEvent(self, event):
         if not self.pixmap or self.pixmap.isNull(): return
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        
-        center = self.rect().center()
-        center_x = center.x() + int(self.shake_offset)
-        icon_center_y = center.y()
-        draw_size = self.current_size
-        
-        if self.is_building:
-            radius = (self.current_size / 2) + 12
-            pen = QPen(QColor(26, 115, 232, 200))
-            pen.setWidth(4)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            painter.setPen(pen)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
             
-            rect = QRectF(center_x - radius, center.y() - radius, radius * 2, radius * 2)
-            span_angle = int((140 + 60 * math.sin(self.pulse_value * 1.5)) * 16)
-            start_angle = int(-self.spin_angle * 16)
-            painter.drawArc(rect, start_angle, span_angle)
+            center = self.rect().center()
+            center_x = center.x() + int(self.shake_offset)
+            icon_center_y = center.y()
+            draw_size = self.current_size
             
-        elif self.burst_value > 0.0:
-            pop_scale = 1.0 + math.sin(self.burst_value * math.pi) * 0.15
-            draw_size = int(self.current_size * pop_scale)
-            if self.burst_value < 1.0:
-                alpha = int(255 * (1.0 - self.burst_value))
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QColor(26, 115, 232, alpha))
-                burst_radius_1 = (self.current_size / 2) + 10 + self.burst_value * 40
-                dot_size_1 = 8 * (1.0 - self.burst_value)
-                for i in range(8):
-                    angle = math.radians(i * 45)
-                    dx = center_x + math.cos(angle) * burst_radius_1
-                    dy = center.y() + math.sin(angle) * burst_radius_1
-                    painter.drawEllipse(QPointF(dx, dy), dot_size_1, dot_size_1)
+            if self.is_building:
+                radius = (self.current_size / 2) + 12
+                pen = QPen(QColor(26, 115, 232, 200))
+                pen.setWidth(4)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                painter.setPen(pen)
                 
-                painter.setBrush(QColor(255, 193, 7, alpha))
-                burst_radius_2 = (self.current_size / 2) + self.burst_value * 65
-                dot_size_2 = 6 * (1.0 - self.burst_value)
-                for i in range(8):
-                    angle = math.radians(i * 45 + 22.5)
-                    dx = center_x + math.cos(angle) * burst_radius_2
-                    dy = center.y() + math.sin(angle) * burst_radius_2
-                    painter.drawEllipse(QPointF(dx, dy), dot_size_2, dot_size_2)
-        
-        pix_rect = QRectF(center_x - draw_size / 2.0, icon_center_y - draw_size / 2.0, float(draw_size), float(draw_size))
-        scaled_pix = self.pixmap.scaled(
-            int(draw_size * self.devicePixelRatioF()), 
-            int(draw_size * self.devicePixelRatioF()), 
-            Qt.AspectRatioMode.KeepAspectRatio, 
-            Qt.TransformationMode.SmoothTransformation
-        )
-        scaled_pix.setDevicePixelRatio(self.devicePixelRatioF())
-        painter.drawPixmap(pix_rect, scaled_pix, QRectF(scaled_pix.rect()))
-        painter.end()
+                rect = QRectF(center_x - radius, center.y() - radius, radius * 2, radius * 2)
+                span_angle = int((140 + 60 * math.sin(self.pulse_value * 1.5)) * 16)
+                start_angle = int(-self.spin_angle * 16)
+                painter.drawArc(rect, start_angle, span_angle)
+                
+            elif self.burst_value > 0.0:
+                pop_scale = 1.0 + math.sin(self.burst_value * math.pi) * 0.15
+                draw_size = int(self.current_size * pop_scale)
+                if self.burst_value < 1.0:
+                    alpha = int(255 * (1.0 - self.burst_value))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(QColor(26, 115, 232, alpha))
+                    burst_radius_1 = (self.current_size / 2) + 5 + self.burst_value * 25
+                    dot_size_1 = 8 * (1.0 - self.burst_value)
+                    for i in range(8):
+                        angle = math.radians(i * 45)
+                        dx = center_x + math.cos(angle) * burst_radius_1
+                        dy = center.y() + math.sin(angle) * burst_radius_1
+                        painter.drawEllipse(QPointF(dx, dy), dot_size_1, dot_size_1)
+                    
+                    painter.setBrush(QColor(255, 193, 7, alpha))
+                    burst_radius_2 = (self.current_size / 2) + self.burst_value * 35
+                    dot_size_2 = 6 * (1.0 - self.burst_value)
+                    for i in range(8):
+                        angle = math.radians(i * 45 + 22.5)
+                        dx = center_x + math.cos(angle) * burst_radius_2
+                        dy = center.y() + math.sin(angle) * burst_radius_2
+                        painter.drawEllipse(QPointF(dx, dy), dot_size_2, dot_size_2)
+            
+            pix_rect = QRectF(center_x - draw_size / 2.0, icon_center_y - draw_size / 2.0, float(draw_size), float(draw_size))
+            scaled_pix = self.pixmap.scaled(
+                int(draw_size * self.devicePixelRatioF()), 
+                int(draw_size * self.devicePixelRatioF()), 
+                Qt.AspectRatioMode.KeepAspectRatio, 
+                Qt.TransformationMode.SmoothTransformation
+            )
+            scaled_pix.setDevicePixelRatio(self.devicePixelRatioF())
+            painter.drawPixmap(QPointF(pix_rect.x(), pix_rect.y()), scaled_pix)
+        finally:
+            painter.end()
 
 class DropArea(QFrame):
     fileDropped = Signal(str)
@@ -1199,7 +1374,7 @@ class DropArea(QFrame):
         layout.addLayout(h_layout)
         layout.addSpacing(18)
         
-        self.label = QLabel()
+        self.label = QLabel(_("Python Packaging, Reimagined."))
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setWordWrap(True)
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
@@ -1217,11 +1392,7 @@ class DropArea(QFrame):
         self.retranslate_ui()
 
     def retranslate_ui(self):
-        if not self.current_filename:
-            self.label.setText(_("Drag & Drop Python script (.py/.pyw) here\nor Click to Browse"))
-            self.sub_label.setText(_("Auto-parse dependencies, resources, and implicit imports"))
-        else:
-            self.label.setText(_("Loaded: {filename}", filename=self.current_filename))
+        pass
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -1414,14 +1585,14 @@ class PythonScannerThread(QThread):
                 resolved_candidates.add(resolved_path)
             except:
                 resolved_candidates.add(os.path.normpath(cand))
-        candidates = resolved_candidates
 
         valid_pythons = {}
-        for cand in candidates:
+
+        def check_candidate(cand):
             if os.name == 'nt' and "WindowsApps" in cand:
                 try:
-                    if os.path.getsize(cand) == 0: continue
-                except: continue
+                    if os.path.getsize(cand) == 0: return None
+                except: return None
             try:
                 clean_env = os.environ.copy()
                 clean_env.pop("PYTHONHOME", None)
@@ -1430,11 +1601,18 @@ class PythonScannerThread(QThread):
                 clean_env["PYTHONIOENCODING"] = "utf-8"
                 kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True, "encoding": "utf-8", "env": clean_env, "timeout": 2}
                 if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-                proc = subprocess.run([cand, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"], **kwargs)
+                proc = subprocess.run([cand, "-c", "import sys; print(sys.version.split()[0])"], **kwargs)
                 if proc.returncode == 0:
-                    ver = proc.stdout.strip()
-                    valid_pythons[cand] = ver
+                    return (cand, proc.stdout.strip())
             except: pass
+            return None
+
+        with ThreadPoolExecutor(max_workers=min(12, len(resolved_candidates) or 1)) as executor:
+            results = executor.map(check_candidate, resolved_candidates)
+            for res in results:
+                if res:
+                    valid_pythons[res[0]] = res[1]
+
         self.scan_done.emit(valid_pythons)
 
 class SettingsPanel(QWidget):
@@ -1484,9 +1662,9 @@ class SettingsPanel(QWidget):
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
         """)
         self.init_ui()
-        self.load_from_config()
-        
         I18N.language_changed.connect(self.retranslate_ui)
+        self.load_from_config()
+        self.retranslate_ui()
 
         self.scanner_thread = PythonScannerThread()
         self.scanner_thread.scan_done.connect(self.populate_python_combo)
@@ -1551,11 +1729,12 @@ class SettingsPanel(QWidget):
         
         self.tab_build = QWidget()
         self.tab_pref_scroll, _cnt_pref, self.lay_pref = self._create_scroll_tab()
-        self.tab_about = QWidget()
+        self.tab_about_scroll, _cnt_abt, self.lay_about = self._create_scroll_tab()
 
         self.tabs.addTab(self.tab_build, get_svg_icon('package', "#5F6368", 16), _("Build Settings"))
         self.tabs.addTab(self.tab_pref_scroll, get_svg_icon('settings', "#5F6368", 16), _("Preferences"))
-        self.tabs.addTab(self.tab_about, get_svg_icon('info', "#5F6368", 16), _("About"))
+        self.tabs.addTab(self.tab_about_scroll, get_svg_icon('info', "#5F6368", 16), _("About"))
+
         
         self.build_build_master_tab()
         self.build_pref_tab()
@@ -1607,11 +1786,11 @@ class SettingsPanel(QWidget):
         sub_scroll4, _cnt4, lay_sub4 = self._create_scroll_tab()
         sub_scroll5, _cnt5, lay_sub5 = self._create_scroll_tab()
         
-        self.sub_tabs.addTab(sub_scroll1, _("🚀 Engine"))
-        self.sub_tabs.addTab(sub_scroll2, _("📦 Dependencies"))
-        self.sub_tabs.addTab(sub_scroll3, _("📂 Resources"))
-        self.sub_tabs.addTab(sub_scroll4, _("⚡ Optimization"))
-        self.sub_tabs.addTab(sub_scroll5, _("🗺️ Package Map"))
+        self.sub_tabs.addTab(sub_scroll1, get_svg_icon('engine', "#5F6368", 16), _("Engine"))
+        self.sub_tabs.addTab(sub_scroll2, get_svg_icon('package', "#5F6368", 16), _("Dependencies"))
+        self.sub_tabs.addTab(sub_scroll3, get_svg_icon('folder', "#5F6368", 16), _("Resources"))
+        self.sub_tabs.addTab(sub_scroll4, get_svg_icon('bolt', "#5F6368", 16), _("Optimization"))
+        self.sub_tabs.addTab(sub_scroll5, get_svg_icon('link', "#5F6368", 16), _("Package Map"))
         
         self.card_engine, c_lay_engine = self._create_card(_("Engine & Environment"))
         self.form_engine = QFormLayout()
@@ -1626,7 +1805,32 @@ class SettingsPanel(QWidget):
         self.engine_desc_lbl = QLabel()
         self.engine_desc_lbl.setWordWrap(True)
         self.engine_desc_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.engine_desc_lbl.setStyleSheet("QLabel { background-color: #f8fafc; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; padding: 9px 18px; font-size: 12px; }")
+        self.engine_desc_lbl.setStyleSheet("""
+            QLabel {
+                background-color: #f8fafc;
+                color: #334155;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 8px 12px;
+                font-size: 12px;
+                line-height: 1.5;
+            }
+        """)
+
+        self.python_desc_lbl = QLabel()
+        self.python_desc_lbl.setOpenExternalLinks(True)
+        self.python_desc_lbl.setWordWrap(True)
+        self.python_desc_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.python_desc_lbl.setStyleSheet("""
+            QLabel {
+                background-color: #ffffff;
+                color: #334155;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 8px 14px;
+                font-size: 12px;
+            }
+        """)
 
         engine_cont = QWidget()
         lay_eng = QVBoxLayout(engine_cont)
@@ -1639,16 +1843,24 @@ class SettingsPanel(QWidget):
         self.python_path_combo.setEditable(True)
         self.python_path_combo.setPlaceholderText(_("Leave blank to auto-detect system default Python"))
         setup_combo_white_theme(self.python_path_combo, min_view_width=520)
+        self.python_path_combo.currentTextChanged.connect(self.on_python_path_changed)
         
         self.btn_python_path = QPushButton(_("Browse"))
         self.btn_python_path.setProperty("class", "ToolBtn")
         self.btn_python_path.clicked.connect(self.select_python_path)
         
         py_cont = QWidget()
-        h_py = QHBoxLayout(py_cont)
-        h_py.setContentsMargins(0,0,0,0)
-        h_py.addWidget(self.python_path_combo, 1)
-        h_py.addWidget(self.btn_python_path)
+        lay_py = QVBoxLayout(py_cont)
+        lay_py.setContentsMargins(0, 0, 0, 0)
+        lay_py.setSpacing(4)
+
+        h_py_input = QHBoxLayout()
+        h_py_input.setContentsMargins(0, 0, 0, 0)
+        h_py_input.addWidget(self.python_path_combo, 1)
+        h_py_input.addWidget(self.btn_python_path)
+
+        lay_py.addLayout(h_py_input)
+        lay_py.addWidget(self.python_desc_lbl)
 
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText(_("Leave blank to auto-match script name"))
@@ -1708,7 +1920,7 @@ class SettingsPanel(QWidget):
         setup_combo_white_theme(self.pip_backup_combo, min_view_width=520)
 
         for name, url in PYPI_MIRRORS_GLOBAL:
-            display_text = f"{name}: {url}"
+            display_text = f"{_(name)}: {url}"
             self.pip_source_combo.addItem(display_text, url)
             self.pip_backup_combo.addItem(display_text, url)
             
@@ -1774,9 +1986,16 @@ class SettingsPanel(QWidget):
         lay_sub2.addStretch()
 
         self.card_res, c_lay_res = self._create_card(_("Additional Resources (Drag & Drop Supported)"))
+        
+        self.lbl_res_hint = QLabel(_("Project-specific. Not saved to global preferences. Use 'Export Preset' to save config."))
+        self.lbl_res_hint.setWordWrap(True) 
+        self.lbl_res_hint.setStyleSheet("font-size: 12px; color: #6b7280; font-weight: normal; margin-top: -2px; margin-bottom: 6px; line-height: 1.4;")
+        c_lay_res.addWidget(self.lbl_res_hint)
+
         self.add_data_list = DropListWidget()
+
         self.add_data_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self.add_data_list.setFixedHeight(180)
+        self.add_data_list.setMinimumHeight(120)
         self.add_data_list.setToolTip(_("Double-click to edit target path; Drag & drop supported"))
         
         self.add_data_list.itemDoubleClicked.connect(self.edit_resource)
@@ -1882,7 +2101,7 @@ class SettingsPanel(QWidget):
         self.mapping_table.setHorizontalHeaderLabels([_("Import Name"), _("PyPI Package Name")])
         self.mapping_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.mapping_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.mapping_table.setFixedHeight(260)
+        self.mapping_table.setMinimumHeight(150)
         c_lay_map.addWidget(self.mapping_table)
 
         btn_map_lay = QHBoxLayout()
@@ -1952,8 +2171,13 @@ class SettingsPanel(QWidget):
         self.btn_imp_preset.setProperty("class", "ToolBtn")
         self.btn_imp_preset.clicked.connect(self.import_preset)
         
+        self.btn_reset_config = QPushButton(_("Reset to Default Config"))
+        self.btn_reset_config.setProperty("class", "ToolBtn")
+        self.btn_reset_config.clicked.connect(self.reset_global_config)
+        
         h_preset.addWidget(self.btn_exp_preset)
         h_preset.addWidget(self.btn_imp_preset)
+        h_preset.addWidget(self.btn_reset_config)
         h_preset.addStretch()
         c_lay_meta.addLayout(h_preset)
 
@@ -2005,7 +2229,7 @@ class SettingsPanel(QWidget):
         self.lay_pref.addStretch()
 
     def build_about_tab(self):
-        main_lay = QVBoxLayout(self.tab_about)
+        main_lay = self.lay_about
         main_lay.setContentsMargins(40, 20, 40, 20)
         main_lay.setSpacing(15)
         main_lay.addStretch(1)
@@ -2035,36 +2259,79 @@ class SettingsPanel(QWidget):
         ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_lay.addWidget(ver_lbl)
         
-        self.about_desc_lbl = QLabel(_("A Cross-platform Python Packaging GUI Tool based on PyInstaller & Nuitka"))
+        self.about_desc_lbl = QLabel(_("Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"))
         self.about_desc_lbl.setStyleSheet("font-size: 14px; color: #5f6368;")
         self.about_desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_lay.addWidget(self.about_desc_lbl)
         main_lay.addSpacing(25)
         
         btn_lay = QHBoxLayout()
-        btn_lay.setSpacing(15)
+        btn_lay.setSpacing(12)
         btn_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        def create_link_btn(text, url):
-            btn = QPushButton(text)
+        def create_link_btn(text, url, svg_path, icon_color, bg_color, hover_bg, pressed_bg):
+            btn = QPushButton(" " + text)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton { background-color: #f1f3f4; color: #3c4043; border: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: bold; }
-                QPushButton:hover { background-color: #e8eaed; color: #1A73E8; }
-                QPushButton:pressed { background-color: #dadce0; }
+            
+            svg_str = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="{icon_color}" d="{svg_path}"/></svg>'
+            renderer = QSvgRenderer()
+            renderer.load(svg_str.encode('utf-8'))
+            pixmap = QPixmap(48, 48)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            renderer.render(painter)
+            painter.end()
+            btn.setIcon(QIcon(pixmap))
+            
+            btn.setStyleSheet(f"""
+                QPushButton {{ background-color: {bg_color}; color: #3c4043; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: bold; }}
+                QPushButton:hover {{ background-color: {hover_bg}; color: {icon_color}; }}
+                QPushButton:pressed {{ background-color: {pressed_bg}; }}
             """)
             btn.clicked.connect(lambda: __import__('webbrowser').open(url))
             return btn
             
-        btn_github = create_link_btn("GitHub Repository", "https://github.com/qwejay/QPyPack")
-        btn_issue = create_link_btn("Issues & Feedback", "https://github.com/qwejay/QPyPack/issues")
-        btn_pypi = create_link_btn("PyPI Home", "https://pypi.org/project/qpypack/")
+        p_github = "M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"
+        p_issue = "M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"
+        p_pypi = "M12.06,1.48c-3.14,0-3.52,0.67-3.52,0.67l-0.01,2.44h3.63v0.52H7.43C5.12,5.11,4.5,6.58,4.5,8.81c0,2.34,0.38,3.48,2.3,3.48 h1.14v-1.62c0-1.48,1.23-2.65,2.7-2.65h3.69c1.47,0,2.66-1.19,2.66-2.65V3.88C16.99,1.83,14.67,1.48,12.06,1.48z M10.22,2.83 c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C9.49,3.16,9.82,2.83,10.22,2.83z M16.71,9.89 v1.62c0,1.48-1.23,2.65-2.7,2.65H10.3c-1.47,0-2.66,1.19-2.66,2.65v1.49c0,2.05,2.32,2.41,4.92,2.41c3.14,0,3.52-0.67,3.52-0.67 l0.01-2.44h-3.63v-0.52h4.73c2.31,0,2.93-1.47,2.93-3.7c0-2.34-0.38-3.48-2.3-3.48H16.71z M13.88,18.96c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C13.15,19.29,13.48,18.96,13.88,18.96z"
+        p_heart = "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+
+        btn_github = create_link_btn(_("GitHub Repository"), "https://github.com/qwejay/QPyPack", p_github, "#24292e", "#f1f3f4", "#e8eaed", "#dadce0")
+        btn_issue = create_link_btn(_("Issues & Feedback"), "https://github.com/qwejay/QPyPack/issues", p_issue, "#d93025", "#f1f3f4", "#e8eaed", "#dadce0")
+        btn_pypi = create_link_btn(_("PyPI Home"), "https://pypi.org/project/qpypack/", p_pypi, "#1A73E8", "#f1f3f4", "#e8eaed", "#dadce0")
+        
+        btn_sponsor = create_link_btn(_("Sponsor"), "https://www.ifdian.net/a/qwejay", p_heart, "#d93025", "#fce8e6", "#fad2cf", "#f6aea9")
+        btn_sponsor.setStyleSheet(btn_sponsor.styleSheet().replace("color: #3c4043;", "color: #d93025;"))
         
         btn_lay.addWidget(btn_github)
         btn_lay.addWidget(btn_issue)
         btn_lay.addWidget(btn_pypi)
+        btn_lay.addWidget(btn_sponsor)
         
         main_lay.addLayout(btn_lay)
+        main_lay.addSpacing(20)
+        
+        self.sponsor_desc = QLabel()
+        self.sponsor_desc.setWordWrap(True)
+        self.sponsor_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        text_p1 = _("QPyPack is a free and open-source tool. If it has improved your efficiency or solved packaging problems, consider buying the author a coffee!")
+        text_p2 = _("* Sponsorship is completely voluntary, serves as an unconditional encouragement to the open-source community, and involves no commercial commitments. Thank you for your support!")
+        
+        self.sponsor_desc.setText(
+            f"<div style='text-align: center; font-family: sans-serif;'>"
+            f"  <p style='color: #5f6368; font-size: 13px; line-height: 1.8; margin-top: 0; margin-bottom: 12px;'>"
+            f"      {text_p1}"
+            f"  </p>"
+            f"  <p style='color: #9aa0a6; font-size: 12px; line-height: 1.6; margin: 0;'>"
+            f"      {text_p2}"
+            f"  </p>"
+            f"</div>"
+        )
+        main_lay.addWidget(self.sponsor_desc)
+
         main_lay.addStretch(1) 
         
         rights_lbl = QLabel(f"Copyright © {__company__}.")
@@ -2077,11 +2344,11 @@ class SettingsPanel(QWidget):
         self.tabs.setTabText(1, _("Preferences"))
         self.tabs.setTabText(2, _("About"))
         
-        self.sub_tabs.setTabText(0, _("🚀 Engine"))
-        self.sub_tabs.setTabText(1, _("📦 Dependencies"))
-        self.sub_tabs.setTabText(2, _("📂 Resources"))
-        self.sub_tabs.setTabText(3, _("⚡ Optimization"))
-        self.sub_tabs.setTabText(4, _("🗺️ Package Map"))
+        self.sub_tabs.setTabText(0, _("Engine"))
+        self.sub_tabs.setTabText(1, _("Dependencies"))
+        self.sub_tabs.setTabText(2, _("Resources"))
+        self.sub_tabs.setTabText(3, _("Optimization"))
+        self.sub_tabs.setTabText(4, _("Package Map"))
         
         self.card_engine.findChild(QLabel, "CardTitle").setText(_("Engine & Environment"))
         self.card_mode.findChild(QLabel, "CardTitle").setText(_("Execution Mode"))
@@ -2116,6 +2383,27 @@ class SettingsPanel(QWidget):
         self.lbl_out_rule_title.setText(_("Output Rule:"))
         self.lbl_target_out_title.setText(_("Target Directory:"))
 
+        if hasattr(self, 'pip_source_combo') and hasattr(self, 'pip_backup_combo'):
+            cur_main = self._get_url_from_combo(self.pip_source_combo)
+            cur_back = self._get_url_from_combo(self.pip_backup_combo)
+
+            self.pip_source_combo.blockSignals(True)
+            self.pip_backup_combo.blockSignals(True)
+
+            self.pip_source_combo.clear()
+            self.pip_backup_combo.clear()
+
+            for name, url in PYPI_MIRRORS_GLOBAL:
+                display_text = f"{_(name)}: {url}"
+                self.pip_source_combo.addItem(display_text, url)
+                self.pip_backup_combo.addItem(display_text, url)
+
+            self._set_combo_value(self.pip_source_combo, cur_main)
+            self._set_combo_value(self.pip_backup_combo, cur_back)
+
+            self.pip_source_combo.blockSignals(False)
+            self.pip_backup_combo.blockSignals(False)
+
         self.btn_save.setText(_("Save & Return"))
         self.btn_python_path.setText(_("Browse"))
         self.btn_icon.setText(_("Browse"))
@@ -2132,6 +2420,7 @@ class SettingsPanel(QWidget):
         self.btn_reset_map.setText(_("Restore Defaults"))
         self.btn_exp_preset.setText(_("Export Preset..."))
         self.btn_imp_preset.setText(_("Import Preset..."))
+        self.btn_reset_config.setText(_("Reset to Default Config"))
         
         self.python_path_combo.setPlaceholderText(_("Leave blank to auto-detect system default Python"))
         self.name_edit.setPlaceholderText(_("Leave blank to auto-match script name"))
@@ -2158,13 +2447,26 @@ class SettingsPanel(QWidget):
         self.out_mode_combo.setItemText(0, _("Source File Directory"))
         self.out_mode_combo.setItemText(1, _("Custom Directory"))
         self.mapping_table.setHorizontalHeaderLabels([_("Import Name"), _("PyPI Package Name")])
-        self.about_desc_lbl.setText(_("A Cross-platform Python Packaging GUI Tool based on PyInstaller & Nuitka"))
+        self.about_desc_lbl.setText(_("Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"))
+        
+        text_p1 = _("QPyPack is a free and open-source tool. If it has improved your efficiency or solved packaging problems, consider buying the author a coffee!")
+        text_p2 = _("* Sponsorship is completely voluntary, serves as an unconditional encouragement to the open-source community, and involves no commercial commitments. Thank you for your support!")
+        self.sponsor_desc.setText(
+            f"<div style='text-align: center; font-family: sans-serif;'>"
+            f"  <p style='color: #5f6368; font-size: 13px; line-height: 1.8; margin-top: 0; margin-bottom: 12px;'>{text_p1}</p>"
+            f"  <p style='color: #9aa0a6; font-size: 12px; line-height: 1.6; margin: 0;'>{text_p2}</p>"
+            f"</div>"
+        )
+
 
         self.btn_reset.setToolTip(_("Reset to Default Config"))
         self.btn_back.setToolTip(_("Cancel & Return"))
-        self.add_data_list.setToolTip(_("Double-click to edit target path; Drag & drop supported"))
+        if hasattr(self, 'lbl_res_hint'):
+            self.lbl_res_hint.setText(_("Project-specific. Not saved to global preferences. Use 'Export Preset' to save config."))
+        self.add_data_list.setToolTip(_("Double-click to edit target path; Drag & drop supported. Use 'Export Preset' to save for reuse."))
         self.lite_mode_check.setToolTip(_("Dynamically exclude redundant dependencies in build environment, improving speed and reducing size."))
         self.on_engine_changed()
+        self.on_python_path_changed()
 
     def populate_python_combo(self, py_dict):
         current_text = self.python_path_combo.currentText().strip()
@@ -2188,6 +2490,18 @@ class SettingsPanel(QWidget):
                     break
             if not found: self.python_path_combo.setCurrentText(current_text)
 
+        fm = self.python_path_combo.fontMetrics()
+        max_width = 520
+        for i in range(self.python_path_combo.count()):
+            text_w = fm.horizontalAdvance(self.python_path_combo.itemText(i))
+            if text_w > max_width:
+                max_width = text_w
+                
+        if self.python_path_combo.view():
+            self.python_path_combo.view().setMinimumWidth(max_width + 36)
+
+        self.on_python_path_changed()
+
     def populate_mapping_table(self, mappings_dict):
         self.mapping_table.setRowCount(0)
         for imp_name, pypi_name in mappings_dict.items():
@@ -2197,9 +2511,9 @@ class SettingsPanel(QWidget):
             self.mapping_table.setItem(row, 1, QTableWidgetItem(pypi_name))
 
     def add_mapping_item(self):
-        imp_name, ok1 = QInputDialog.getText(self, _("Add Mapping"), "Import name (e.g. cv2):")
+        imp_name, ok1 = QInputDialog.getText(self, _("Add Mapping"), _("Import name (e.g. cv2):"))
         if not ok1 or not imp_name.strip(): return
-        pypi_name, ok2 = QInputDialog.getText(self, _("Add Mapping"), f"PyPI package name for [{imp_name.strip()}]:")
+        pypi_name, ok2 = QInputDialog.getText(self, _("Add Mapping"), _("PyPI package name for [{imp_name}]:", imp_name=imp_name.strip()))
         if not ok2 or not pypi_name.strip(): return
         
         row = self.mapping_table.rowCount()
@@ -2330,12 +2644,6 @@ class SettingsPanel(QWidget):
             self.pipreqs_ver_edit.setText(s.get('pipreqs_version', ''))
             
             self.add_data_list.clear()
-            res_str = s.get('add_data_list', '')
-            if res_str:
-                for part in res_str.split("|||"):
-                    if part.count('|') == 2:
-                        r_type, src, dst = part.split('|')
-                        self._add_resource_item(r_type, src, dst)
 
         if 'Mappings' in config:
             self.populate_mapping_table(dict(config['Mappings']))
@@ -2384,10 +2692,7 @@ class SettingsPanel(QWidget):
         s['pipreqs_version'] = self.pipreqs_ver_edit.text().strip()
         
         res_list = []
-        for i in range(self.add_data_list.count()):
-            r_type, src, dst = self.add_data_list.item(i).data(Qt.ItemDataRole.UserRole)
-            res_list.append(f"{r_type}|{src}|{dst}")
-        s['add_data_list'] = "|||".join(res_list)
+        s['add_data_list'] = ''
 
         config['Mappings'] = {}
         for r in range(self.mapping_table.rowCount()):
@@ -2422,14 +2727,43 @@ class SettingsPanel(QWidget):
     def on_engine_changed(self):
         engine = self.engine_combo.currentText()
         if engine == "PyInstaller":
-            self.engine_desc_lbl.setText(_("<b>PyInstaller</b>: Fast build speed, excellent compatibility. Ideal for rapid iteration."))
+            self.engine_desc_lbl.setText(_("PyInstaller — Bundles Python interpreter and bytecode. Fast build speed, zero configuration (no C compiler needed), and excellent compatibility."))
         else:
-            self.engine_desc_lbl.setText(_("<b>Nuitka</b>: Compiles to native C/C++ binary. Better performance and source code protection."))
+            self.engine_desc_lbl.setText(_("Nuitka — Compiles source code into native C/C++ binary. Produces smaller package size, faster execution, and deep anti-decompilation protection (requires C compiler)."))
 
         if getattr(self, 'upx_check', None) is not None and getattr(self, 'upx_path_container', None) is not None:
-            is_pyi = (engine == "PyInstaller")
-            self.upx_check.setVisible(is_pyi)
-            self.upx_path_container.setVisible(is_pyi and self.upx_check.isChecked())
+            self.upx_check.setVisible(True)
+            self.upx_path_container.setVisible(self.upx_check.isChecked())
+
+    def on_python_path_changed(self, text=""):
+        raw_text = text or self.python_path_combo.currentText().strip()
+        ver_match = re.search(r'Python\s+(\d+\.\d+)', raw_text, re.I)
+        
+        ver_str = ver_match.group(1) if ver_match else ""
+        if not ver_str:
+            m_path = re.search(r'python(\d)(\d+)', raw_text, re.I)
+            if m_path: ver_str = f"{m_path.group(1)}.{m_path.group(2)}"
+
+        self.python_desc_lbl.setStyleSheet("QLabel { background-color: #f8fafc; color: #334155; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 12px; line-height: 1.5; }")
+
+        if ver_str:
+            try:
+                parts = [int(x) for x in ver_str.split('.')]
+                major, minor = parts[0], parts[1]
+                
+                if (major, minor) <= (3, 8):
+                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Legacy OS</span> <span style="color:#6b7280; font-size:11px;">Full backward compatibility</span>', ver=ver_str))
+                elif (major, minor) <= (3, 10):
+                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>', ver=ver_str))
+                elif (major, minor) <= (3, 12):
+                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">MinGW64 supported out-of-the-box</span>', ver=ver_str))
+                else:
+                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.15+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#fef3c7; color:#b45309; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#d97706; font-size:11px;">Requires MSVC / Clang / Zig (MinGW64 unsupported)</span>', ver=ver_str))
+                return
+            except Exception:
+                pass
+
+        self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python Interpreter</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#6b7280;">Auto-detecting system environment for Windows, macOS & Linux...</span>'))
 
     def on_upx_toggled(self, checked):
         if getattr(self, 'upx_path_container', None) is not None:
@@ -2519,7 +2853,7 @@ class SettingsPanel(QWidget):
         if not item: item = self.add_data_list.currentItem()
         if not item: return
         r_type, src, dst = item.data(Qt.ItemDataRole.UserRole)
-        new_dst, ok = QInputDialog.getText(self, "Edit Path", "Target relative path:", text=dst)
+        new_dst, ok = QInputDialog.getText(self, _("Edit Path"), _("Target relative path:"), text=dst)
         if ok and new_dst:
             new_dst = new_dst.strip().replace('\\', '/')
             if not new_dst: new_dst = "."
@@ -2534,14 +2868,33 @@ class SettingsPanel(QWidget):
     def clear_resource(self):
         self.add_data_list.clear()
 
+    def reset_global_config(self):
+        reply = QMessageBox.question(self, _("Reset to Default Config"), 
+                                     _("Are you sure you want to reset all preferences to default?"),
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            if os.path.exists(CONFIG_FILE):
+                try:
+                    os.remove(CONFIG_FILE)
+                except: pass
+            
+            load_config()
+            self.load_from_config()
+            
+            if hasattr(self.parent_win, "show_notification"):
+                self.parent_win.show_notification(_("Global configuration has been reset."))
+
 class ScriptAnalysisThread(QThread):
     analysis_done = Signal(str, str, str, str, set)
 
-    def __init__(self, path):
+    def __init__(self, path, python_exe=None):
         super().__init__()
         self.path = path
+        self.python_exe = python_exe or get_python_executable()
 
     def run(self):
+        if self.isInterruptionRequested(): return
+        
         app_name = Path(self.path).stem
         version = ""
         author = "My Studio"
@@ -2569,16 +2922,19 @@ class ScriptAnalysisThread(QThread):
             if d_match: desc = d_match.group(1)
         except: pass
 
+        if self.isInterruptionRequested(): return
+
         try:
-            python_exe = get_python_executable()
-            script_imports = extract_imports_via_ast(self.path, python_exe)
+            script_imports = extract_imports_via_ast(self.path, self.python_exe)
         except: pass
+
+        if self.isInterruptionRequested(): return
 
         self.analysis_done.emit(app_name, version, author, desc, script_imports)
 
 class PackingThread(QThread):
     progress = Signal(str)
-    finished = Signal(bool, str, list)
+    build_finished = Signal(bool, str, list)
 
     def __init__(self, params):
         super().__init__()
@@ -2606,16 +2962,15 @@ class PackingThread(QThread):
         
         timer = None
         is_timeout = [False]
-        cmd_raw_lines = []  
         
         clean_env = os.environ.copy()
         clean_env.pop("PYTHONHOME", None)
         clean_env.pop("PYTHONPATH", None)
-        
         clean_env["PYTHONUTF8"] = "1"
         clean_env["PYTHONIOENCODING"] = "utf-8"
         clean_env["LANG"] = "en_US.UTF-8"
-        clean_env["LC_ALL"] = "en_US.UTF-8"        
+        clean_env["LC_ALL"] = "en_US.UTF-8"
+        clean_env["PYTHONUNBUFFERED"] = "1"
         try:
             kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "cwd": cwd, 
                       "text": True, "encoding": "utf-8", "errors": "replace", "env": clean_env}
@@ -2639,24 +2994,13 @@ class PackingThread(QThread):
             buffer = []
             last_emit = time.time()
             
-            def is_noisy_line(l):
-                l_lower = l.lower()
-                if "error:" in l_lower: return False
-                if "upx" in l_lower and ("subprocess.calledprocesserror" in l_lower or "notcompressibleexception" in l_lower):
-                    return True
-                return any(kw in l_lower for kw in ["warning:", "info:", "deprecation:", "userwarning:", "futurewarning:"])
-
             for line in self.process.stdout:
                 if self._is_cancelled:
                     self.process.terminate()
                     return False
                 
                 stripped = line.rstrip('\r\n')
-                cmd_raw_lines.append(stripped)
                 self.all_raw_logs.append(stripped)
-                
-                if self.params.get('concise_log', True) and is_noisy_line(stripped):
-                    continue
                 
                 buffer.append(stripped)
                 if len(buffer) >= 15 or (time.time() - last_emit) > 0.1:
@@ -2668,30 +3012,33 @@ class PackingThread(QThread):
             self.process.wait()
             
             if is_timeout[0]:
-                self.progress.emit(f"[WARN] Command timeout (>{timeout}s)")
+                self.progress.emit(_("[WARN] Command timeout (>{timeout}s)", timeout=timeout))
                 return False
                 
-            success = self.process.returncode == 0
-            if not success and not silent_error and self.params.get('concise_log', True) and cmd_raw_lines:
-                self.progress.emit(_("\n!!!!!!!!!! [Diagnostic Traceback: Full raw log due to execution exception in this step] !!!!!!!!!!"))
-                self.progress.emit('\n'.join(cmd_raw_lines))
-                self.progress.emit("!"*60 + "\n")
-                
-            return success
+            return self.process.returncode == 0
         except FileNotFoundError as e:
-            self.progress.emit(f"[ERROR] Process error: command or binary missing ({e})")
+            self.progress.emit(_("[ERROR] Process error: command or binary missing ({error})", error=str(e)))
             return False
         except Exception as e:
-            self.progress.emit(f"[ERROR] System execution exception: {e}")
+            self.progress.emit(_("[ERROR] System execution exception: {error}", error=str(e)))
             return False
         finally:
             if timer: timer.cancel()
+            if self.process and self.process.stdout:
+                try:
+                    self.process.stdout.close()
+                except Exception:
+                    pass
 
     def run_pip_install(self, python_exe, pkgs_or_args):
         primary_idx = self.params.get('pip_index_url', '').strip()
         backup_idx = self.params.get('pip_index_backup', '').strip()
 
-        pip_args = []
+        pip_args = [
+            "--default-timeout=120", 
+            "--disable-pip-version-check", 
+            "--prefer-binary"
+        ]
         if primary_idx: pip_args.extend(["-i", primary_idx])
         if backup_idx and backup_idx != primary_idx: pip_args.extend(["--extra-index-url", backup_idx])
 
@@ -2699,19 +3046,15 @@ class PackingThread(QThread):
         success = self.run_cmd(cmd)
 
         if not success and backup_idx and backup_idx != primary_idx:
-            last_logs = "\n".join(self.all_raw_logs[-15:]).lower()
-            if "no matching distribution found" in last_logs or "could not find a version" in last_logs:
-                return False
-
             self.progress.emit(_("[INFO] Switching to backup PyPI source for retrieval: {url}", url=backup_idx))
-            fallback_cmd = [python_exe, "-m", "pip", "install"] + pkgs_or_args + ["-i", backup_idx]
+            fallback_cmd = [python_exe, "-m", "pip", "install"] + pkgs_or_args + ["-i", backup_idx, "--disable-pip-version-check", "--prefer-binary"]
             success = self.run_cmd(fallback_cmd)
 
         return success
 
     def sanitize_script(self, orig_path: Path):
         if is_cloud_locked(orig_path):
-            return None, False, _("Target file is locked or encrypted by cloud drive. Please decrypt and try again.")
+            return None, False, _("[ERROR] Target file is locked or encrypted by cloud drive. Please decrypt and try again.")
         
         if not self.params['noconsole']:
             try:
@@ -2719,26 +3062,34 @@ class PackingThread(QThread):
                 try: code = raw.decode('utf-8-sig')
                 except: code = raw.decode(locale.getpreferredencoding(), errors='ignore')
                 
-                pause_prompt_str = _("\\nProgram execution completed, press Enter to exit...")
-                pause_code = "\n" + "#"*30 + "\n" + (
-                    "try:\n"
-                    "    import sys\n"
-                    "    if sys.platform == 'win32':\n"
-                    "        import ctypes\n"
-                    "        kernel32 = ctypes.windll.kernel32\n"
-                    "        process_list = (ctypes.c_uint * 10)()\n"
-                    "        num_processes = kernel32.GetConsoleProcessList(process_list, 10)\n"
-                    "        if num_processes <= 2:\n"
-                    f"            input('{pause_prompt_str}')\n"
-                    "except:\n"
-                    "    pass\n"
+                pause_prompt_str = _("\\nProgram execution completed, press Enter to exit...").replace('\\n', '\n')
+                
+                pause_code = (
+                    "# --- QPyPack Auto-injected Console Pause ---\n"
+                    "import atexit\n"
+                    "def _qpypack_pause():\n"
+                    "    try:\n"
+                    "        import sys\n"
+                    "        if sys.platform == 'win32':\n"
+                    "            import ctypes\n"
+                    "            if ctypes.windll.kernel32.GetConsoleProcessList((ctypes.c_uint * 10)(), 10) <= 2:\n"
+                    f"                input({repr(pause_prompt_str)})\n"
+                    "    except:\n"
+                    "        pass\n"
+                    "atexit.register(_qpypack_pause)\n"
+                    "# -------------------------------------------\n\n"
                 )
                 
-                temp_file = Path(tempfile.gettempdir()) / f"_qpypack_temp_entry_{int(time.time())}_{orig_path.name}"
-                temp_file.write_text(code + pause_code, encoding='utf-8')
+                temp_file = orig_path.parent / f"_qpypack_temp_{orig_path.name}"
+                try:
+                    temp_file.write_text(pause_code + code, encoding='utf-8')
+                except PermissionError:
+                    temp_file = Path(tempfile.gettempdir()) / f"_qpypack_temp_{orig_path.name}"
+                    temp_file.write_text(pause_code + code, encoding='utf-8')
+                    
                 return temp_file, True, ""
             except Exception as e:
-                self.progress.emit(f"[WARN] Pause code injection exception: {e}")
+                self.progress.emit(_("[WARN] Pause code injection exception: {error}", error=str(e)))
                 
         return orig_path, False, ""
 
@@ -2757,7 +3108,7 @@ class PackingThread(QThread):
             err_desc = last_err.group(2)
             
             err_pos = last_err.start()
-            line_no = "未知"
+            line_no = _("Unknown")
             file_name = script_name
             
             file_line_matches = list(file_line_pat.finditer(log_text))
@@ -2781,6 +3132,7 @@ class PackingThread(QThread):
     def run(self):
         os.environ["NUITKA_ACCEPT_DOWNLOADS"] = "yes"
         engine = self.params['engine']
+        app_name = self.params.get('app_name', 'app').strip() or 'app'
         pip_idx = self.params.get('pip_index_url', '').strip()
         pip_backup = self.params.get('pip_index_backup', '').strip()
         is_temp = False
@@ -2789,28 +3141,129 @@ class PackingThread(QThread):
         failed_packages = []
 
         try:
-            self.progress.emit(_("[INFO] Initializing isolated build environment..."))
+            self.progress.emit(_("[INFO] Analyzing source code and project dependencies..."))
             script_path = Path(self.params['script_path']).resolve()
             script_dir = script_path.parent
+
+            try:
+                compile(script_path.read_bytes(), script_path.name, 'exec')
+            except SyntaxError as e:
+                err_type = type(e).__name__
+                msg = _("[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.", 
+                        file=script_path.name, type=err_type, line=e.lineno or _("Unknown"), desc=e.msg or "Invalid syntax")
+                return self.build_finished.emit(False, msg, [])
+
+            self.progress.emit(_("[INFO] Performing pre-flight environment checks..."))
             
+            out_mode = int(self.params.get('out_mode', 0) or 0)
+            custom_out = (self.params.get('custom_out_dir') or '').strip()
+            target_out_dir = Path(custom_out) if (out_mode == 1 and custom_out) else script_dir
+            try:
+                target_out_dir.mkdir(parents=True, exist_ok=True)
+                test_file = target_out_dir / ".qpypack_write_test"
+                test_file.write_text("test")
+                test_file.unlink()
+            except Exception as e:
+                return self.build_finished.emit(False, _("[ERROR] Output directory is missing write permissions: {error}", error=str(e)), [])
+
+            if self.params.get('use_reqs'):
+                custom_reqs = (self.params.get('reqs_file') or '').strip()
+                if custom_reqs and not Path(custom_reqs).exists():
+                    return self.build_finished.emit(False, _("[ERROR] Requirements file not found: {path}", path=custom_reqs), [])
+
+            for r_type, src, dst in (self.params.get('add_data_list') or []):
+                if not Path(src).exists():
+                    return self.build_finished.emit(False, _("[ERROR] Additional resource file/directory not found: {path}", path=src), [])
+
+            free_disk = get_free_disk_gb(script_dir.as_posix())
+            if free_disk < 0.5:
+                return self.build_finished.emit(False, _("[ERROR] Insufficient disk space (Available: {free:.1f} GB). At least 0.5 GB is required to safely initialize the build environment.", free=free_disk), [])
+
+            system_python_exe = get_python_executable()
+            if not system_python_exe or not shutil.which(system_python_exe):
+                return self.build_finished.emit(False, _("[ERROR] Python interpreter is invalid or not found: {path}", path=system_python_exe), [])
+
+            if is_cloud_sync_path(script_dir):
+                self.progress.emit(_("[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files."))
+
             build_script_path, is_temp, err_msg = self.sanitize_script(script_path)
-            if not build_script_path and err_msg: return self.finished.emit(False, f"[ERROR] I/O Exception: {err_msg}", [])
+            if not build_script_path and err_msg: 
+                return self.build_finished.emit(False, f"[ERROR] I/O Exception: {err_msg}", [])
             script_posix = build_script_path.as_posix()
 
             system_python_exe = get_python_executable()
-            self.progress.emit(_("[INFO] Python interpreter path: {path}", path=system_python_exe))
 
             script_imports = set()
             try:
                 script_imports = extract_imports_via_ast(script_posix, system_python_exe)
             except Exception as e:
-                self.progress.emit(f"[WARN] AST Analysis Exception: {e}")
+                self.progress.emit(_("[WARN] AST Analysis Exception: {error}", error=str(e)))
+
+            known_mappings = self.params.get('mappings', DEFAULT_MAPPINGS.copy())
+            known_mappings_lower = {k.lower(): v for k, v in known_mappings.items()}
+
+            def get_canonical_pypi_name(raw_name):
+                clean = raw_name.strip().lower().replace('_', '-')
+                return known_mappings_lower.get(clean, clean).lower()
+
+            def parse_req_line(line):
+                line = line.strip()
+                if not line or line.startswith('#') or line.startswith('-'):
+                    return None, None
+                m = re.match(r'^([a-zA-Z0-9_\-\.]+)(.*)$', line)
+                if m:
+                    pkg_raw = m.group(1)
+                    canon_name = get_canonical_pypi_name(pkg_raw)
+        
+                    if canon_name.lower() != pkg_raw.lower():
+                        full_spec = canon_name
+                    else:
+                        full_spec = line
+                    return canon_name, full_spec
+                return None, None
+
+            final_dependencies = {}
+            reqs_declared_pkgs = set()
+            auto_detected_pkgs = set()
+            auto_added_supplements = set()
+
+            if self.params.get('use_reqs'):
+                custom_reqs = self.params.get('reqs_file', '').strip()
+                req_file = Path(custom_reqs) if (custom_reqs and Path(custom_reqs).exists()) else (script_dir / "requirements.txt")
+                if req_file.exists():
+                    try:
+                        if is_cloud_locked(req_file): raise ValueError("Requirements file is locked")
+                        raw_req = req_file.read_bytes()
+                        try: req_content = raw_req.decode('utf-8-sig')
+                        except: req_content = raw_req.decode(locale.getpreferredencoding(), errors='ignore')
+                        
+                        for line in req_content.splitlines():
+                            canon_name, full_spec = parse_req_line(line)
+                            if canon_name:
+                                final_dependencies[canon_name] = full_spec
+                                reqs_declared_pkgs.add(canon_name)
+                    except Exception as e:
+                        self.progress.emit(_("[WARN] Read requirements.txt warning: {error}", error=str(e)))
+
+            local_modules = {p.stem.lower() for p in script_dir.iterdir() 
+                             if (p.is_file() and p.suffix.lower() in ('.py', '.pyw', '.pyd', '.so')) or (p.is_dir() and (p / '__init__.py').exists())}
+
+            for m in script_imports:
+                if m in STD_LIBS or m.lower() in local_modules: continue
+                canon_name = get_canonical_pypi_name(m)
+                auto_detected_pkgs.add(canon_name)
+                if canon_name not in final_dependencies:
+                    final_dependencies[canon_name] = canon_name
+                    auto_added_supplements.add(canon_name)
+
+            self.progress.emit(_("[INFO] Initializing isolated build environment..."))
+            self.progress.emit(_("[INFO] Python interpreter path: {path}", path=system_python_exe))
 
             if self.params['use_venv']:
                 self.progress.emit(_("[INFO] Creating virtual environment..."))
                 self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
                 if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
-                    return self.finished.emit(False, _("[ERROR] Failed to create virtual environment. Current Python environment might be missing necessary modules or have restricted permissions."), [])
+                    return self.build_finished.emit(False, _("[ERROR] Failed to create virtual environment. Current Python environment might be missing necessary modules or have restricted permissions."), [])
                 python_exe = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
                 
                 self.progress.emit(_("[INFO] Synchronizing and upgrading pip package manager..."))
@@ -2818,150 +3271,114 @@ class PackingThread(QThread):
             else: 
                 python_exe = system_python_exe
 
+            if self.params.get('use_pipreqs'):
+                self.progress.emit(_("[INFO] Scanning project source code via pipreqs..."))
+                sandbox_dir = Path(tempfile.mkdtemp(prefix="qpypack_sandbox_")).resolve() if not self.params.get('use_pipreqs_dir', False) else script_dir
+                if not self.params.get('use_pipreqs_dir', False):
+                    shutil.copy2(build_script_path, sandbox_dir / build_script_path.name)
+
+                pipreqs_pkg = f"pipreqs=={self.params['pipreqs_version']}" if self.params.get('pipreqs_version') else "pipreqs"
+                self.run_pip_install(python_exe, [pipreqs_pkg, "-q"])
+                temp_pipreqs = Path(tempfile.gettempdir()) / f"qpypack_pipreqs_{int(time.time())}.txt"
+                
+                pypi_server = re.sub(r'/simple/?$', '/pypi', pip_idx, flags=re.I).rstrip('/') if pip_idx else None
+                pipreqs_cmd = [
+                    python_exe, "-m", "pipreqs.pipreqs", sandbox_dir.as_posix(), 
+                    "--encoding", "utf-8", "--force", "--savepath", temp_pipreqs.as_posix()
+                ]
+                if pypi_server: pipreqs_cmd.extend(["--pypi-server", pypi_server])
+                
+                success_pipreqs = self.run_cmd(pipreqs_cmd, timeout=120, silent_error=True)
+                
+                if success_pipreqs and temp_pipreqs.exists():
+                    try:
+                        pipreqs_lines = temp_pipreqs.read_text(encoding='utf-8', errors='ignore').splitlines()
+                        for line in pipreqs_lines:
+                            canon_name, unused_spec = parse_req_line(line)
+                            if canon_name:
+                                auto_detected_pkgs.add(canon_name)
+                                if canon_name not in final_dependencies:
+                                    final_dependencies[canon_name] = unused_spec
+                                    auto_added_supplements.add(canon_name)
+                    except Exception as e:
+                        self.progress.emit(_("[WARN] Parse pipreqs output warning: {error}", error=str(e)))
+                    temp_pipreqs.unlink(missing_ok=True)
+                    
+                if not self.params.get('use_pipreqs_dir', False) and sandbox_dir.exists():
+                    robust_rmtree(sandbox_dir)
+
             engine_pkg = "nuitka" if engine == "Nuitka" else "pyinstaller"
             if engine == "Nuitka" and self.params.get('nuitka_version'):
                 engine_pkg = f"nuitka=={self.params['nuitka_version']}"
             elif engine == "PyInstaller" and self.params.get('pyi_version'):
                 engine_pkg = f"pyinstaller=={self.params['pyi_version']}"
             
-            self.progress.emit(_("[INFO] Installing build engine [{pkg}] and core compilation dependencies...", pkg=engine_pkg))
-            core_pkgs = [engine_pkg]
+            engine_pkgs = [engine_pkg]
             if engine == "PyInstaller": 
-                core_pkgs.append("pillow")
+                engine_pkgs.append("pillow")
             elif engine == "Nuitka":
-                core_pkgs.append("zstandard")
-                self.progress.emit(_("[INFO] Nuitka Tip: If prompted to download GCC/MinGW compiler on first build, please ensure stable network connection."))
+                engine_pkgs.append("zstandard")
+
+            self.progress.emit(_("[INFO] Resolving project dependencies..."))
+            if reqs_declared_pkgs:
+                self.progress.emit("  • " + _("Declared in requirements.txt ({count}): {pkgs}", count=len(reqs_declared_pkgs), pkgs=', '.join(sorted(reqs_declared_pkgs))))
+            else:
+                self.progress.emit("  • " + _("Declared in requirements.txt: None"))
+                
+            self.progress.emit("  • " + _("Discovered via scanner ({count}): {pkgs}", count=len(auto_detected_pkgs), pkgs=', '.join(sorted(auto_detected_pkgs))))
             
-            self.run_pip_install(python_exe, ["-q"] + core_pkgs)
-                      
-            if self.params.get('use_reqs'):
-                custom_reqs = self.params.get('reqs_file', '').strip()
-                if custom_reqs and Path(custom_reqs).exists():
-                    req_file = Path(custom_reqs)
+            if auto_added_supplements:
+                self.progress.emit("  • " + _("Auto-patched missing ({count}): {pkgs}", count=len(auto_added_supplements), pkgs=', '.join(sorted(auto_added_supplements))))
+            else:
+                self.progress.emit("  • " + _("Manifest complete (No missing packages)"))
+
+            self.progress.emit("  • " + _("Build engine packages ({count}): {pkgs}", count=len(engine_pkgs), pkgs=', '.join(sorted(engine_pkgs))))
+
+            final_install_dict = {}
+            for spec in engine_pkgs + list(final_dependencies.values()):
+                m = re.match(r'^([a-zA-Z0-9_\-\.]+)(.*)$', spec.strip())
+                if m:
+                    base_name = m.group(1).lower()
+                    has_ver = bool(m.group(2).strip())
+                    if base_name in final_install_dict:
+                        existing_has_ver = bool(re.match(r'^[a-zA-Z0-9_\-\.]+[=><!~]', final_install_dict[base_name]))
+                        if existing_has_ver and not has_ver:
+                            continue
+                    final_install_dict[base_name] = spec
+            dedup_install_list = list(final_install_dict.values())
+
+            temp_unified_reqs = Path(tempfile.gettempdir()) / f"qpypack_atomic_reqs_{int(time.time())}.txt"
+
+            temp_unified_reqs.write_text('\n'.join(dedup_install_list), encoding='utf-8')
+
+            total_pkgs = len(dedup_install_list)
+            pkg_names_str = ', '.join(sorted(dedup_install_list))
+            
+            self.progress.emit(_("[INFO] Installing build environment and project dependencies ({count} packages): {pkgs}", count=total_pkgs, pkgs=pkg_names_str))
+
+            if not self.run_pip_install(python_exe, ["-q", "-r", temp_unified_reqs.as_posix()]):
+                self.progress.emit(_("[WARN] Specified versions failed to install. Stripping version constraints for automatic compatibility match..."))
+                
+                flex_install_list = [re.split(r'[=><!~]', pkg)[0].strip() for pkg in dedup_install_list]
+                temp_flex_reqs = Path(tempfile.gettempdir()) / f"qpypack_flex_reqs_{int(time.time())}.txt"
+                temp_flex_reqs.write_text('\n'.join(flex_install_list), encoding='utf-8')
+                
+                if not self.run_pip_install(python_exe, ["-q", "-r", temp_flex_reqs.as_posix()]):
+                    self.progress.emit(_("[WARN] Some dependencies failed to install, build will proceed with risk..."))
+                    failed_packages.extend(flex_install_list)
                 else:
-                    req_file = script_dir / "requirements.txt"
-                
-                if req_file.exists():
-                    self.progress.emit(_("[INFO] Dependency installation [1/3]: Installing declared dependencies ({filename})...", filename=req_file.name))
-                    try:
-                        if is_cloud_locked(req_file): 
-                            raise ValueError("Requirements file is locked")
-                        raw_req = req_file.read_bytes()
-                        try: req_content = raw_req.decode('utf-8-sig')
-                        except: req_content = raw_req.decode(locale.getpreferredencoding(), errors='ignore')
-                        
-                        temp_req = Path(tempfile.gettempdir()) / f"qpypack_temp_reqs_{int(time.time())}.txt"
-                        temp_req.write_text(req_content, encoding='utf-8')
-                        self.run_pip_install(python_exe, ["-q", "-r", temp_req.as_posix()])
-                        temp_req.unlink(missing_ok=True)
-                    except Exception as e: 
-                        self.progress.emit(f"[WARN] Requirements install exception: {e}")
-
-            if self.params.get('use_pipreqs'):
-                self.progress.emit(_("[INFO] Dependency installation [2/3]: Calling pipreqs to analyze project dependencies..."))
-                sandbox_dir = None
-                if not self.params.get('use_pipreqs_dir', False):
-                    sandbox_dir = Path(tempfile.mkdtemp(prefix="qpypack_sandbox_")).resolve()
-                    shutil.copy2(build_script_path, sandbox_dir / build_script_path.name)
-                    target_scan_dir = sandbox_dir
-                    self.progress.emit(_("[INFO] Enabled single-file sandbox mode: parsing current script only to prevent pollution from other files."))
-                else:
-                    target_scan_dir = script_dir
-                    self.progress.emit(_("[WARN] Enabled full-directory scan mode: scanning all Python files in the current directory..."))
-
-                pipreqs_pkg = "pipreqs"
-                if self.params.get('pipreqs_version'):
-                    pipreqs_pkg = f"pipreqs=={self.params['pipreqs_version']}"
+                    self.progress.emit(_("[INFO] Successfully installed compatible versions."))
                     
-                self.run_pip_install(python_exe, [pipreqs_pkg, "-q"])
-                temp_pipreqs = Path(tempfile.gettempdir()) / f"qpypack_pipreqs_{int(time.time())}.txt"
+                temp_flex_reqs.unlink(missing_ok=True)
+
+
                 
-                pypi_server = None
-                if pip_idx:
-                    pypi_server = re.sub(r'/simple/?$', '/pypi', pip_idx, flags=re.I).rstrip('/')
-                
-                pipreqs_cmd = [
-                    python_exe, "-m", "pipreqs.pipreqs", target_scan_dir.as_posix(), 
-                    "--encoding", "utf-8", "--force", "--savepath", temp_pipreqs.as_posix()
-                ]
-                if pypi_server: 
-                    pipreqs_cmd.extend(["--pypi-server", pypi_server])
-                    self.progress.emit(_("[INFO] Dependency analysis service source address: {server}", server=pypi_server))
-                
-                self.progress.emit(_("[INFO] Querying versions of dependency libraries, please wait..."))
-                
-                success_pipreqs = self.run_cmd(pipreqs_cmd, timeout=120, silent_error=True)
-                
-                if not success_pipreqs and pip_backup and pip_backup != pip_idx:
-                    backup_pypi = re.sub(r'/simple/?$', '/pypi', pip_backup, flags=re.I).rstrip('/')
-                    self.progress.emit(_("[INFO] Switching to backup PyPI source for retrieval: {url}", url=backup_pypi))
-                    backup_pipreqs_cmd = [c if c != pypi_server else backup_pypi for c in pipreqs_cmd]
-                    success_pipreqs = self.run_cmd(backup_pipreqs_cmd, timeout=120, silent_error=True)
+            temp_unified_reqs.unlink(missing_ok=True)
 
-                if not success_pipreqs:
-                    self.progress.emit(_("[INFO] Attempting to scan using compatible encoding..."))
-                    fallback_cmd = ["iso-8859-1" if c == "utf-8" else c for c in pipreqs_cmd]
-                    success_pipreqs = self.run_cmd(fallback_cmd, timeout=120, silent_error=True)
-                    if not success_pipreqs:
-                        self.progress.emit(_("[WARN] pipreqs skipped deep scan, dependencies will be supplemented by AST scanning engine."))
-                
-                if success_pipreqs and temp_pipreqs.exists():
-                    self.run_pip_install(python_exe, ["-q", "-r", temp_pipreqs.as_posix()])
-                    temp_pipreqs.unlink(missing_ok=True)
-                    
-                if sandbox_dir and sandbox_dir.exists():
-                    robust_rmtree(sandbox_dir)
-
-            config = load_config()
-            known_mappings = DEFAULT_MAPPINGS.copy()
-            if 'Mappings' in config:
-                for k, v in config['Mappings'].items():
-                    known_mappings[k] = v
-            
-            known_mappings_lower = {k.lower(): v for k, v in known_mappings.items()}
-
-            HARDCODED_SAFETY_MAPPINGS = {
-                'pythoncom': 'pywin32', 'pywintypes': 'pywin32', 'win32com': 'pywin32',
-                'win32api': 'pywin32', 'win32con': 'pywin32', 'win32gui': 'pywin32',
-                'win32clipboard': 'pywin32', 'win32print': 'pywin32', 'win32file': 'pywin32',
-                'win32security': 'pywin32', 'win32process': 'pywin32', 'win32evtlog': 'pywin32',
-                'win32service': 'pywin32', 'win32pipe': 'pywin32', 'win32net': 'pywin32',
-                'win32crypt': 'pywin32', 'cv2': 'opencv-python', 'pil': 'pillow', 'fitz': 'pymupdf', 
-                'bs4': 'beautifulsoup4', 'sklearn': 'scikit-learn', 'yaml': 'pyyaml', 'dotenv': 'python-dotenv'
-            }
-            for k, v in HARDCODED_SAFETY_MAPPINGS.items():
-                known_mappings_lower[k.lower()] = v
-
-            local_modules = set()
-            for p in script_dir.rglob("*"):
-                if any(part.startswith('.') or part.lower() in ('venv', 'env', 'site-packages', 'node_modules', '__pycache__') for part in p.parts):
-                    continue
-                if p.is_file() and p.suffix.lower() == '.py':
-                    local_modules.add(p.stem.lower())
-                elif p.is_dir():
-                    local_modules.add(p.name.lower())
-
-            ast_pkgs_set = set()
-            for m in script_imports:
-                if m in STD_LIBS or m.lower() in local_modules: continue
-                mapped_name = known_mappings_lower.get(m.lower(), m)
-                ast_pkgs_set.add(mapped_name)
-
-            ast_pkgs = sorted(list(ast_pkgs_set))
-            
-            if ast_pkgs:
-                self.progress.emit(_("[INFO] Dependency installation [3/3]: Extracting implicit dependencies via AST static scan..."))
-                self.progress.emit(_("[INFO] Parsing and installing implicit import dependencies: {pkgs}", pkgs=', '.join(ast_pkgs)))
-                for pkg in ast_pkgs:
-                    if not self.run_pip_install(python_exe, ["-q", pkg]):
-                        failed_packages.append(pkg)
-                        self.progress.emit(_("[ERROR] ⚠️ Warning: Failed to install dependency [{pkg}]! May cause runtime crash.", pkg=pkg))
-
-            if self._is_cancelled: return self.finished.emit(False, "[INFO] Build Cancelled.", failed_packages)
+            if self._is_cancelled: return self.build_finished.emit(False, "[INFO] Build Cancelled.", failed_packages)
 
             self.progress.emit(_("[INFO] Starting {engine} engine to compile binary files...", engine=engine))
             cmd = []
-            app_name = self.params['app_name']
             icon_path = Path(self.params['icon']).resolve().as_posix() if self.params.get('icon') else None
 
             if engine == "PyInstaller":
@@ -2974,8 +3391,11 @@ class PackingThread(QThread):
                     f"--name={app_name}"
                 ]
                 
-                if self.params['onefile']: cmd.append("--onefile")
-                else: cmd.append("--onedir")
+                if self.params['onefile']: 
+                    cmd.append("--onefile")
+                else: 
+                    cmd.append("--onedir")
+                    cmd.append("--contents-directory=internal")
                 
                 if self.params['noconsole']: cmd.append("--noconsole")
                 else: cmd.append("--console")
@@ -2992,7 +3412,7 @@ class PackingThread(QThread):
                     cmd.extend(["--osx-bundle-identifier", bundle_id])
                     
                 if self.params.get('upx'):
-                    upx_dir_custom = self.params.get('upx_path', '').strip()
+                    upx_dir_custom = (self.params.get('upx_path') or '').strip()
                     if upx_dir_custom and Path(upx_dir_custom).exists():
                         cmd.append(f"--upx-dir={upx_dir_custom}")
                     else:
@@ -3003,17 +3423,34 @@ class PackingThread(QThread):
                 else:
                     cmd.append("--noupx")
                 
-                for imp in self.params.get('hidden_imports', '').split(','):
+                for imp in (self.params.get('hidden_imports') or '').split(','):
                     if imp.strip(): cmd.extend(["--hidden-import", imp.strip()])
                 
-                for r_type, src, dst in self.params.get('add_data_list', []):
+                for r_type, src, dst in (self.params.get('add_data_list') or []):
                     cmd.extend(["--add-data", f"{src}{os.pathsep}{dst}"])
                 
-                for excl in self.params.get('exclude_modules', '').split(','):
+                for excl in (self.params.get('exclude_modules') or '').split(','):
                     if excl.strip(): cmd.extend(["--exclude-module", excl.strip()])
+                
+                imports_lower = {m.lower() for m in script_imports}
+                hidden_list = [i.strip().lower() for i in (self.params.get('hidden_imports') or '').split(',') if i.strip()]
+                all_imports_lower = imports_lower | set(hidden_list)
+
+                if 'ttkbootstrap' in all_imports_lower:
+                    cmd.extend(["--collect-all", "ttkbootstrap"])
+                
+                if 'customtkinter' in all_imports_lower:
+                    cmd.extend(["--collect-all", "customtkinter"])
+                
+                if 'playwright' in all_imports_lower:
+                    cmd.extend(["--collect-all", "playwright"])
+                if 'moviepy' in all_imports_lower:
+                    cmd.extend(["--collect-data", "moviepy"])
 
             elif engine == "Nuitka":
-                self.temp_out_dir = Path(tempfile.mkdtemp(prefix="nuitka_out_")).resolve()
+                self.temp_out_dir = (script_dir / ".qpypack_build").resolve()
+                self.temp_out_dir.mkdir(parents=True, exist_ok=True)
+                
                 cmd = [
                     python_exe, "-m", "nuitka", "--remove-output", "--assume-yes-for-downloads",
                     f"--output-dir={self.temp_out_dir.as_posix()}", 
@@ -3029,25 +3466,78 @@ class PackingThread(QThread):
                                 res = subprocess.run([vswhere.as_posix(), "-latest", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                                 if res.stdout.strip(): has_msvc = True
                             except: pass
-                    if has_msvc:
+
+                    has_clang = (shutil.which('clang.exe') is not None) or (shutil.which('clang-cl.exe') is not None)
+                    if not has_clang:
+                        llvm_paths = [
+                            Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "LLVM/bin/clang.exe",
+                            Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "LLVM/bin/clang.exe"
+                        ]
+                        if any(p.exists() for p in llvm_paths):
+                            has_clang = True
+
+                    py_ver_num = (3, 12)
+                    try:
+                        kw = {"capture_output": True, "text": True, "timeout": 2}
+                        if os.name == 'nt': kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+                        check_ver = subprocess.run([python_exe, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], **kw)
+                        ver_str = check_ver.stdout.strip()
+
+                        if ver_str:
+                            parts = ver_str.split('.')
+                            py_ver_num = (int(parts[0]), int(parts[1]))
+                    except: pass
+
+                    has_cl_exe = shutil.which('cl.exe') is not None
+
+                    if has_cl_exe:
                         cmd.append("--msvc=latest")
                         self.progress.emit(_("[INFO] Found local MSVC environment, prioritizing native C++ compiler."))
-                        
+                    elif has_clang:
+                        cmd.append("--clang")
+                        self.progress.emit(_("[INFO] Found local Clang environment, prioritizing LLVM Clang compiler."))
+                    elif py_ver_num >= (3, 13):
+                        cmd.append("--zig")
+                        self.progress.emit(_("[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as C backend."))
+                    else:
+                        cmd.append("--mingw64")
+                        self.progress.emit(_("[INFO] Using MinGW64 compiler (--mingw64) for C backend."))
+
+                free_disk = get_free_disk_gb(script_dir.as_posix())
+                if free_disk < 3.0:
+                    self.progress.emit(_("[WARN] Low disk space detected on build target drive (Available: {free:.1f} GB, >= 5.0 GB recommended). Build process may interrupt due to disk exhaustion.", free=free_disk))
+
                 cores = self.params.get('cpu_cores', os.cpu_count() or 2)
                 cmd.append(f"--jobs={cores}")
+
+                if self.params.get('upx'):
+                    cmd.append("--enable-plugin=upx")
+                    upx_dir_custom = (self.params.get('upx_path') or '').strip()
+                    if upx_dir_custom and Path(upx_dir_custom).exists():
+                        upx_exe = Path(upx_dir_custom) / ("upx.exe" if os.name == "nt" else "upx")
+                        if upx_exe.exists():
+                            cmd.append(f"--upx-binary={upx_exe.as_posix()}")
+                        else:
+                            cmd.append(f"--upx-binary={upx_dir_custom}")
                 
-                if self.params['onefile']: cmd.append("--onefile")
-                else: cmd.append("--standalone")
-                
-                if self.params['noconsole']: 
-                    cmd.append("--windows-console-mode=disable")
-                    if sys.platform == "darwin": cmd.append("--macos-create-app-bundle")
+                if self.params['noconsole']:
+                    if os.name == "nt":
+                        cmd.append("--windows-console-mode=disable")
+                    if sys.platform == "darwin":
+                        cmd.append("--macos-create-app-bundle")
                 else:
-                    cmd.append("--windows-console-mode=force")
-                
+                    if os.name == "nt": 
+                        cmd.append("--windows-console-mode=force")
+
+                is_mac_bundle = (sys.platform == "darwin" and self.params['noconsole'])
+                if self.params['onefile'] and not is_mac_bundle: 
+                    cmd.append("--onefile")
+                elif not is_mac_bundle: 
+                    cmd.append("--standalone")
+
                 if icon_path: 
                     if os.name == "nt": cmd.append(f"--windows-icon-from-ico={icon_path}")
-                    elif sys.platform == "darwin": cmd.append(f"--macos-app-icon={icon_path}")
+                    if sys.platform == "darwin": cmd.append(f"--macos-app-icon={icon_path}")
                     cmd.append(f"--include-data-files={Path(icon_path).resolve().as_posix()}={Path(icon_path).name}")
                     
                 if os.name == "nt":
@@ -3066,20 +3556,29 @@ class PackingThread(QThread):
                     comp = self.params.get('ver_comp', 'mycompany').strip().lower().replace(" ", "")
                     bundle_id = f"com.{comp or 'anonymous'}.{app_name.lower().replace(' ', '')}"
                     cmd.append(f"--macos-signed-app-name={bundle_id}")
-                
-                imports_lower = {m.lower() for m in script_imports}
+
+                hidden_list = [i.strip().lower() for i in (self.params.get('hidden_imports') or '').split(',') if i.strip()]
+                imports_lower = {m.lower() for m in script_imports} | set(hidden_list)
+
                 if 'pyqt5' in imports_lower: cmd.append("--enable-plugin=pyqt5")
                 elif 'pyqt6' in imports_lower: cmd.append("--enable-plugin=pyqt6")
                 elif 'pyside2' in imports_lower: cmd.append("--enable-plugin=pyside2")
                 elif 'pyside6' in imports_lower: cmd.append("--enable-plugin=pyside6")
                 
                 if 'matplotlib' in imports_lower: cmd.append("--enable-plugin=matplotlib")
-                if 'tkinter' in imports_lower: cmd.append("--enable-plugin=tk-inter")
+                if any(tk in imports_lower for tk in ('tkinter', 'pysimplegui', 'customtkinter', 'turtle', 'easygui', 'ttkbootstrap')): 
+                    cmd.append("--enable-plugin=tk-inter")
                 
-                for imp in self.params.get('hidden_imports', '').split(','):
-                    if imp.strip(): cmd.append(f"--include-module={imp.strip()}")
+                if 'ttkbootstrap' in imports_lower:
+                    cmd.append("--include-package=ttkbootstrap")
+                    cmd.append("--include-package-data=ttkbootstrap")
+
+                if 'numpy' in imports_lower: cmd.append("--enable-plugin=numpy")
+
+                for imp in (self.params.get('hidden_imports') or '').split(','):
+                    if imp.strip(): cmd.extend([f"--include-module={imp.strip()}"])
                 
-                for r_type, src, dst in self.params.get('add_data_list', []):
+                for r_type, src, dst in (self.params.get('add_data_list') or []):
                     src_path = Path(src).resolve().as_posix()
                     if r_type == 'dir':
                         cmd.append(f"--include-data-dir={src_path}={dst}")
@@ -3089,29 +3588,66 @@ class PackingThread(QThread):
                         else: nuitka_dst = os.path.normpath(os.path.join(dst, filename)).replace('\\', '/')
                         cmd.append(f"--include-data-files={src_path}={nuitka_dst}")
 
-                for excl in self.params.get('exclude_modules', '').split(','):
+                for excl in (self.params.get('exclude_modules') or '').split(','):
                     if excl.strip(): cmd.append(f"--nofollow-import-to={excl.strip()}")
-                    
+
             if self.params.get('lite_mode'):
-                self.progress.emit(_("[INFO] Lite mode enabled, executing size reduction strategy..."))
+                self.progress.emit(_("[INFO] Lite mode enabled, applying bytecode optimization (-OO) and stripping dev modules..."))
                 if not self.params.get('use_venv'):
                     self.progress.emit(_("[WARN] Strongly recommend checking [Virtual Environment] to maximize lite mode effect."))
-                    
-                lite_excludes = ['pip', 'setuptools', 'distutils', 'wheel', 'pydoc']
-                for ex in lite_excludes:
-                    if engine == "PyInstaller": cmd.append(f"--exclude-module={ex}")
-                    elif engine == "Nuitka": cmd.append(f"--nofollow-import-to={ex}")
-                    
-                if engine == "Nuitka":
-                    self.progress.emit(_("[INFO] Enabled Nuitka optimization directives..."))
+                
+                if engine == "PyInstaller":
+                    cmd.append("--optimize=2")
+                    safe_dev_excludes = ['unittest', 'doctest', 'pdb', 'pydoc', 'test', 'pytest', 'IPython', 'binder', 'tkinter.test']
+                    for ex in safe_dev_excludes:
+                        cmd.append(f"--exclude-module={ex}")
+                elif engine == "Nuitka":
                     cmd.append("--python-flag=-OO")
+                    cmd.append("--enable-plugin=anti-bloat")
+                    cmd.append("--lto=yes")
 
             cmd.append(script_posix)
 
             success = self.run_cmd(cmd, cwd=script_dir.as_posix())
-            if self._is_cancelled: return self.finished.emit(False, "[INFO] Build Cancelled.", failed_packages)
 
-            self.progress.emit(_("[INFO] Core compilation completed, extracting and archiving built files..."))
+            if not success:
+                log_text = "\n".join(self.all_raw_logs)
+                if any(kw in log_text for kw in ["NoSpaceLeft", "No space left on device", "[Errno 28]"]):
+                    self.progress.emit(_("[ERROR] Build aborted: Insufficient disk space (NoSpaceLeft / Errno 28). Please clean up drive space (at least 5 GB free space recommended) and try again."))
+                elif any(kw in log_text for kw in ["Allocation error", "not enough memory", "ZstdError", "out of memory"]):
+                    self.progress.emit(_("[WARN] Memory allocation exception caught (ZstdError / OOM). Triggering memory protection fallback: Retrying in single-thread mode..."))
+                    clean_cmd = [arg if not arg.startswith("--jobs=") else "--jobs=1" for arg in cmd]
+                    self.all_raw_logs.clear()
+                    success = self.run_cmd(clean_cmd, cwd=script_dir.as_posix())
+
+            if not success and icon_path:
+                log_text = "\n".join(self.all_raw_logs)
+                icon_err_keywords = ["Failed to add resources", "error code 22", "UpdateResource", "Resource modification failed", "Failed to add"]
+                if any(kw in log_text for kw in icon_err_keywords):
+                    self.progress.emit(_("[WARN] Icon resource writing blocked (possibly locked by system/antivirus), triggering fallback protection..."))
+                    self.progress.emit(_("[INFO] Stripping icon parameters and automatically rebuilding..."))
+                    
+                    clean_cmd = []
+                    skip_next = False
+                    for arg in cmd:
+                        if skip_next:
+                            skip_next = False
+                            continue
+                        if arg == "--icon":
+                            skip_next = True
+                            continue
+                        if arg.startswith(("--windows-icon-from-ico=", "--macos-app-icon=")):
+                            continue
+                        if icon_path in arg and "--include-data-files=" in arg:
+                            continue
+                        clean_cmd.append(arg)
+                    
+                    self.all_raw_logs.clear()
+                    success = self.run_cmd(clean_cmd, cwd=script_dir.as_posix())
+
+            if self._is_cancelled: return self.build_finished.emit(False, _("[INFO] Build Cancelled."), failed_packages)
+
+            self.progress.emit(_("[INFO] Compilation completed, archiving built files..."))
             src_out = None
             if engine == "PyInstaller": 
                 if sys.platform == "darwin" and self.params['noconsole']:
@@ -3132,8 +3668,8 @@ class PackingThread(QThread):
                         if dist_dirs: src_out = dist_dirs[0]
                         else: src_out = self.temp_out_dir / f"{app_name}.dist"
 
-            out_mode = int(self.params.get('out_mode', 0))
-            custom_out = self.params.get('custom_out_dir', '').strip()
+            out_mode = int(self.params.get('out_mode', 0) or 0)
+            custom_out = (self.params.get('custom_out_dir') or '').strip()
             if out_mode == 1 and custom_out:
                 try:
                     final_out_dir = Path(custom_out)
@@ -3142,7 +3678,12 @@ class PackingThread(QThread):
             else:
                 final_out_dir = script_dir
                 
-            final_out = final_out_dir / (src_out.name if src_out else f"{app_name}{ext}")
+            if sys.platform == "darwin" and self.params['noconsole']:
+                final_out = final_out_dir / f"{app_name}.app"
+            elif self.params['onefile']:
+                final_out = final_out_dir / f"{app_name}{ext}"
+            else:
+                final_out = final_out_dir / app_name
 
             if success and src_out and src_out.exists():
                 try:
@@ -3151,8 +3692,10 @@ class PackingThread(QThread):
                         else: final_out.unlink(missing_ok=True)
                     shutil.move(src_out.as_posix(), final_out.as_posix())
                 except Exception as e: 
+                    success = False
                     self.progress.emit(_("[ERROR] Product transfer failed, file might be occupied by system process or lack permission: {error}", error=str(e)))
             else: 
+                success = False
                 self.progress.emit(_("[ERROR] Could not locate valid executable product in temporary build directory: {path}", path=str(src_out)))
 
             if success and final_out.exists(): 
@@ -3163,24 +3706,18 @@ class PackingThread(QThread):
                         log_file.write_text('\n'.join(self.all_raw_logs), encoding='utf-8')
                         self.progress.emit(_("[INFO] Build log exported to: {path}", path=log_file.as_posix()))
                     except: pass
-                self.finished.emit(True, _("[SUCCESS] Compilation completed, output path: {path}", path=final_out.resolve().as_posix()), failed_packages)
+                self.build_finished.emit(True, _("[SUCCESS] Compilation completed, output path: {path}", path=final_out.resolve().as_posix()), failed_packages)
             else: 
                 err_info = self.detect_python_syntax_errors()
                 if err_info["is_code_error"]:
-                    msg = _("[Syntax Error] Source program has syntax or indentation errors!\n  - File: {file}\n  - Type: {type}\n  - Line: near {line}\n  - Desc: {desc}\n\nTip: This is an error in the source code logic. Ensure it runs locally before compiling.", 
+                    msg = _("[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.", 
                             file=err_info['file'], type=err_info['type'], line=err_info['line'], desc=err_info['desc'])
                 else:
-                    if self.params.get('concise_log', True) and self.all_raw_logs:
-                        self.progress.emit(_("\n!!!!!!!!!! [Diagnostic Traceback: Full raw log due to execution exception in this step] !!!!!!!!!!"))
-                        self.progress.emit('\n'.join(self.all_raw_logs[-100:])) 
-                    msg = _("[FAILED] Compilation interrupted with exceptions, refer to the log for troubleshooting.")
-                self.finished.emit(False, msg, failed_packages)
-                
+                    msg = _("[FAILED] Compilation interrupted with exceptions, please click 'Detailed Mode' above the log window for troubleshooting.")
+                self.build_finished.emit(False, msg, failed_packages)
+
         except Exception as e:
-            if self.params.get('concise_log', True) and self.all_raw_logs:
-                self.progress.emit(_("\n!!!!!!!!!! [Diagnostic Traceback: Full raw log due to execution exception in this step] !!!!!!!!!!"))
-                self.progress.emit('\n'.join(self.all_raw_logs[-100:]))
-            self.finished.emit(False, f"[ERROR] {str(e)}", failed_packages)
+            self.build_finished.emit(False, f"[ERROR] {str(e)}", failed_packages)
         finally:
             if is_temp and build_script_path and build_script_path.exists():
                 try: 
@@ -3207,41 +3744,13 @@ class PackingThread(QThread):
                     if p and p.exists(): robust_rmtree(p)
                     
                 app_name = self.params.get('app_name', 'app')
-                for p in ["__pycache__", f"{app_name}.build", f"{app_name}.dist", f"{app_name}.onefile-build"]:
+                for p in ["__pycache__", f"{app_name}.build", f"{app_name}.onefile-build"]:
                     robust_rmtree(script_dir / p)
                 
                 spec_file = script_dir / f"{app_name}.spec"
                 if spec_file.exists():
                     try: spec_file.unlink()
                     except: pass
-
-class SmoothSlideOverlay(QWidget):
-
-    def __init__(self, parent, pix_old, pix_new, direction):
-        super().__init__(parent)
-        self.pix_old = pix_old
-        self.pix_new = pix_new
-        self.direction = direction 
-        self.progress = 0.0
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-
-    def set_progress(self, p):
-        self.progress = p
-        self.update()  
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        w = float(self.width())
-        p = self.progress
-
-        x_old = -w * p * self.direction
-        x_new = w * (1.0 - p) * self.direction
-
-        painter.drawPixmap(QPointF(x_old, 0), self.pix_old)
-        painter.drawPixmap(QPointF(x_new, 0), self.pix_new)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -3250,15 +3759,21 @@ class MainWindow(QMainWindow):
         self.thread = None
         self.analysis_thread = None
         self.current_state = "idle" 
+        
+        load_config()
+        
         self.init_style()
         self.init_ui()
         
         I18N.language_changed.connect(self.retranslate_ui)
+        self.retranslate_ui()
+
+
 
     def init_style(self):
         self.setWindowTitle(f"{__app_name__} {__version__}")
-        self.setMinimumSize(740, 680)
-        self.resize(780, 680)
+        self.setMinimumSize(560, 460)
+        self.resize(760, 580)
         
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
@@ -3287,8 +3802,8 @@ class MainWindow(QMainWindow):
 
         self.main_panel = QWidget()
         layout = QVBoxLayout(self.main_panel)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 16)
 
         self.drop_area = DropArea(self)
         self.drop_area.fileDropped.connect(self.on_script_selected)
@@ -3297,18 +3812,48 @@ class MainWindow(QMainWindow):
         self.log_container = QWidget()
         log_lay = QVBoxLayout(self.log_container)
         log_lay.setContentsMargins(0, 0, 0, 0)
-        self.log = QTextEdit()
-        self.log.setReadOnly(True)
-        self.log.setFixedHeight(120) 
-        self.log.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.log.customContextMenuRequested.connect(self.show_log_context_menu)
-        log_lay.addWidget(self.log)
+        
+        log_header = QHBoxLayout()
+        log_header.setContentsMargins(5, 0, 5, 2)
+        self.log_title = QLabel(_("Execution Log"))
+        self.log_title.setStyleSheet("color: #5f6368; font-weight: bold; font-size: 13px;")
+        
+        self.btn_toggle_log_mode = QPushButton()
+        self.btn_toggle_log_mode.setCheckable(True)
+        self.btn_toggle_log_mode.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_log_mode.setStyleSheet("""
+            QPushButton { background-color: transparent; color: #1A73E8; border: none; font-size: 12px; font-weight: bold; }
+            QPushButton:hover { color: #1B66C9; text-decoration: underline; }
+        """)
+        self.btn_toggle_log_mode.clicked.connect(self.on_log_mode_toggled)
+        
+        log_header.addWidget(self.log_title)
+        log_header.addStretch(1)
+        log_header.addWidget(self.btn_toggle_log_mode)
+        
+        self.log_stack_widget = QWidget()
+        self.log_stack = QStackedLayout(self.log_stack_widget)
+        self.log_stack.setContentsMargins(0, 0, 0, 0)
+        
+        self.log_concise = QTextEdit()
+        self.log_detailed = QTextEdit()
+        
+        for text_edit in (self.log_concise, self.log_detailed):
+            text_edit.setReadOnly(True)
+            text_edit.setMinimumHeight(80)
+            text_edit.setMaximumHeight(160)
+            text_edit.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            text_edit.customContextMenuRequested.connect(self.show_log_context_menu)
+            self.log_stack.addWidget(text_edit)
+            
+        log_lay.addLayout(log_header)
+        log_lay.addWidget(self.log_stack_widget)
         self.log_container.hide()
         layout.addWidget(self.log_container)
 
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(12)
-        btn_layout.setContentsMargins(0, 5, 0, 0)
+        btn_layout.setContentsMargins(0, 0, 0, 0)
 
         self.btn_left = AnimatedButton("")
         self.btn_left.setFixedSize(44, 44)
@@ -3336,6 +3881,11 @@ class MainWindow(QMainWindow):
         self.stacked_layout.addWidget(self.settings_panel)
         self.stacked_layout.setCurrentWidget(self.main_panel)
         
+        is_concise = self.settings_panel.concise_log_check.isChecked()
+        self.btn_toggle_log_mode.setChecked(not is_concise)
+        self.btn_toggle_log_mode.setText(_("Detailed Mode") if is_concise else _("Concise Mode"))
+        self.log_stack.setCurrentWidget(self.log_concise if is_concise else self.log_detailed)
+
         self.status_bar = self.statusBar()
         self.status_label = QLabel(_("Status: Ready"))
         self.status_bar.addWidget(self.status_label)
@@ -3386,11 +3936,35 @@ class MainWindow(QMainWindow):
         
         self.update_ui_state(self.current_state)
 
+        if hasattr(self, 'log_title'):
+            self.log_title.setText(_("Execution Log"))
+        is_concise = self.settings_panel.concise_log_check.isChecked()
+        self.btn_toggle_log_mode.setText(_("Detailed Mode") if is_concise else _("Concise Mode"))
+
         if self.current_state == "idle":
             self.set_status(_("Status: Ready"))
+            self.drop_area.label.setText(_("Python Packaging, Reimagined."))
+            self.drop_area.sub_label.setText(_("Drop Python source code to start"))
+            
         elif self.current_state == "ready":
             mode_suffix = _(" [Console]") if not self.settings_panel.noconsole_check.isChecked() else _(" [No Console]")
             self.set_status(_("Status: Loaded {filename}{mode}", filename=Path(self.script_path).name, mode=mode_suffix))
+            self.drop_area.label.setText(_("Loaded: {filename}", filename=Path(self.script_path).name))
+            self.drop_area.sub_label.setText(_("Ready, waiting for build."))
+            
+        elif self.current_state == "building":
+            self.set_status(_("Status: Packaging ({engine}) ...", engine=self.settings_panel.engine_combo.currentText()))
+            
+        elif self.current_state == "done":
+            self.set_status(_("Status: Build Completed"))
+            self.drop_area.label.setText(_("Build Successful"))
+            self.drop_area.sub_label.setText(_("Open output directory or reset workspace."))
+            
+        elif self.current_state == "failed":
+            self.set_status(_("Status: Build Failed"))
+            self.drop_area.label.setText(_("Build Failed"))
+            self.drop_area.sub_label.setText(_("Check log output below for troubleshooting."))
+
         elif self.current_state == "building":
             self.set_status(_("Status: Packaging ({engine}) ...", engine=self.settings_panel.engine_combo.currentText()))
         elif self.current_state == "done":
@@ -3408,13 +3982,13 @@ class MainWindow(QMainWindow):
             self.thread.wait()
             
         if self.analysis_thread and self.analysis_thread.isRunning():
-            self.analysis_thread.terminate()
-            self.analysis_thread.wait()
+            self.analysis_thread.requestInterruption()
+            self.analysis_thread.wait(1000)
             
         if hasattr(self,'settings_panel') and hasattr(self.settings_panel, 'scanner_thread'):
             if self.settings_panel.scanner_thread and self.settings_panel.scanner_thread.isRunning():
-                self.settings_panel.scanner_thread.terminate()
-                self.settings_panel.scanner_thread.wait()
+                self.settings_panel.scanner_thread.requestInterruption()
+                self.settings_panel.scanner_thread.wait(1000)
                 
         super().closeEvent(event)
 
@@ -3540,20 +4114,24 @@ class MainWindow(QMainWindow):
             self.show_error_log(_("[ERROR] Target file is locked or encrypted by cloud drive. Please decrypt and try again."))
             return
 
-        if self.script_path and self.script_path != path:
+        if self.script_path != path:
             self.settings_panel.icon_edit.clear()
             self.settings_panel.hidden_edit.clear()
+            self.settings_panel.exclude_edit.clear()
             self.settings_panel.add_data_list.clear()
+            self.settings_panel.reqs_file_edit.clear()
+            self.settings_panel.out_dir_edit.clear()
+            self.settings_panel.name_edit.clear()
 
         self.script_path = path
         self.drop_area.set_loading(Path(path).name)
         self.set_status(_("Status: Parsing {filename}...", filename=Path(path).name))
         
         if self.analysis_thread and self.analysis_thread.isRunning():
-            self.analysis_thread.terminate()
-            self.analysis_thread.wait()
+            self.analysis_thread.requestInterruption()
+            self.analysis_thread.wait(1000)
             
-        self.analysis_thread = ScriptAnalysisThread(self.script_path)
+        self.analysis_thread = ScriptAnalysisThread(self.script_path, get_python_executable())
         self.analysis_thread.analysis_done.connect(self.on_analysis_finished)
         self.analysis_thread.start()
 
@@ -3567,7 +4145,12 @@ class MainWindow(QMainWindow):
         self.settings_panel.ver_comp.setText(author)
         self.settings_panel.ver_desc.setText(desc)
 
-        gui_libs = {'pyqt5', 'pyqt6', 'pyside2', 'pyside6', 'tkinter', 'wx', 'kivy', 'libavg'}
+        gui_libs = {
+            'pyqt5', 'pyqt6', 'pyside2', 'pyside6', 'tkinter', 'wx', 'kivy', 'libavg', 
+            'pysimplegui', 'customtkinter', 'turtle', 'easygui', 'pygame', 'arcade', 
+            'dearpygui', 'flet', 'webview', 'remi'
+        }
+
         has_gui = any(lib in {m.lower() for m in script_imports} for lib in gui_libs)
         self.settings_panel.noconsole_check.setChecked(has_gui)
 
@@ -3578,27 +4161,33 @@ class MainWindow(QMainWindow):
         auto_icon = None
         
         if self.settings_panel.auto_icon_check.isChecked():
-            preferred_extensions = [".ico", ".icns", ".png", ".svg"]
-            if sys.platform == "darwin": preferred_extensions = [".icns", ".png", ".svg", ".ico"]
-            elif sys.platform == "linux": preferred_extensions = [".png", ".svg", ".ico", ".icns"]
-                
+            ext_priority = [".ico", ".png", ".jpg", ".jpeg", ".svg"]
+            if sys.platform == "darwin": 
+                ext_priority = [".icns", ".png", ".svg", ".ico"]
+            name_priority = ["logo", "icon", "app", "favicon", Path(path).stem]
+
+            auto_icon = None
             found = False
-            for ext in preferred_extensions:
-                for name in ["icon", "logo", "ICON", "LOGO"]:
-                    trial = script_dir / f"{name}{ext}"
-                    if trial.exists():
-                        auto_icon = trial
-                        self.settings_panel.icon_edit.setText(trial.resolve().as_posix())
-                        found = True
-                        break
+            for ext in ext_priority:
+                for name in name_priority:
+                    for n_variant in [name, name.lower(), name.upper(), name.capitalize()]:
+                        trial = script_dir / f"{n_variant}{ext}"
+                        if trial.exists() and trial.is_file():
+                            auto_icon = trial
+                            found = True
+                            break
+                    if found: break
                 if found: break
+
+            if auto_icon:
+                self.settings_panel.icon_edit.setText(auto_icon.resolve().as_posix())
                 
         self.drop_area.set_success(Path(path).name, custom_icon_path=auto_icon)
         mode_suffix = _(" [Console]") if not has_gui else _(" [No Console]")
         self.set_status(_("Status: Loaded {filename}{mode}", filename=Path(path).name, mode=mode_suffix))
         
-        if not self.log_container.isVisible(): self.toggle_log()
-        self.log.clear()
+        self.log_concise.clear()
+        self.log_detailed.clear()
         self.append_log(_("Loaded: {filename}", filename=path))
         self.btn_main.setEnabled(True)
         self.update_ui_state("ready")
@@ -3616,6 +4205,27 @@ class MainWindow(QMainWindow):
             return
 
         sp = self.settings_panel
+        
+        raw_py = sp.python_path_combo.currentText().strip()
+        if " (Python " in raw_py: 
+            raw_py = raw_py.split(" (Python ")[0].strip()
+        if not raw_py: 
+            raw_py = get_python_executable()
+            
+        if not raw_py or not shutil.which(raw_py):
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setWindowTitle(_("Python Environment Required"))
+            msg.setText(_("<b>Python is not detected on your system!</b><br><br>QPyPack requires a Python environment to compile your code.<br>If you haven't installed Python, please download and install it (remember to check <b>'Add Python.exe to PATH'</b> during installation)."))
+            
+            btn_down = msg.addButton(_("Download Python"), QMessageBox.ButtonRole.ActionRole)
+            btn_cancel = msg.addButton(_("Cancel"), QMessageBox.ButtonRole.RejectRole)
+            
+            msg.exec()
+            if msg.clickedButton() == btn_down:
+                __import__('webbrowser').open("https://www.python.org/downloads/")
+            return
+
         app_name = sp.name_edit.text().strip() or Path(self.script_path).stem
         engine = sp.engine_combo.currentText()
 
@@ -3636,24 +4246,52 @@ class MainWindow(QMainWindow):
             except: pass
 
         icon_path_str = sp.icon_edit.text().strip()
+        
+        if icon_path_str and not Path(icon_path_str).exists():
+            self.show_error_log(_("[ERROR] The specified icon file does not exist: {path}", path=icon_path_str))
+            return
+            
         temp_icon_file = None
-        if icon_path_str and Path(icon_path_str).exists():
+        if icon_path_str:
+
             icon_path = Path(icon_path_str)
             needed_ext = "ico" if os.name == "nt" else ("icns" if sys.platform == "darwin" else "png")
-            
-            if icon_path.suffix.lower() != f".{needed_ext}":
-                temp_ico_name = f"qpypack_temp_icon_{int(time.time())}.{needed_ext}"
-                temp_ico = Path(tempfile.gettempdir()) / temp_ico_name
+
+            is_valid_native_icon = False
+            if icon_path.suffix.lower() == f".{needed_ext}":
+                try:
+                    with open(icon_path, 'rb') as f:
+                        header = f.read(4)
+                        if needed_ext == "ico" and header == b'\x00\x00\x01\x00':
+                            is_valid_native_icon = True
+                        elif needed_ext == "icns" and header == b'icns':
+                            is_valid_native_icon = True
+                except:
+                    is_valid_native_icon = False
+
+            if is_valid_native_icon:
+                icon_path_str = icon_path.as_posix()
+            else:
+                temp_ico = Path(tempfile.gettempdir()) / f"qpypack_sanitized_icon_{int(time.time())}.{needed_ext}"
                 if convert_image_to_format(icon_path.as_posix(), temp_ico.as_posix(), needed_ext):
                     icon_path_str = temp_ico.as_posix()
                     temp_icon_file = temp_ico.as_posix()
+                else:
+                    icon_path_str = icon_path.as_posix()
 
         add_data_items = [sp.add_data_list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(sp.add_data_list.count())]
         main_pip = sp._get_url_from_combo(sp.pip_source_combo)
         backup_pip = sp._get_url_from_combo(sp.pip_backup_combo)
 
+        mappings = DEFAULT_MAPPINGS.copy()
+        for r in range(sp.mapping_table.rowCount()):
+            k = sp.mapping_table.item(r, 0).text().strip()
+            v = sp.mapping_table.item(r, 1).text().strip()
+            if k and v: mappings[k] = v
+
         params = {
             'engine': engine,
+            'mappings': mappings,
             'script_path': self.script_path,
             'app_name': app_name,
             'onefile': sp.onefile_check.isChecked(),
@@ -3665,7 +4303,7 @@ class MainWindow(QMainWindow):
             'reqs_file': sp.reqs_file_edit.text().strip(),
             'hidden_imports': sp.hidden_edit.text(),
             'add_data_list': add_data_items,
-            'upx': sp.upx_check.isChecked() if engine == "PyInstaller" else False,
+            'upx': sp.upx_check.isChecked(),
             'upx_path': sp.upx_path_edit.text().strip(),
             'cpu_cores': sp.cores_spin.value(),
             'exclude_modules': sp.exclude_edit.text().strip(),
@@ -3688,12 +4326,13 @@ class MainWindow(QMainWindow):
             'pipreqs_version': sp.pipreqs_ver_edit.text().strip()
         }
 
-        self.log.clear()
+        self.log_concise.clear()
+        self.log_detailed.clear()
         if not self.log_container.isVisible(): self.toggle_log()
             
         self.thread = PackingThread(params)
         self.thread.progress.connect(self.append_log)
-        self.thread.finished.connect(self.on_pack_finished)
+        self.thread.build_finished.connect(self.on_pack_finished)
         self.thread.start()
         
         self.set_status(_("Status: Packaging ({engine}) ...", engine=engine))
@@ -3701,7 +4340,7 @@ class MainWindow(QMainWindow):
         self.drop_area.start_build_anim()
 
     def on_pack_finished(self, success, msg, failed_pkgs=None):
-        self.append_log("\n" + "━"*50 + "\n" + msg)
+        self.append_log("\n" + msg)
         self.drop_area.stop_build_anim()
         play_alert(success)
             
@@ -3718,7 +4357,7 @@ class MainWindow(QMainWindow):
         if failed_pkgs:
             warn_msg = _("Dependency Missing Warning: {pkgs} failed to install. Check log for details.", pkgs=", ".join(failed_pkgs))
             self.show_notification(warn_msg, 6000)
-            err_log = _("[ERROR] Build completed, but the following dependencies failed to install during pre-build:\n\n  👉 {pkgs}\n\n⚠️ Tip: The program might crash at runtime due to missing modules!", pkgs=", ".join(failed_pkgs))
+            err_log = _("[ERROR] Build completed, but the following dependencies failed to install:\n\n  - {pkgs}\n\nNote: The application might raise ModuleNotFoundError at runtime.", pkgs=", ".join(failed_pkgs))
             self.show_error_log(err_log)
 
     def open_dist(self):
@@ -3729,50 +4368,101 @@ class MainWindow(QMainWindow):
             
         if target.exists():
             try:
-                if os.name == 'nt': os.startfile(target)
-                elif sys.platform == 'darwin': subprocess.call(('open', target.as_posix()))
-                else: subprocess.call(('xdg-open', target.as_posix()))
+                QDesktopServices.openUrl(QUrl.fromLocalFile(target.resolve().as_posix()))
             except: pass
+
 
     def reset_all(self):
         self.script_path = ""
         self.settings_panel.name_edit.clear()
         self.settings_panel.icon_edit.clear()
         self.settings_panel.hidden_edit.clear()
+        self.settings_panel.exclude_edit.clear()
         self.settings_panel.add_data_list.clear()
-        self.log.clear()
+        self.settings_panel.reqs_file_edit.clear()
+        self.settings_panel.out_dir_edit.clear()
+        self.settings_panel.ver_ver.setText("1.0.0")
+        self.settings_panel.ver_comp.setText("My Studio")
+        self.settings_panel.ver_desc.setText("Python Executable")
+        self.log_concise.clear()
+        self.log_detailed.clear()
         
         if self.log_container.isVisible(): self.toggle_log()
         self.drop_area.reset()
         self.set_status(_("Status: Workspace Reset"))
         self.update_ui_state("idle")
+    
+    def on_log_mode_toggled(self, checked):
+        is_concise = not checked
+        self.settings_panel.concise_log_check.setChecked(is_concise)
+        self.btn_toggle_log_mode.setText(_("Detailed Mode") if is_concise else _("Concise Mode"))
+        self.log_stack.setCurrentWidget(self.log_concise if is_concise else self.log_detailed)
 
     def append_log(self, msg, is_error=False):
-        if is_error:
-            safe_msg = msg.replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
-            self.log.append(f'<span style="color: #D93025; font-weight: bold;">{safe_msg}</span>')
-        else:
-            self.log.append(msg)
-            
-        self.log.ensureCursorVisible()
-
+        concise_lines = []
+        
         for line in msg.split('\n'):
-            line = line.strip()
-            if not line: continue
+            line_strip = line.strip()
+            if not line_strip: continue
             
-            if line.startswith(("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]")):
-                clean_text = line
-                for prefix in ("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]"):
-                    if clean_text.startswith(prefix):
-                        clean_text = clean_text[len(prefix):].strip()
-                        break
+            if is_error:
+                concise_lines.append(line)
+                continue
                 
-                if self.current_state == "building" and clean_text:
-                    if len(clean_text) > 35: clean_text = clean_text[:32] + "..."
+            is_concise_kept = False
+            valid_prefixes = (
+                "[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]", "[Syntax Error]",
+                "•", "---", "━", "!"
+            )
+            
+            if any(line_strip.startswith(p) for p in valid_prefixes):
+                concise_lines.append(line)
+                is_concise_kept = True
+            
+            if self.current_state == "building":
+                if any(k in line for k in ("Nuitka", "Scons", "PyInstaller", "Compiling", "Building", "Linking")):
+                    clean_sub = re.sub(r'^(Nuitka-Scons:|Nuitka:|INFO:\s*PyInstaller:|\d+\s+INFO:\s*)', '', line).strip()
+                    if clean_sub and len(clean_sub) > 3 and not clean_sub.startswith("Used command line"):
+                        if len(clean_sub) > 60: clean_sub = clean_sub[:57] + "..."
+                        self.drop_area.sub_label.setText(clean_sub)
+                        
+                        engine_name = self.settings_panel.engine_combo.currentText()
+                        target_text = _("Status: Packaging ({engine}) ...", engine=engine_name).replace("Status: ", "").replace("状态: ", "")
+                        if self.drop_area.label.text() != target_text:
+                            self.drop_area.label.setText(target_text)
+                            self.drop_area.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
+                        
+                        if not is_concise_kept:
+                            concise_lines.append(f"[BUILD] {clean_sub}")
+
+                elif line_strip.startswith(("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]")):
+                    clean_text = line_strip
+                    for prefix in ("[INFO]", "[WARN]", "[SUCCESS]", "[FAILED]", "[ERROR]"):
+                        if clean_text.startswith(prefix):
+                            clean_text = clean_text[len(prefix):].strip()
+                            break
+                    if len(clean_text) > 40: clean_text = clean_text[:37] + "..."
                     self.drop_area.label.setText(clean_text)
                     self.drop_area.label.setStyleSheet("QLabel { background: transparent; color: #1A73E8; font-size: 16px; font-weight: bold; border: none; }")
 
+        concise_msg = '\n'.join(concise_lines)
+
+        if concise_msg:
+            self._render_text_edit(self.log_concise, concise_msg, is_error)
+            
+        self._render_text_edit(self.log_detailed, msg, is_error)
+
+
+    def _render_text_edit(self, text_edit, msg, is_error):
+        if is_error:
+            safe_msg = msg.replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
+            text_edit.append(f'<span style="color: #D93025; font-weight: bold;">{safe_msg}</span>')
+        else:
+            text_edit.append(msg)
+        text_edit.ensureCursorVisible()
+
     def show_log_context_menu(self, pos):
+        current_log = self.log_stack.currentWidget()
         menu = QMenu(self)
         menu.setStyleSheet("""
             QMenu { background-color: #ffffff; color: #111827; border: 1px solid #d1d5db; border-radius: 8px; padding: 4px; }
@@ -3782,24 +4472,27 @@ class MainWindow(QMainWindow):
         """)
         
         act_copy = menu.addAction(_("Copy"))
-        act_copy.setEnabled(self.log.textCursor().hasSelection())
-        act_copy.triggered.connect(self.log.copy)
+        act_copy.setEnabled(current_log.textCursor().hasSelection())
+        act_copy.triggered.connect(current_log.copy)
 
         act_select_all = menu.addAction(_("Select All"))
-        act_select_all.triggered.connect(self.log.selectAll)
+        act_select_all.triggered.connect(current_log.selectAll)
 
         menu.addSeparator()
 
         act_clear = menu.addAction(_("Clear Log"))
-        act_clear.triggered.connect(self.log.clear)
+        act_clear.triggered.connect(self.log_concise.clear)
+        act_clear.triggered.connect(self.log_detailed.clear)
 
         act_save = menu.addAction(_("Export Log..."))
         act_save.triggered.connect(self.save_log_file)
 
-        menu.exec(self.log.mapToGlobal(pos))
+        menu.exec(current_log.mapToGlobal(pos))
 
     def save_log_file(self):
-        content = self.log.toPlainText()
+        current_log = self.log_stack.currentWidget()
+        content = current_log.toPlainText()
+        
         if not content.strip():
             return self.show_notification(_("No log content."))
         
