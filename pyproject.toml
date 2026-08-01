@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qpypack"
-version = "2.6.2"
+version = "2.7.0"
 description = "A cross-platform GUI packaging and compilation suite based on PyInstaller and Nuitka."
 readme = "README.md"
 authors = [
@@ -49,4 +49,12 @@ packages = ["qpypack"]
 qpypack = [
     "icon.ico",
     "locales/*.json"
+]
+
+[project.optional-dependencies]
+engines = [
+    "pyinstaller",
+    "nuitka",
+    "pipreqs",
+    "zstandard"
 ]
