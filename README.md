@@ -14,10 +14,6 @@
 </p>
 
 <p align="center">
-  <strong>基于 PyInstaller 与 Nuitka 的跨平台 Python 应用可视化打包构建工具</strong>
-</p>
-
-<p align="center">
   <!-- PyPI Version -->
   <a href="https://pypi.org/project/qpypack/">
     <img src="https://img.shields.io/pypi/v/qpypack.svg?color=blue&logo=pypi&logoColor=white" alt="PyPI version" />
@@ -47,11 +43,33 @@
   </a>
   <!-- GitHub Stars -->
   <a href="https://github.com/Qwejay/QPyPack/stargazers">
-    <img src="https://img.shields.io/github/stars/Qwejay/QPyPack.svg?logo=github" alt="GitHub stars" />
+    <img src="https://img.shields.io/github/stars/Qwejay/QPyPack.svg?logo=github&color=gold" alt="GitHub stars" />
   </a>
 </p>
 
-QPyPack 是一款致力于简化 Python 应用打包流程的可视化工具。它深度整合了 **PyInstaller** 与 **Nuitka** 两大主流编译引擎，将繁琐的终端命令行参数转化为直观、极简的图形界面交互，帮助开发者高效、高成功率地生成跨平台原生可执行程序。
+---
+
+<h2 align="center">
+  🚀 <i>“只需拖入 Python 代码，剩下的交给 QPyPack！”</i>
+</h2>
+<p align="center">
+  <sub><strong>Drag, drop, and build — QPyPack takes care of the rest!</strong></sub>
+</p>
+
+## 💡 QPyPack 是什么？
+
+QPyPack 是一款现代化的跨平台 Python 打包工具。它深度整合 **PyInstaller** 与 **Nuitka** 双核心打包引擎，将极其繁琐复杂的终端命令行参数与环境配置，转化为极简、直观、高成功的图形界面体验。
+
+无论你是打包简单的脚本工具，还是包含复杂依赖（如 PySide/PyQt, Playwright, CustomTkinter, MoviePy 等）的项目，QPyPack 都能助你轻松生成纯净、高效的跨平台原生可执行文件。
+
+---
+
+## 🌟 为什么选择 QPyPack？
+
+* **告别噩梦般的命令行**：无需再记忆繁琐的 `--hidden-import`、`--add-data` 路径分隔符和参数格式。
+* **零门槛 C/C++ 编译器集成**：自动嗅探本地 MSVC、Clang 或 GCC 环境；缺失时免交互自动托管下载 MinGW-w64 工具链，无需手动配置环境变量。
+* **告别运行时 `ModuleNotFoundError`**：首创“三重依赖安全网”（Requirements + 原生 AST 语法树扫描 + pipreqs），精准补全隐式依赖。
+* **告别打包崩溃与中间死锁**：自动评估物理内存，自带内存溢出（OOM）自愈重试、杀软图标锁定剥离重构建及 Temp 防锁沙盒。
 
 ---
 
@@ -71,34 +89,15 @@ QPyPack 是一款致力于简化 Python 应用打包流程的可视化工具。�
 
 ## 🚀 核心特性 (Key Features)
 
-QPyPack 旨在解决传统命令行打包配置繁琐、依赖遗漏、跨平台兼容性差以及编译失败率高的问题：
-
-### 1. 现代化 UI 与直观交互体验
-* 📥 **拖放式载入 (Drag & Drop)**：只需将 `.py` 或 `.pyw` 源代码文件拖入窗口，系统全自动完成解析与工作区初始化。
-* 🎨 **纯矢量图标栈 (Material Design SVG)**：全界面采用 Google Material 矢量图标，全面清理 Emoji 表情，彻底杜绝跨平台系统下字体回退导致的排版乱码与跳动。
-* 🌐 **智能多语言 (i18n)**：原生支持简体中文、繁体中文、英文、德语、法语、日语、韩语等全球主流语言，自动识别系统首选语言并支持无缝切换。
-* 📊 **双模式实时日志查看器**：引入“精简模式 (Concise)”与“详细模式 (Detailed)”双视图日志面板，支持实时捕获编译引擎极细粒度的编译进度、一键导出与高亮提示。
-
-### 2. 双编译后端与智能环境嗅探
-* ⚙️ **PyInstaller & Nuitka 架构**：图形化界面一键切换引擎，根据所选引擎自适应提供针对性的优化选项与参数控制。
-* 🔍 **C/C++ 编译器智能嗅探**：Nuitka 引擎下自动探测系统内已安装的 **MSVC**、**Clang** (LLVM) 及 **Zig**（专为 Python 3.13+ C 后端优化）编译器并优先调用，免除繁琐的环境变量设置。
-* 💻 **Python 平台兼容性卡片**：动态显示当前选中 Python 解释器对 Windows 7/8/10/11、macOS 及 Linux 的支持状态，并提供官方下载引导。
-
-### 3. 三重安全依赖网与零配置预设
-* 🛡️ **隔离虚拟沙盒 (Virtualenv Sandbox)**：一键在系统临时目录创建纯净构建沙盒，避免全局环境污染，极大精简产物体积。
-* 🔍 **多维依赖自动补全**：优先读取 `requirements.txt`；搭配深度原生 **AST（静态语法树）** 扫描引擎与 `pipreqs`，精准补齐隐式导入（Hidden Imports）。
-* 📦 **免配置第三方库打包预设**：内置对 `ttkbootstrap`、`customtkinter`、`playwright`、`moviepy` 等高频缺失/报错库的自动化打包处理，实现零配置一键生成。
-* ⚡ **多源 PIP 镜像与备用切源**：内置主流镜像加速源，支持主源超时自动平滑切换至备用源。
-
-### 4. 强健的构建容错与自愈降级
-* 📏 **编译前物理资源评估**：自动评估物理内存与磁盘可用空间，智能调整并发 CPU 核心数。
-* 🛡️ **OOM 溢出自愈**：构建过程中遭遇 `ZstdError`（内存溢出）时，自动触发单线程 (`--jobs=1`) 降级重试。
-* 🛡️ **图标锁定抗性**：遭遇杀毒软件或系统锁定图标文件时，自动触发剥离图标参数自愈构建，保障二进制产物顺利生成。
-* ☁️ **云盘锁定预警**：前置感知识别 OneDrive / Dropbox 等云盘对文件的锁定同步状态并提供明确排查提示。
-
-### 5. 资源管理与应用元数据
-* 📝 **PE / Plist 元数据注入**：直接在界面设定版本号、公司名、产品描述，全自动写入 Windows PE VersionInfo 或 macOS `Info.plist` 结构。
-* 📂 **可视化附加资源管理**：提供列表化界面管理附加文件与文件夹，支持双击直接编辑打包后的相对释放路径（自适应路径映射）。
+- ✨ **极简拖拽，即刻启程**：拖入 `.py` 或 `.pyw` 源代码，全自动完成应用元数据解析、工作区初始化与图标匹配。
+- ⚙️ **双打包引擎自由切换**：
+  - **PyInstaller**：打包速度快，兼容性极佳，零 C 编译器依赖。
+  - **Nuitka**：将源码编译为原生 C/C++ 二进制，体积更小、运行更快、代码深度抗反编译。
+- 🔍 **C/C++ 编译器智能托管**：优先调用本地 MSVC、Clang (LLVM) 或 GCC；未检测到本地编译器时，由 Nuitka 自动托管下载兼容的 MinGW-w64 编译器。
+- 🛡️ **三重依赖防护网**：融合 `requirements.txt`、原生 **AST 静态语法树** 扫描与 `pipreqs`，智能捕获所有隐式导入（Hidden Imports）。
+- 📦 **复杂第三方库零配置预设**：内置对 `ttkbootstrap`、`customtkinter`、`playwright`、`moviepy` 等高频报错/遗漏资源库的自动 Hooks 拦截与资源收集。
+- 🛡️ **防锁沙盒与自愈机制**：构建前物理资源评估，捕获内存溢出（OOM/ZstdError）自动降低并发重试，支持 Temp 目录防锁隔离，解决 OneDrive/杀软锁文件导致的构建中断。
+- 🎨 **纯矢量 UI & 多语言支持**：全界面基于 Google Material SVG 矢量图标，完美适配高分屏缩放；原生支持中、英、日、韩、德、法等全球多语言无缝切换。
 
 ---
 

@@ -160,7 +160,6 @@
   "[INFO] Stripping icon parameters and automatically rebuilding...": "[INFO] Удаление параметров иконки и пересборка...",
   "[INFO] Writing application icon...": "[INFO] Запись иконки приложения...",
   "[INFO] Application icon written successfully.": "[INFO] Иконка приложения успешно записана.",
-  "[INFO] Lite mode enabled, excluding non-essential modules...": "[INFO] Облегченный режим включен, исключение модулей...",
   "[INFO] Enabled Nuitka optimization directives...": "[INFO] Включены директивы оптимизации Nuitka...",
   "[INFO] Compilation completed, archiving built files...": "[INFO] Компиляция завершена, архивирование файлов...",
   "[INFO] Validating output files and generating final product...": "[INFO] Проверка выходных файлов и генерация...",
@@ -223,5 +222,14 @@
   "<b>Python is not detected on your system!</b><br><br>QPyPack requires a Python environment to compile your code.<br>If you haven't installed Python, please download and install it (remember to check <b>'Add Python.exe to PATH'</b> during installation).": "<b>Python не найден!</b><br>Установите Python (с галочкой <b>'Add to PATH'</b>).",
   "Download Python": "Скачать Python",
   "Unknown": "Неизвестно",
-  "Drag & Drop Python script (.py/.pyw) here\nor Click to Browse": "Перетащите Python-скрипт (.py/.pyw) сюда\nили нажмите для обзора..."
+  "Drag & Drop Python script (.py/.pyw) here\nor Click to Browse": "Перетащите Python-скрипт (.py/.pyw) сюда\nили нажмите для обзора...",
+  "System Temp Directory (Anti-Lock / Cloud-Friendly)": "Системная Temp-папка (Без блокировок / Для облака)",
+  "Cancel": "Отмена",
+  "Double-click to edit target path; Drag & drop supported. Use 'Export Preset' to save for reuse.": "Двойной клик для изменения пути. Для сохранения используйте «Экспортировать пресет».",
+  "[INFO] Found local GCC/MinGW-w64 environment, using MinGW64 compiler.": "[INFO] Найден локальный GCC/MinGW-w64, используется MinGW64.",
+  "[INFO] Found local Zig environment, letting Nuitka manage C backend compilation.": "[INFO] Найдена среда Zig, Nuitka сама управляет C-бэкендом.",
+  "[INFO] No local C compiler detected. Nuitka will automatically download and manage a compatible MinGW-w64 toolchain.": "[INFO] Локальный C-компилятор не найден. Nuitka автоматически скачает и настроит MinGW-w64.",
+  "[INFO] Lite mode enabled, applying bytecode optimization (-OO) and stripping dev modules...": "[INFO] Облегченный режим включен, применяется оптимизация байт-кода (-OO) и удаление dev-модулей...",
+  "[ERROR] I/O Exception: {err_msg}": "[ERROR] Ошибка ввода-вывода: {err_msg}",
+  "<table border=\"0\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-bottom: 5px;\"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align=\"right\"><a href=\"https://www.python.org/downloads/\" style=\"color:#64748b; text-decoration:none;\">Download Python</a></td></tr></table><span style=\"color:#dc2626; font-weight:bold;\">✖ Windows 7</span> &nbsp;&nbsp; <span style=\"color:#dc2626; font-weight:bold;\">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style=\"color:#16a34a; font-weight:bold;\">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style=\"color:#16a34a; font-weight:bold;\">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style=\"color:#16a34a; font-weight:bold;\">✔ Linux</span><br><span style=\"background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;\">Nuitka</span> <span style=\"color:#16a34a; font-size:11px;\">Auto-detecting and managing C backend compiler</span>": "<table border=\"0\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-bottom: 5px;\"><tr><td><b>Python {ver} Поддержка:</b></td><td align=\"right\"><a href=\"https://www.python.org/downloads/\" style=\"color:#64748b; text-decoration:none;\">Скачать Python</a></td></tr></table><span style=\"color:#dc2626; font-weight:bold;\">✖ Windows 7</span> &nbsp;&nbsp; <span style=\"color:#dc2626; font-weight:bold;\">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style=\"color:#16a34a; font-weight:bold;\">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style=\"color:#16a34a; font-weight:bold;\">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style=\"color:#16a34a; font-weight:bold;\">✔ Linux</span><br><span style=\"background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;\">Nuitka</span> <span style=\"color:#16a34a; font-size:11px;\">Автоопределение и управление C-компилятором</span>"
 }

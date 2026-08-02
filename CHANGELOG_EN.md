@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **English** | [中文版](./CHANGELOG.md)
 
 ---
+## [2.7.2] - 2026-08-03
+
+### Key Improvements
+* **Compiler Selection Strategy Refactored**: Removed hardcoded Zig compiler forcing for Python 3.13+. Prioritizes local MSVC / Clang / GCC(MinGW64) environments; falls back to Nuitka auto-detection and toolchain download if none are found.
+* **Updated Compatibility Matrix**: Refined interpreter status cards to accurately reflect Nuitka's adaptive C compiler detection capabilities.
+* **Enhanced Build Prompts**: Displays MinGW-w64 auto-download notices when no local compiler is found; adds explicit detection feedback for local compilers.
+* **UI Polish**: Updated resource list tooltips to recommend saving via "Export Preset"; simplified temporary directory selection labels.
+* **Restored Default Dependency Directory**: Reverted PyInstaller's one-dir dependency folder name back to the official default (`_internal`), allowing packaged apps to share runtime libraries and reduce disk footprint.
+* **State Persistence Optimized**: The custom output directory setting is no longer cleared when loading a new script or resetting the workspace, improving the workflow for continuous packaging.
+
+---
+
 ## [2.7.1] - 2026-08-02
 
 ### Added

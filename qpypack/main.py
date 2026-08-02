@@ -49,7 +49,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.1"
+__version__ = "2.7.2"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -74,6 +74,7 @@ ZH_CN_DICT = {
     "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka": "基于 PyInstaller 与 Nuitka 的现代化跨平台 Python 打包工具",
     "Python Packaging, Reimagined.": "重新定义 Python 应用打包体验",
     "Drop Python source code to start": "拖入 Python 源码，即刻启程",
+    "Drag & Drop Python script (.py/.pyw) here\nor Click to Browse": "拖拽 Python 脚本 (.py/.pyw) 到此\n或点击浏览",
 
     # 3. 导航与选项卡 (Tabs & Navigation)
     "Build Settings": "构建设置",
@@ -124,6 +125,7 @@ ZH_CN_DICT = {
     "Import Preset...": "导入预设...",
     "Reset to Default Config": "重置默认配置",
     "Cancel & Return": "取消并返回",
+    "Cancel": "取消",
     "Configure Build Settings": "构建设置",
     "Toggle Execution Log": "切换日志",
     "Detailed Mode": "详细日志",
@@ -167,6 +169,7 @@ ZH_CN_DICT = {
     "Temporary Directory:": "临时目录:",
     "Source Directory (.qpypack_build)": "源码同级目录 (.qpypack_build)",
     "System Temp Directory": "系统 Temp 目录",
+    "System Temp Directory (Anti-Lock / Cloud-Friendly)": "系统 Temp 目录 (防锁定 / 云盘友好)",
     "Source File Directory": "源码同级目录",
     "Custom Directory": "自定义目录",
     "Import Name": "导入名",
@@ -201,6 +204,7 @@ ZH_CN_DICT = {
     "Leave blank to auto-detect from environment variables": "留空从环境变量自动检测",
     "Dynamically exclude redundant dependencies in build environment, improving speed and reducing size.": "动态排除构建环境的冗余依赖，提升速度并减小体积。",
     "Double-click to edit target path; Drag & drop supported": "双击编辑目标路径；支持拖拽",
+    "Double-click to edit target path; Drag & drop supported. Use 'Export Preset' to save for reuse.": "双击编辑目标路径；支持拖拽。建议使用“导出预设”进行保存。",
 
     # 8. 引擎说明与平台兼容性矩阵 (Engine Help & Platform Matrices)
     "PyInstaller — Bundles Python interpreter and bytecode. Fast build speed, zero configuration (no C compiler needed), and excellent compatibility.":
@@ -220,6 +224,9 @@ ZH_CN_DICT = {
 
     '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.15+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#fef3c7; color:#b45309; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#d97706; font-size:11px;">Requires MSVC / Clang / Zig (MinGW64 unsupported)</span>':
         '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} 平台支持：</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">下载 Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.15+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#fef3c7; color:#b45309; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#d97706; font-size:11px;">需 MSVC / Clang / Zig (不支持 MinGW64)</span>',
+        
+    '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">Auto-detecting and managing C backend compiler</span>':
+        '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} 平台支持：</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">下载 Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">自动检测并管理 C 后端编译器</span>',
 
     '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python Interpreter</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#6b7280;">Auto-detecting system environment for Windows, macOS & Linux...</span>':
         '<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python 解释器</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">下载 Python</a></td></tr></table><span style="color:#6b7280;">自动检测系统环境 (Win/macOS/Linux)...</span>',
@@ -250,11 +257,15 @@ ZH_CN_DICT = {
     "[INFO] Found local Clang environment, prioritizing LLVM Clang compiler.": "[INFO] 检测到 Clang，优先使用 LLVM Clang 编译器。",
     "[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as C backend.": "[INFO] Python 3.13+: 使用 Zig 编译器。",
     "[INFO] Using MinGW64 compiler (--mingw64) for C backend.": "[INFO] 使用 MinGW64 编译器。",
+    "[INFO] Found local GCC/MinGW-w64 environment, using MinGW64 compiler.": "[INFO] 检测到本地 GCC/MinGW-w64 环境，优先使用 MinGW64 编译器。",
+    "[INFO] Found local Zig environment, letting Nuitka manage C backend compilation.": "[INFO] 检测到本地 Zig 环境，由 Nuitka 接管 C 后端编译。",
+    "[INFO] No local C compiler detected. Nuitka will automatically download and manage a compatible MinGW-w64 toolchain.": "[INFO] 未检测到本地 C 编译器，Nuitka 将自动下载并管理兼容的 MinGW-w64 工具链。",
     "[INFO] Evaluating system physical memory (Available: {ram:.1f} GB). Adaptive concurrency adjusted: {cores} -> {safe_jobs} ...": "[INFO] 评估系统内存 (可用: {ram:.1f} GB)。调整并发: {cores} -> {safe_jobs}",
     "[INFO] Stripping icon parameters and automatically rebuilding...": "[INFO] 剥离图标参数并重新构建...",
     "[INFO] Writing application icon...": "[INFO] 写入应用图标...",
     "[INFO] Application icon written successfully.": "[INFO] 应用图标写入成功。",
     "[INFO] Lite mode enabled, excluding non-essential modules...": "[INFO] 启用精简模式，排除非必要模块...",
+    "[INFO] Lite mode enabled, applying bytecode optimization (-OO) and stripping dev modules...": "[INFO] 启用精简模式，应用字节码优化 (-OO) 并剔除开发环境模块...",
     "[INFO] Enabled Nuitka optimization directives...": "[INFO] 启用 Nuitka 优化指令...",
     "[INFO] Compilation completed, archiving built files...": "[INFO] 编译完成，归档产物...",
     "[INFO] Validating output files and generating final product...": "[INFO] 校验并生成最终产物...",
@@ -295,6 +306,7 @@ ZH_CN_DICT = {
     "[ERROR] Build completed, but the following dependencies failed to install:\n\n  - {pkgs}\n\nNote: The application might raise ModuleNotFoundError at runtime.": "[ERROR] 构建完成，但以下依赖安装失败:\n\n  - {pkgs}\n\n注意: 运行时可能抛出 ModuleNotFoundError。",
     "[ERROR] Process error: command or binary missing ({error})": "[ERROR] 进程错误: 命令或二进制文件缺失 ({error})",
     "[ERROR] System execution exception: {error}": "[ERROR] 系统执行异常: {error}",
+    "[ERROR] I/O Exception: {err_msg}": "[ERROR] I/O 异常: {err_msg}",
     "Dependency Missing Warning: {pkgs} failed to install. Check log for details.": "依赖缺失警告: {pkgs} 安装失败，详情见日志。",
     "Package mappings have been reset to defaults.": "包映射已重置为默认值。",
     "Config preset exported to: {path}": "配置预设已导出: {path}",
@@ -2196,7 +2208,7 @@ class SettingsPanel(QWidget):
         self.sandbox_mode_combo = QComboBox()
         self.sandbox_mode_combo.addItems([
             _("Source Directory (.qpypack_build)"), 
-            _("System Temp Directory (Anti-Lock / Cloud-Friendly)")
+            _("System Temp Directory")
         ])
         setup_combo_white_theme(self.sandbox_mode_combo)
 
@@ -2775,10 +2787,25 @@ class SettingsPanel(QWidget):
                     self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Legacy OS</span> <span style="color:#6b7280; font-size:11px;">Full backward compatibility</span>', ver=ver_str))
                 elif (major, minor) <= (3, 10):
                     self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>', ver=ver_str))
-                elif (major, minor) <= (3, 12):
-                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">MinGW64 supported out-of-the-box</span>', ver=ver_str))
                 else:
-                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.15+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#fef3c7; color:#b45309; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#d97706; font-size:11px;">Requires MSVC / Clang / Zig (MinGW64 unsupported)</span>', ver=ver_str))
+                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">Auto-detecting and managing C backend compiler</span>', ver=ver_str))
+                return
+            except Exception:
+                pass
+
+        self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python Interpreter</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#6b7280;">Auto-detecting system environment for Windows, macOS & Linux...</span>'))
+
+        if ver_str:
+            try:
+                parts = [int(x) for x in ver_str.split('.')]
+                major, minor = parts[0], parts[1]
+                
+                if (major, minor) <= (3, 8):
+                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Legacy OS</span> <span style="color:#6b7280; font-size:11px;">Full backward compatibility</span>', ver=ver_str))
+                elif (major, minor) <= (3, 10):
+                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>', ver=ver_str))
+                else:
+                    self.python_desc_lbl.setText(_('<table border="0" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 5px;"><tr><td><b>Python {ver} Platform Matrix:</b></td><td align="right"><a href="https://www.python.org/downloads/" style="color:#64748b; text-decoration:none;">Download Python</a></td></tr></table><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">Auto-detecting and managing C backend compiler</span>', ver=ver_str))
                 return
             except Exception:
                 pass
@@ -3208,7 +3235,8 @@ class PackingThread(QThread):
 
             build_script_path, is_temp, err_msg = self.sanitize_script(script_path)
             if not build_script_path and err_msg: 
-                return self.build_finished.emit(False, f"[ERROR] I/O Exception: {err_msg}", [])
+                return self.build_finished.emit(False, _("[ERROR] I/O Exception: {err_msg}", err_msg=err_msg), [])
+
             script_posix = build_script_path.as_posix()
 
             system_python_exe = get_python_executable()
@@ -3415,7 +3443,7 @@ class PackingThread(QThread):
                     cmd.append("--onefile")
                 else: 
                     cmd.append("--onedir")
-                    cmd.append("--contents-directory=internal")
+                    cmd.append("--contents-directory=_internal")
                 
                 if self.params['noconsole']: cmd.append("--noconsole")
                 else: cmd.append("--console")
@@ -3500,21 +3528,20 @@ class PackingThread(QThread):
                         if any(p.exists() for p in llvm_paths):
                             has_clang = True
 
+                    has_gcc = (shutil.which('gcc.exe') is not None) or (shutil.which('g++.exe') is not None)
+
                     py_ver_num = (3, 12)
                     try:
                         kw = {"capture_output": True, "text": True, "timeout": 2}
                         if os.name == 'nt': kw["creationflags"] = subprocess.CREATE_NO_WINDOW
                         check_ver = subprocess.run([python_exe, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], **kw)
                         ver_str = check_ver.stdout.strip()
-
                         if ver_str:
                             parts = ver_str.split('.')
                             py_ver_num = (int(parts[0]), int(parts[1]))
                     except: pass
 
-                    has_cl_exe = shutil.which('cl.exe') is not None
-
-                    if has_cl_exe:
+                    if has_msvc:
                         cmd.append("--msvc=latest")
                         self.progress.emit(_("[INFO] Found local MSVC environment, prioritizing native C++ compiler."))
                     elif has_clang:
@@ -3523,9 +3550,12 @@ class PackingThread(QThread):
                     elif py_ver_num >= (3, 13):
                         cmd.append("--zig")
                         self.progress.emit(_("[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as C backend."))
+                    elif has_gcc:
+                        cmd.append("--mingw64")
+                        self.progress.emit(_("[INFO] Found local GCC/MinGW-w64 environment, using MinGW64 compiler."))
                     else:
                         cmd.append("--mingw64")
-                        self.progress.emit(_("[INFO] Using MinGW64 compiler (--mingw64) for C backend."))
+                        self.progress.emit(_("[INFO] No local C compiler detected. Nuitka will automatically download and manage a compatible MinGW-w64 toolchain."))
 
                 free_disk = get_free_disk_gb(script_dir.as_posix())
                 if free_disk < 3.0:
@@ -4150,7 +4180,6 @@ class MainWindow(QMainWindow):
             self.settings_panel.exclude_edit.clear()
             self.settings_panel.add_data_list.clear()
             self.settings_panel.reqs_file_edit.clear()
-            self.settings_panel.out_dir_edit.clear()
             self.settings_panel.name_edit.clear()
 
         self.script_path = path
