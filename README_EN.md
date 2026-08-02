@@ -14,10 +14,6 @@
 </p>
 
 <p align="center">
-  <strong>A Modern Cross-Platform Python Application Packaging & Compilation Suite Powered by PyInstaller and Nuitka</strong>
-</p>
-
-<p align="center">
   <!-- PyPI Version -->
   <a href="https://pypi.org/project/qpypack/">
     <img src="https://img.shields.io/pypi/v/qpypack.svg?color=blue&logo=pypi&logoColor=white" alt="PyPI version" />
@@ -47,58 +43,57 @@
   </a>
   <!-- GitHub Stars -->
   <a href="https://github.com/Qwejay/QPyPack/stargazers">
-    <img src="https://img.shields.io/github/stars/Qwejay/QPyPack.svg?logo=github" alt="GitHub stars" />
+    <img src="https://img.shields.io/github/stars/Qwejay/QPyPack.svg?logo=github&color=gold" alt="GitHub stars" />
   </a>
 </p>
 
-QPyPack is a visual GUI tool designed to simplify Python application packaging workflows. It deeply integrates two major compilation engines—**PyInstaller** and **Nuitka**—converting tedious CLI arguments into an intuitive graphical interface, helping developers generate cross-platform native executables efficiently and reliably.
+---
+
+<h2 align="center">
+  🚀 <i>“Drag, drop, and build — QPyPack takes care of the rest!”</i>
+</h2>
+<p align="center">
+  <sub><strong>只需拖入 Python 代码，剩下的交给 QPyPack！</strong></sub>
+</p>
+
+## 💡 What is QPyPack?
+
+QPyPack is a modern cross-platform Python packaging GUI tool. It deeply integrates **PyInstaller** and **Nuitka** core compilation engines, transforming tedious CLI flags and compiler environment setups into an intuitive, high-success graphical interface experience.
+
+Whether you are bundling lightweight scripts or complex applications (e.g., PySide/PyQt, Playwright, CustomTkinter, MoviePy), QPyPack helps you build standalone, efficient, native cross-platform binaries effortlessly.
+
+---
+
+## 🌟 Why Choose QPyPack?
+
+* **Say Goodbye to CLI Nightmares**: No need to memorize `--hidden-import`, `--add-data` syntax, or path separator variations across OSes.
+* **Zero C/C++ Compiler Friction**: Automatically detects local MSVC, Clang, or GCC environments; downloads and manages MinGW-w64 toolchains seamlessly when none are present.
+* **Eliminate Runtime `ModuleNotFoundError`**: Powered by a "Triple-Layer Safety Net" (`requirements.txt` + Native AST Static Analysis + `pipreqs`) to ensure missing implicit dependencies are automatically resolved.
+* **Resilient Build Execution**: Includes pre-flight memory evaluations, OOM (out-of-memory) fallback retries, antivirus/icon lock recovery, and temp directory sandboxing.
 
 ---
 
 ## 📷 Screenshots
 
 <p align="center">
-  <img width="32%" alt="主界面英文预览" src="https://github.com/user-attachments/assets/9d16c68e-d283-4020-86c1-9d4791756c29" />
-  <img width="32%" alt="主界面中文预览" src="https://github.com/user-attachments/assets/0147460d-1e9e-4612-9b52-9d347d81b7c5" />
-  <img width="32%" alt="设置面板预览" src="https://github.com/user-attachments/assets/0ad4db6d-b008-4018-bd69-40a369a10b7d" />
-  <br />
-  <img width="32%" alt="依赖管理预览" src="https://github.com/user-attachments/assets/c7fd1218-d079-4898-a97c-aa980c4d1375" />
-  <img width="32%" alt="高级优化预览" src="https://github.com/user-attachments/assets/e5b7500e-2a0d-4c6d-b20b-7d8d2d3bac8d" />
-  <img width="32%" alt="关于页面预览" src="https://github.com/user-attachments/assets/e652b222-49f5-44cd-ad3f-d93369ede26b" />
+  <img width="32%" alt="Main UI" src="https://github.com/user-attachments/assets/c7c8ce04-b572-4d79-845b-101ba9598837" />
+  <img width="32%" alt="Build Settings" src="https://github.com/user-attachments/assets/bd4f35c8-d260-4b95-bb63-31fbbe1b17e7" />
+  <img width="32%" alt="Dependencies" src="https://github.com/user-attachments/assets/30999990-be5a-47fe-b03d-f7bf8ae2e30b" />
 </p>
 
 ---
 
 ## 🚀 Key Features
 
-QPyPack addresses configuration complexity, missing implicit dependencies, cross-platform glitches, and high compilation failure rates in traditional CLI workflows:
-
-### 1. Modern UI & Intuitive UX
-* 📥 **Drag & Drop Workspace**: Simply drop `.py` or `.pyw` source files into the window; QPyPack will automatically parse and initialize the workspace.
-* 🎨 **Pure Vector Icon Stack (Material Design SVG)**：Cleaned up emoji icons in favor of Google Material SVG vector icons, completely eliminating font fallback issues and alignment glitches across Linux and older Windows systems.
-* 🌐 **Native i18n Support**: Multilingual UI support out-of-the-box (English, Simplified/Traditional Chinese, German, French, Japanese, Korean, etc.) with auto-detection and live switching.
-* 📊 **Dual-Mode Live Log Viewer**: Toggle between "Concise" and "Detailed" log panels with real-time build status tracking, error highlighting, and log export.
-
-### 2. Dual Compilation Backends & Compiler Sniffing
-* ⚙️ **PyInstaller & Nuitka Integration**: Seamlessly switch engines via GUI, with dynamic UI controls that adapt based on the selected backend.
-* 🔍 **Smart Compiler Auto-Detection**: Automatically sniffs and prioritizes system C/C++ compilers for Nuitka, including **MSVC**, **Clang** (LLVM), and **Zig** (optimized for Python 3.13+ C backends).
-* 💻 **Platform Compatibility Matrix**: Real-time status cards displaying OS support (Windows 7/8/10/11, macOS, Linux) for selected Python interpreters with official download shortcuts.
-
-### 3. Robust Dependency Resolution & Zero-Config Presets
-* 🛡️ **Isolated Virtualenv Sandbox**: Create pristine temporary build sandboxes with one click, eliminating global package pollution and minimizing output binary sizes.
-* 🔍 **Triple-Layer Dependency Protection**: Reads `requirements.txt`, runs deep native **AST (Abstract Syntax Tree)** static analysis, and executes `pipreqs` to automatically catch hidden imports.
-* 📦 **Zero-Config Third-Party Presets**: Built-in automated handling for error-prone libraries like `ttkbootstrap`, `customtkinter`, `playwright`, `moviepy`, and more.
-* ⚡ **Multi-Mirror PIP Management**: Integrated PyPI mirror presets with automatic fallback to secondary index sources on network timeout.
-
-### 4. Build Resilience & Self-Healing Fallbacks
-* 📏 **Pre-flight Resource Evaluation**: Assesses available RAM and disk space before build, dynamically adjusting CPU concurrency.
-* 🛡️ **OOM Fallback Recovery**: Automatically triggers single-thread retry mode (`--jobs=1`) when catching `ZstdError` / Out-Of-Memory exceptions.
-* 🛡️ **Antivirus/Icon Lock Resilience**: Automatically strips icon parameters and retries build if icon resource writing is blocked by security software or system locks.
-* ☁️ **Cloud Storage Lock Alerts**: Detects file synchronization locks caused by OneDrive, Dropbox, or other cloud drives and provides clear diagnostic tips.
-
-### 5. Data File Management & Metadata Injection
-* 📝 **PE / Plist Metadata Injection**: Configure version strings, company names, and application descriptions via GUI; automatically writes Windows PE VersionInfo or macOS `Info.plist` bundles.
-* 📂 **Visual Data Files Management**: Manage supplementary files and directories in a structured list with inline double-click editing for relative output destination paths.
+- ✨ **Drag, Drop & Go**: Simply drop `.py` / `.pyw` files; QPyPack auto-parses metadata, matches application icons, and initializes the workspace.
+- ⚙️ **Dual Engines**:
+  - **PyInstaller**: Rapid build speeds, high compatibility, zero compiler setup.
+  - **Nuitka**: Compiles Python source directly to native C/C++ binaries for smaller sizes, faster runtime, and anti-decompilation protection.
+- 🔍 **Seamless C/C++ Compiler Integration**: Auto-detects local MSVC, Clang, or GCC environments, and silently manages MinGW-w64 downloads without manual environment variable setups.）
+- 🛡️ **Triple-Layer Dependency Protection**: Combines `requirements.txt` parsing, native **AST static analysis**, and `pipreqs` to capture hidden imports.
+- 📦 **Zero-Config Presets**: Automated hooks and resource collection for troublesome packages (`ttkbootstrap`, `customtkinter`, `playwright`, `moviepy`, etc.).
+- 🛡️ **Resilient Sandboxing & Fallbacks**: Runs pre-flight RAM/disk checks, retries in single-thread concurrency on OOM/ZstdError, and isolates builds in Temp directories to bypass OneDrive sync locks.
+- 🎨 **Pure Vector UI & i18n**: Rendered with Google Material SVG vector icons with native multi-language support (English, Chinese, Japanese, Korean, German, French, etc.).
 
 ---
 
