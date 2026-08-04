@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qpypack"
-version = "2.7.1"
+version = "2.7.3"
 description = "A cross-platform GUI packaging and compilation suite based on PyInstaller and Nuitka."
-readme = "README.md"
+readme = "README_EN.md"
 authors = [
     { name = "QwejayHuang" }
 ]

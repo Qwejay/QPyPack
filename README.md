@@ -89,13 +89,14 @@ QPyPack 是一款现代化的跨平台 Python 打包工具。它深度整合 **P
 
 ## 🚀 核心特性 (Key Features)
 
-- ✨ **极简拖拽，即刻启程**：拖入 `.py` 或 `.pyw` 源代码，全自动完成应用元数据解析、工作区初始化与图标匹配。
-- ⚙️ **双打包引擎自由切换**：
-  - **PyInstaller**：打包速度快，兼容性极佳，零 C 编译器依赖。
-  - **Nuitka**：将源码编译为原生 C/C++ 二进制，体积更小、运行更快、代码深度抗反编译。
+- ✨ **极组拖拽，即刻启程**：拖入 `.py` 或 `.pyw` 源代码，全自动完成应用元数据解析、工作区初始化与图标匹配。
+- 🐍 **Python 环境智能管理**：内置 Python 环境管理弹窗，支持本地多版本平滑切换，无 Python 环境时支持从官方/国内镜像源**一键自动下载安装与配置**。
+- ⚙️ **双打包引擎与多元模式**：
+  - 支持 **PyInstaller**（构建迅速，兼容性优异）与 **Nuitka**（编译为原生 C/C++，体积小、运行快、强抗反编译）双引擎自由切换。
+  - 支持 **单文件 (`--onefile`)** 与 **文件夹 (`--onedir`)** 模式，可自定义内部依赖资源目录 (`--contents-directory`)。
 - 🔍 **C/C++ 编译器智能托管**：优先调用本地 MSVC、Clang (LLVM) 或 GCC；未检测到本地编译器时，由 Nuitka 自动托管下载兼容的 MinGW-w64 编译器。
-- 🛡️ **三重依赖防护网**：融合 `requirements.txt`、原生 **AST 静态语法树** 扫描与 `pipreqs`，智能捕获所有隐式导入（Hidden Imports）。
-- 📦 **复杂第三方库零配置预设**：内置对 `ttkbootstrap`、`customtkinter`、`playwright`、`moviepy` 等高频报错/遗漏资源库的自动 Hooks 拦截与资源收集。
+- 🛡️ **原生 AST 三重依赖防护**：融合 `requirements.txt`、原生 **AST 静态语法树递归扫描** 与环境安装包映射，智能捕获所有隐式导入（Hidden Imports）。
+- 📦 **复杂第三方库零配置预设**：内置对 `ttkbootstrap`、`customtkinter`、`playwright`、`moviepy` 等高频报错/遗漏资源库的自动 Hooks 拦截与资源收集（支持 Playwright 镜像加速）。
 - 🛡️ **防锁沙盒与自愈机制**：构建前物理资源评估，捕获内存溢出（OOM/ZstdError）自动降低并发重试，支持 Temp 目录防锁隔离，解决 OneDrive/杀软锁文件导致的构建中断。
 - 🎨 **纯矢量 UI & 多语言支持**：全界面基于 Google Material SVG 矢量图标，完美适配高分屏缩放；原生支持中、英、日、韩、德、法等全球多语言无缝切换。
 
