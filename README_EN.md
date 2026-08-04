@@ -86,12 +86,14 @@ Whether you are bundling lightweight scripts or complex applications (e.g., PySi
 ## 🚀 Key Features
 
 - ✨ **Drag, Drop & Go**: Simply drop `.py` / `.pyw` files; QPyPack auto-parses metadata, matches application icons, and initializes the workspace.
-- ⚙️ **Dual Engines**:
+- 🐍 **Smart Python Environment Manager**: Built-in environment dialog supporting intelligent local Python detection/switching, as well as one-click automatic downloading & installation via official or mirror sources.
+- ⚙️ **Dual Engines & Flexible Execution Modes**:
   - **PyInstaller**: Rapid build speeds, high compatibility, zero compiler setup.
   - **Nuitka**: Compiles Python source directly to native C/C++ binaries for smaller sizes, faster runtime, and anti-decompilation protection.
-- 🔍 **Seamless C/C++ Compiler Integration**: Auto-detects local MSVC, Clang, or GCC environments, and silently manages MinGW-w64 downloads without manual environment variable setups.）
-- 🛡️ **Triple-Layer Dependency Protection**: Combines `requirements.txt` parsing, native **AST static analysis**, and `pipreqs` to capture hidden imports.
-- 📦 **Zero-Config Presets**: Automated hooks and resource collection for troublesome packages (`ttkbootstrap`, `customtkinter`, `playwright`, `moviepy`, etc.).
+  - Supports both **One-File (`--onefile`)** and **Folder Mode (`--onedir`)**, with customizable internal dependencies directory names (`--contents-directory`).
+- 🔍 **Seamless C/C++ Compiler Integration**: Auto-detects local MSVC, Clang, or GCC environments, and silently manages MinGW-w64 downloads without manual environment variable setups.
+- 🛡️ **Triple-Layer Dependency Protection**: Combines `requirements.txt` parsing, native **AST static analysis**, and environment package mapping to capture all implicit imports.
+- 📦 **Zero-Config Presets**: Automated hooks and resource collection for troublesome packages (`ttkbootstrap`, `customtkinter`, `playwright` with mirror acceleration support, `moviepy`, etc.).
 - 🛡️ **Resilient Sandboxing & Fallbacks**: Runs pre-flight RAM/disk checks, retries in single-thread concurrency on OOM/ZstdError, and isolates builds in Temp directories to bypass OneDrive sync locks.
 - 🎨 **Pure Vector UI & i18n**: Rendered with Google Material SVG vector icons with native multi-language support (English, Chinese, Japanese, Korean, German, French, etc.).
 

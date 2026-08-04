@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **English** | [中文版](./CHANGELOG.md)
 
 ---
+
+## [2.7.3] - 2026-08-04
+
+#### Added
+* **Python Environment Manager**: Added a new management dialog that supports intelligent detection and switching of local Python installations, as well as one-click download/installation via official or mirror sources.
+* **Folder Mode (`--onedir`)**: Added Folder Mode to execution settings, along with support for customizable internal contents directory names (`--contents-directory`).
+* **Native AST Dependency Analysis**: Refactored the dependency scanner using native AST parsing instead of `pipreqs`, significantly improving speed and accuracy for implicit dependency detection.
+* **Playwright Mirror Acceleration**: Added mirror source downloads for Playwright browser binaries with automatic fallback to official CDNs.
+
+#### Improved
+* **Dynamic UPX Exclusion**: Upgraded UPX compression rules to automatically detect and exclude core Python DLLs and `vcruntime140_1.dll` to prevent runtime errors.
+* **Thread & Interruption Control**: Strengthened build cancellation and cleanup logic to prevent lingering threads and locked temporary files.
+* **Platform Compatibility & Timeouts**: Optimized macOS Bundle Identifier generation and introduced command execution timeout protection.
+* **UI Polish**: Refactored execution mode radio buttons, streamlined About tab layout and spacing, and updated copyright notices.
+* **i18n Updates**: Refined wording and updated translations across various UI text and logs.
+
+---
+
 ## [2.7.2] - 2026-08-03
 
 ### Key Improvements
