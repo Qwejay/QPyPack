@@ -40,9 +40,9 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayo
                              QHeaderView, QDialog, QRadioButton)
 from PySide6.QtCore import (Qt, QThread, Signal, QPropertyAnimation, QEasingCurve, 
                             QParallelAnimationGroup, QFileInfo, QVariantAnimation, 
-                            QTimer, QPointF, QRectF, QRect, QSize, QUrl, QLocale, QObject)
+                            QTimer, QPointF, QRectF, QRect, QSize, QUrl, QLocale, QObject, QTranslator, QLibraryInfo)
 from PySide6.QtGui import (QFont, QDragEnterEvent, QDropEvent, QIcon, QPixmap, 
-                           QPainter, QColor, QPen, QImage, QImageWriter, QDesktopServices)
+                           QPainter, QColor, QPen, QImage, QImageWriter, QDesktopServices, QPalette)
 from PySide6.QtSvg import QSvgRenderer
 
 try:
@@ -52,7 +52,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.3"
+__version__ = "2.7.4"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -62,7 +62,6 @@ _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = (_CONFIG_DIR / "config.ini").as_posix()
 
 ZH_CN_DICT = {
-    # 1. 源镜像名称 (PIP Mirrors)
     "PyPI Official (Global Default)": "PyPI 官方源 (默认)",
     "Python TestPyPI": "TestPyPI 测试源",
     "AWS PyPI Mirror (US/EU)": "AWS PyPI 镜像 (美/欧)",
@@ -72,13 +71,11 @@ ZH_CN_DICT = {
     "Huawei Cloud (China)": "华为云镜像",
     "USTC (China)": "中科大镜像",
 
-    # 2. 软件元数据与标语 (Metadata & Taglines)
     "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka": "基于 PyInstaller 与 Nuitka 的现代化跨平台 Python 打包工具",
     "Python Packaging, Reimagined.": "重新定义 Python 应用打包体验",
     "Drop Python source code to start": "拖拽 Python 源码至此开始",
     "Drag & Drop Python script (.py/.pyw) here\nor Click to Browse": "拖拽 Python 脚本 (.py/.pyw) 到此\n或点击浏览",
 
-    # 3. 导航与选项卡 (Tabs & Navigation)
     "Build Settings": "构建设置",
     "Preferences": "偏好设置",
     "About": "关于",
@@ -89,7 +86,6 @@ ZH_CN_DICT = {
     "Package Map": "包名映射",
     "Execution Log": "执行日志",
 
-    # 4. 主界面状态与引导 (Main UI & Status Prompts)
     "Loaded: {filename}": "已载入: {filename}",
     "Parsing metadata...": "解析元数据...",
     "Ready, waiting for build.": "就绪，等待构建",
@@ -106,10 +102,11 @@ ZH_CN_DICT = {
     "Status: Build Completed": "状态: 构建完成",
     "Status: Build Failed": "状态: 构建失败",
     "Status: Workspace Reset": "状态: 工作区已重置",
+    "Status: Build Cancelled": "状态: 构建已取消",
+    "Build Cancelled": "构建已取消",
     " [Console]": " [控制台]",
     " [No Console]": " [无控制台]",
 
-    # 5. 操作按钮与右键菜单 (Buttons & Context Menus)
     "Start Build": "开始构建",
     "Stop Build": "停止构建",
     "Open Directory": "打开目录",
@@ -140,7 +137,6 @@ ZH_CN_DICT = {
     "<b>Are you sure you want to reset all preferences?</b><br><span style='color:#64748b; font-size:12px;'>All settings will be restored to default state.</span>":
         "<b>确定重置所有偏好设置？</b><br><span style='color:#64748b; font-size:12px;'>所有设置将恢复为默认状态。</span>",
 
-    # 6. 设置分组卡片与表单标签 (Card Titles & Form Labels)
     "Engine & Environment": "引擎与环境",
     "Execution Mode": "执行模式",
     "Mirrors & Scanner": "镜像与扫描",
@@ -185,15 +181,18 @@ ZH_CN_DICT = {
     "PyPI package name for [{imp_name}]:": "[{imp_name}] 对应 PyPI 包名:",
     "Script and settings retained. Ready to rebuild.": "已保留当前配置，就绪等待重新构建。",
 
-    # 7. 复选框、占位符与悬停提示 (Checkboxes, Placeholders & Tooltips)
-    "One-File Mode (--onefile)": "单文件 (--onefile)",
+    "One-File Mode (--onefile)": "单文件模式 (--onefile)",
+    "Folder Mode (--onedir)": "文件夹模式 (--onedir)",
+    "Contents Directory (--contents-directory):": "内部资源目录:",
+    "Internal directory name for dependencies (default: _internal)": "内部依赖与资源存放目录名 (默认: _internal)",
     "Hide Console (--noconsole)": "隐藏控制台 (--noconsole)",
     "Use Virtual Environment (Recommended)": "使用虚拟环境 (推荐)",
+    "Keep Virtual Environment (Faster Rebuilds)": "保留虚拟环境 (适合频繁重编)",
+    "[INFO] Reusing existing virtual environment...": "[INFO] 复用本地已存在的虚拟环境...",
     "Install requirements.txt": "安装 requirements.txt",
     "Analyze Dependencies (AST)": "分析依赖 (原生 AST)",
     "Scan Entire Folder": "扫描整个文件夹",
     "Enable UPX Compression": "启用 UPX 压缩",
-    "Lite Mode (Exclude Dev/Test Dependencies)": "精简模式 (排除开发/测试依赖)",
     "Concise Log Output": "精简日志",
     "Auto-save Build Log": "自动保存日志",
     "Auto Extract Icon": "自动提取图标",
@@ -205,30 +204,23 @@ ZH_CN_DICT = {
     "Comma separated (e.g. pandas, PyQt5)": "逗号分隔 (如 pandas, PyQt5)",
     "Comma separated (e.g. tkinter, matplotlib)": "逗号分隔 (如 tkinter, matplotlib)",
     "Leave blank to auto-detect from environment variables": "留空则从环境变量自动检测",
-    "Dynamically exclude redundant dependencies in build environment, improving speed and reducing size.": "动态排除构建环境的冗余依赖，提升速度并减小体积。",
     "Double-click to edit target path; Drag & drop supported": "双击编辑目标路径；支持拖拽",
     "Double-click to edit target path; Drag & drop supported. Use 'Export Preset' to save for reuse.": "双击编辑目标路径；支持拖拽。建议使用「导出预设」进行保存。",
 
-    # 8. 引擎说明与平台兼容性矩阵 (Engine Help & Platform Matrices)
     "PyInstaller — Bundles Python interpreter and bytecode. Fast build speed, zero configuration (no C compiler needed), and excellent compatibility.":
         "PyInstaller — 打包解释器与字节码。构建迅速，零配置 (无需 C 编译器)，兼容性优异。",
-
     "Nuitka — Compiles source code into native C/C++ binary. Produces smaller package size, faster execution, and deep anti-decompilation protection (requires C compiler).":
         "Nuitka — 编译为原生 C/C++ 二进制。体积更小，执行更快，具备强抗反编译能力 (需 C 编译器)。",
 
     '<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Legacy OS</span> <span style="color:#6b7280; font-size:11px;">Full backward compatibility</span>':
         '<div style="margin-bottom: 5px;"><b>Python {ver} 平台支持：</b></div><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">兼容旧系统</span> <span style="color:#6b7280; font-size:11px;">支持 Windows 7 及旧版操作系统</span>',
-
     '<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>':
         '<div style="margin-bottom: 5px;"><b>Python {ver} 平台支持：</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>',
-
     '<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">Auto-detecting and managing C backend compiler</span>':
         '<div style="margin-bottom: 5px;"><b>Python {ver} 平台支持：</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">自动检测并管理 C 后端编译器</span>',
-
     '<div style="margin-bottom: 5px;"><b>Python Interpreter</b></div><span style="color:#6b7280;">Auto-detecting system environment for Windows, macOS & Linux...</span>':
         '<div style="margin-bottom: 5px;"><b>Python 解释器</b></div><span style="color:#6b7280;">自动检测系统环境 (Win/macOS/Linux)...</span>',
 
-    # 9. 构建日志与异常错误提示 (Log Output, Errors & Warnings)
     "[INFO] Build Cancelled.": "[INFO] 构建已取消。",
     "[INFO] Performing pre-flight environment checks...": "[INFO] 执行预构建环境检查...",
     "[INFO] Analyzing source code and project dependencies...": "[INFO] 分析源码与依赖...",
@@ -264,6 +256,8 @@ ZH_CN_DICT = {
     "[INFO] Validating output files and generating final product...": "[INFO] 校验并生成最终产物...",
     "[INFO] Build log exported to: {path}": "[INFO] 日志已导出: {path}",
     "[INFO] Freeing up space, cleaning temporary build environment...": "[INFO] 清理临时构建环境...",
+    "[INFO] Downloading Playwright browsers via mirror: {url}": "[INFO] 通过镜像下载 Playwright 浏览器: {url}",
+    "[INFO] Retrying Playwright browser download via official CDN...": "[INFO] 通过官方 CDN 重试下载 Playwright 浏览器...",
     "[SUCCESS] Compilation completed, output path: {path}": "[SUCCESS] 构建成功，输出路径: {path}",
     "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] 项目位于云同步目录，可能锁定构建文件。",
     "[WARN] Specified versions failed to install. Stripping version constraints for automatic compatibility match...": "[WARN] 指定版本安装失败，尝试自动匹配兼容版本...",
@@ -279,7 +273,11 @@ ZH_CN_DICT = {
     "[WARN] Command timeout (>{timeout}s)": "[WARN] 命令超时 (>{timeout}s)",
     "[WARN] Detected 'requests' or 'httpx'. Auto-bundling 'certifi' certificates to prevent SSL errors.": "[WARN] 检测到网络请求库，自动捆绑 'certifi' 根证书以防止 SSL 异常。",
     "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] 侦测到 '__file__' 的使用。在 PyInstaller 单文件模式下，请使用 'sys._MEIPASS' 定位资源释放路径，以免引发文件丢失错误。",
-    "[INFO] Tip: Packaged executables might be falsely flagged by Windows Defender/Antivirus. Adding exclusions or code-signing is recommended.": "[INFO] 提示: 独立可执行程序可能被安全软件误报。建议将其加入白名单，或为正式发布程序添加代码签名。",
+    "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] 检测到 multiprocessing 模块。请确保在 'if __name__ == \"__main__\":' 块内调用 'multiprocessing.freeze_support()'，以防引发无限进程死机。",
+    "[WARN] Package '{pkg}' failed to install, skipping...": "[WARN] 包 '{pkg}' 安装失败，已跳过...",
+    "[WARN] Playwright browser installation failed across all sources, build will proceed with risk...": "[WARN] 所有 Playwright 浏览器下载源均失败，继续构建 (有风险)...",
+    "[WARN] Icon conversion to .icns failed, building without icon.": "[WARN] 图标转换为 .icns 失败，将不使用图标构建。",
+    "[INFO] Tip: Packaged executables might be falsely flagged by Windows Defender/Antivirus. Adding exclusions or code-signing is recommended.": "[INFO] 提示: 独立可执行程序可能被安全软件误报。建议加入白名单或添加代码签名。",
     "[ERROR] Build aborted: Insufficient disk space (NoSpaceLeft / Errno 28). Please clean up drive space (at least 5 GB free space recommended) and try again.": "[ERROR] 构建中止: 磁盘空间不足 (NoSpaceLeft / Errno 28)。建议预留至少 5GB 可用空间。",
     "[ERROR] Output directory is missing write permissions: {error}": "[ERROR] 目标输出目录无写入权限: {error}",
     "[ERROR] Requirements file not found: {path}": "[ERROR] 指定的依赖清单文件不存在: {path}",
@@ -290,20 +288,55 @@ ZH_CN_DICT = {
     "[ERROR] Failed to create virtual environment. Current Python environment might be missing necessary modules or have restricted permissions.": "[ERROR] 虚拟环境创建失败。环境可能缺失模块或权限受限。",
     "[ERROR] Product transfer failed, file might be occupied by system process or lack permission: {error}": "[ERROR] 构建产物转移失败，文件可能被占用或无写入权限: {error}",
     "[ERROR] Could not locate valid executable product in temporary build directory: {path}": "[ERROR] 临时构建目录未找到可执行产物: {path}",
-    "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[ERROR] 源码语法错误，构建中止:\n  - 文件: {file}\n  - 类型: {type}\n  - 行号: {line}\n  - 详情: {desc}\n\n提示: 请确保源码可在本地运行。",
-    "[FAILED] Compilation interrupted with exceptions, please click 'Detailed Mode' above the log window for troubleshooting.": "[FAILED] 构建异常中断，请切换至「详细日志」排查原因。",
     "[ERROR] Target file is locked or encrypted by cloud drive. Please decrypt and try again.": "[ERROR] 目标文件被云盘锁定或加密，请解密后重试。",
-    "[ERROR] Target file is running or occupied. Please close the existing application and try again.": "[ERROR] 目标程序正在运行或被系统占用。请先关闭该程序后再重新构建。",
-    "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] 检测到 multiprocessing 模块。请确保在 'if __name__ == \"__main__\":' 块内调用 'multiprocessing.freeze_support()'，以防引发无限进程 (Fork Bomb) 死机。",
+    "[ERROR] Target file is running or occupied. Please close the existing application and try again.": "[ERROR] 目标程序正在运行或被占用。请先关闭程序后再重新构建。",
     "[ERROR] Please load a valid Python source file first!": "[ERROR] 请加载有效的 Python 源码！",
     "[ERROR] Exception occurred during AST parsing: {error}": "[ERROR] AST 解析异常: {error}",
     "[ERROR] Failed to export preset file: {error}": "[ERROR] 导出预设失败: {error}",
     "[ERROR] Preset file format error or corrupted: {error}": "[ERROR] 预设文件格式错误或已损坏: {error}",
     "[ERROR] Failed to export log file: {error}": "[ERROR] 导出日志失败: {error}",
-    "[ERROR] Build completed, but the following dependencies failed to install:\n\n  - {pkgs}\n\nNote: The application might raise ModuleNotFoundError at runtime.": "[ERROR] 构建完成，但以下依赖安装失败:\n\n  - {pkgs}\n\n注意: 运行时可能抛出 ModuleNotFoundError。",
     "[ERROR] Process error: command or binary missing ({error})": "[ERROR] 进程错误: 命令或二进制文件缺失 ({error})",
     "[ERROR] System execution exception: {error}": "[ERROR] 系统执行异常: {error}",
     "[ERROR] I/O Exception: {err_msg}": "[ERROR] I/O 异常: {err_msg}",
+    "[ERROR] Python installation failed or was cancelled.": "[ERROR] Python 安装失败或已被主动取消。",
+    "[ERROR] Build completed, but the following dependencies failed to install:\n\n  - {pkgs}\n\nNote: The application might raise ModuleNotFoundError at runtime.": 
+        "[ERROR] 构建完成，但以下依赖安装失败:\n\n  - {pkgs}\n\n注意: 运行时程序可能会抛出 ModuleNotFoundError。",
+
+    "[Syntax Error] Source code syntax parsing failed, build aborted:\n"
+    "  - File: {file}\n"
+    "  - Line: Line {line}\n"
+    "  - Detail: {desc}\n\n"
+    "Tip: This is usually NOT a fault of the packaging tool.\n"
+    "Please ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\n"
+    "Using newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\n"
+    "We recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.":
+        "[Syntax Error] 源码语法解析失败，构建中止:\n"
+        "  - 文件: {file}\n"
+        "  - 行号: {line}\n"
+        "  - 详情: {desc}\n\n"
+        "提示：这通常不是打包工具的故障。\n"
+        "请确认您当前选择的【打包 Python 版本】与您【编写代码时的版本】是否一致。\n"
+        "高版本语法（如海象运算符 :=、类型联合 |、match-case 等）在低版本 Python 中会导致此错误。\n"
+        "建议前往【构建设置】->【构建引擎】切换至对应版本的 Python。",
+
+    "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": 
+        "[ERROR] 源码语法错误，构建中止:\n  - 文件: {file}\n  - 类型: {type}\n  - 行号: {line}\n  - 详情: {desc}\n\n提示: 请确保源码可在本地运行。",
+        
+    "[FAILED] Build interrupted exceptionally!\n\n"
+    "Common Troubleshooting:\n"
+    "1. Environment Mismatch (Most Common): The selected Python version is incompatible with your source code. Please go to [Build Settings] to switch to the Python version you normally use for this code.\n"
+    "2. Missing Dependencies: Click 'Detailed Mode' above to check for ModuleNotFoundError.\n"
+    "3. Antivirus Block: Ensure your security software is not blocking the build process.\n\n"
+    "(Note: This is usually caused by environment/code discrepancies rather than the packaging engine itself. Please check the detailed log for exact reasons.)":
+        "[FAILED] 构建异常中断！\n\n"
+        "常见原因排查：\n"
+        "1. 环境不匹配 (最常见)：您选择的打包 Python 版本与您的源码不兼容。请前往【构建设置】切换为您平时开发运行该代码的 Python 版本。\n"
+        "2. 依赖缺失：请点击上方切换至「详细日志」，查看是否有模块未找到 (ModuleNotFoundError)。\n"
+        "3. 杀毒软件拦截：请检查是否有安全软件阻止了打包过程。\n\n"
+        "（注意：这通常是环境配置与代码差异导致，并非打包引擎本身故障，请查阅详细日志获取确切原因。）",
+    "[FAILED] Compilation interrupted with exceptions, please click 'Detailed Mode' above the log window for troubleshooting.": 
+        "[FAILED] 构建异常中断，请切换至「详细日志」排查原因。",
+
     "No log content.": "无日志内容。",
     "Log saved to: {path}": "日志已保存: {path}",
     "\\nProgram execution completed, press Enter to exit...": "\\n程序执行完成，按回车键退出...",
@@ -315,28 +348,17 @@ ZH_CN_DICT = {
     "Sponsor": "赞助支持",
     "QPyPack is a free and open-source tool. If it has improved your efficiency or solved packaging problems, consider buying the author a coffee!": "QPyPack 是一款免费开源工具。如果它提升了您的效率或解决了打包难题，欢迎赞助支持本开源项目。",
     "* Sponsorship is completely voluntary, serves as an unconditional encouragement to the open-source community, and involves no commercial commitments. Thank you for your support!": "* 赞助完全出于自愿，属于对开源社区的无偿鼓励，不涉及任何商业承诺。感谢您的支持！",
+    
     "Python Environment Required": "需要 Python 环境",
     "<b>Python is not detected on your system!</b><br><br>QPyPack requires a Python environment to compile your code.<br>If you haven't installed Python, please download and install it (remember to check <b>'Add Python.exe to PATH'</b> during installation).": "<b>未在系统中检测到有效的 Python 环境</b><br><br>QPyPack 需要依赖 Python 才能编译代码。<br>如果您尚未安装，请前往官网下载安装 (提示：安装界面底部请务必勾选 <b>'Add Python.exe to PATH'</b>)。",
     "Download Python": "前往下载 Python",
-    "Python 3.14.6 (Experimental)": "Python 3.14.6 (实验性)",
-    "Python 3.13.0": "Python 3.13.0",
-    "Python 3.12.4": "Python 3.12.4",
-    "Python 3.11.9 (Recommended)": "Python 3.11.9 (推荐)",
-    "Python 3.10.11": "Python 3.10.11",
-    "Python 3.9.13": "Python 3.9.13",
-    "Python 3.8.10 (Win7 Support)": "Python 3.8.10 (Win7 兼容)",
-    "Downloading Python {ver}... Please wait.": "正在下载 Python {ver}，请稍候...",
-    "Configure Manually": "手动配置路径",
-    "Switched to [Build Settings] -> [Engine], please set the Python path.": "已自动切换至【构建设置】->【构建引擎】，请手动指定 Python 解释器路径。",
-
-    # 10. Python 环境管理弹窗 (Python Environment Manager)
     "Python Environment Management": "Python 环境管理",
     "<b>Python Environment Required</b><br><span style='color:#475569; font-size:12px; line-height:1.6;'>Application build depends on a Python interpreter.<br>Please select a version to automatically download, install, and configure environment variables.</span>":
         "<b>需要 Python 编译环境</b><br><span style='color:#475569; font-size:12px; line-height:1.6;'>应用构建需要依赖 Python 解释器。<br>请选择版本以自动下载安装与配置环境变量。</span>",
     "<b>Python Environment Management</b><br><span style='color:#475569; font-size:12px; line-height:1.6;'>Supports switching locally detected Python environments or downloading new versions.</span>":
         "<b>Python 环境管理</b><br><span style='color:#475569; font-size:12px; line-height:1.6;'>支持切换本地已检测到的 Python 环境或下载新版本。</span>",
-    "💡 <b>Recommendation:</b> Python <b>3.11.9</b> is recommended for optimal build compatibility and engine support.":
-        "💡 <b>建议：</b> 推荐选择 <b>Python 3.11.9</b>，该版本具备最佳的编译兼容性与引擎支持。",
+    "<b>Recommendation:</b> Python <b>3.11.9</b> is recommended for optimal build compatibility and engine support.":
+        "<b>建议：</b> 推荐选择 <b>Python 3.11.9</b>，该版本具备最佳的编译兼容性与引擎支持。",
     "View Python": "查看 Python",
     "Locally Detected Pythons": "已检测环境",
     "Download New Version": "下载新版本",
@@ -346,58 +368,30 @@ ZH_CN_DICT = {
     "Click to automatically download, install Python, and configure system environment variables.":
         "点击后将自动下载安装 Python 并配置系统环境变量。",
     "One-Click Download & Install": "下载并自动安装",
+    "One-Click Install": "一键安装 Python",
     "Use Installed Version Directly": "✔ 本地已存在，直接切换",
     "<b><span style='color:#16a34a;'>✔ Detected locally:</span></b><br><span style='color:#475569; font-family:Consolas;'>{path}</span><br><span style='color:#16a34a; font-size:11px;'>Ready to switch directly without re-downloading.</span>":
         "<b><span style='color:#16a34a;'>✔ 本地已检测到此版本：</span></b><br><span style='color:#475569; font-family:Consolas;'>{path}</span><br><span style='color:#16a34a; font-size:11px;'>可直接切换使用，无需重复下载。</span>",
-    "Switched to local Python environment: {path}": "已切换 Python 环境: {path}",
-    "Download complete. Starting Python installation...": "下载完成，正在安装 Python，请稍候...",
+    "Python 3.14.6 (Experimental)": "Python 3.14.6 (实验性)",
+    "Python 3.13.0": "Python 3.13.0",
+    "Python 3.12.4": "Python 3.12.4",
+    "Python 3.11.9 (Recommended)": "Python 3.11.9 (推荐)",
+    "Python 3.10.11": "Python 3.10.11",
+    "Python 3.9.13": "Python 3.9.13",
+    "Python 3.8.10 (Win7 Support)": "Python 3.8.10 (Win7 兼容)",
+    "Downloading Python {ver}... Please wait.": "正在下载 Python {ver}，请稍候...",
+    "Download complete. Starting Python installation...": "下载完成，正在后台安装 Python...",
     "Install Complete": "安装完成",
     "Exit Now": "退出软件",
     "Later": "稍后",
     "<b>Python Environment Installed Successfully!</b><br><br>System environment variables updated. Recommended to exit and restart the software to apply changes.":
         "<b>Python 环境安装成功！</b><br><br>建议退出软件后重新打开以生效环境变量。",
-    "Python installed. Please restart QPyPack manually later.": "Python 已安装，请稍后手动重启软件。",
+    "Python installed. Please restart QPyPack manually later.": "Python 安装完毕。请稍后手动重启 QPyPack 以生效环境变量。",
+    "Configure Manually": "手动配置路径",
+    "Switched to [Build Settings] -> [Engine], please set the Python path.": "已自动切换至【构建设置】->【构建引擎】，请手动指定 Python 解释器路径。",
+    "Switched to local Python environment: {path}": "已成功切换至本地 Python 环境: {path}",
 
-    # 11. Python 版本不匹配提示：
-    "[Syntax Error] Source code syntax parsing failed, build aborted:\n"
-    "  - File: {file}\n"
-    "  - Line: Line {line}\n"
-    "  - Detail: {desc}\n\n"
-    "💡 Tip: This is usually NOT a fault of the packaging tool.\n"
-    "Please ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\n"
-    "Using newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\n"
-    "We recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.":
-        "[Syntax Error] 源码语法解析失败，构建中止:\n"
-        "  - 文件: {file}\n"
-        "  - 行号: {line}\n"
-        "  - 详情: {desc}\n\n"
-        "💡 提示：这通常不是打包工具的故障。\n"
-        "请确认您当前选择的【打包 Python 版本】与您【编写代码时的版本】是否一致。\n"
-        "高版本语法（如海象运算符 :=、类型联合 |、match-case 等）在低版本 Python 中会导致此错误。\n"
-        "建议前往【构建设置】->【构建引擎】切换至对应版本的 Python。",
-        
-    "[FAILED] Build interrupted exceptionally!\n\n"
-    "🔍 Common Troubleshooting:\n"
-    "1. Environment Mismatch (Most Common): The selected Python version is incompatible with your source code. Please go to [Build Settings] to switch to the Python version you normally use for this code.\n"
-    "2. Missing Dependencies: Click 'Detailed Mode' above to check for ModuleNotFoundError.\n"
-    "3. Antivirus Block: Ensure your security software is not blocking the build process.\n\n"
-    "(Note: This is usually caused by environment/code discrepancies rather than the packaging engine itself. Please check the detailed log for exact reasons.)":
-        "[FAILED] 构建异常中断！\n\n"
-        "🔍 常见原因排查：\n"
-        "1. 环境不匹配 (最常见)：您选择的打包 Python 版本与您的源码不兼容。请前往【构建设置】切换为您平时开发运行该代码的 Python 版本。\n"
-        "2. 依赖缺失：请点击上方切换至「详细日志」，查看是否有模块未找到 (ModuleNotFoundError)。\n"
-        "3. 杀毒软件拦截：请检查是否有安全软件阻止了打包过程。\n\n"
-        "（注意：这通常是环境配置与代码差异导致，并非打包引擎本身故障，请查阅详细日志获取确切原因。）",
-
-    "Status: Build Cancelled": "状态: 构建已取消",
-    "Build Cancelled": "构建已取消",
-    "[INFO] Build Cancelled.": "[INFO] 构建已取消。",
-    
-    "[WARN] Package '{pkg}' failed to install, skipping...": "[WARN] 包 '{pkg}' 安装失败，已跳过...",
     "Dependency Missing Warning: {pkgs} failed to install. Check log for details.": "依赖缺失警告: {pkgs} 安装失败。详情请查看日志。",
-    "[ERROR] Build completed, but the following dependencies failed to install:\n\n  - {pkgs}\n\nNote: The application might raise ModuleNotFoundError at runtime.": 
-        "[ERROR] 构建完成，但以下依赖安装失败:\n\n  - {pkgs}\n\n注意: 运行时程序可能会抛出 ModuleNotFoundError。",
-        
     "Package mappings have been reset to defaults.": "包名映射已恢复为默认设置。",
     "Global configuration has been reset.": "全局偏好配置已恢复默认。",
     "Config preset exported to: {path}": "配置预设已成功导出至: {path}",
@@ -405,26 +399,17 @@ ZH_CN_DICT = {
     "AST scan completed, found {count} dependencies.": "AST 扫描完成，发现 {count} 个隐式依赖。",
     "Attention: Please check the log for details.": "提示: 请检查下方日志排查详细原因。",
     
-    "One-Click Install": "一键安装 Python",
-    "Downloading Python {ver}... Please wait.": "正在下载 Python {ver}，请稍候...",
-    "Download complete. Starting Python installation...": "下载完成，正在后台安装 Python...",
-    "[ERROR] Python installation failed or was cancelled.": "[ERROR] Python 安装失败或已被主动取消。",
-    "Python installed. Please restart QPyPack manually later.": "Python 安装完毕。请稍后手动重启 QPyPack 以生效环境变量。",
-    "Switched to local Python environment: {path}": "已成功切换至本地 Python 环境: {path}",
-
-    "One-File Mode (--onefile)": "单文件模式 (--onefile)",
-    "Folder Mode (--onedir)": "文件夹模式 (--onedir)",
-    "Contents Directory (--contents-directory):": "内部资源目录:",
-    "Internal directory name for dependencies (default: _internal)": "内部依赖与资源存放目录名 (默认: _internal)",
     "System Default ({sys_native})": "系统默认 ({sys_native})",
     "My Studio": "我的工作室",
     "Python Executable": "Python 可执行程序",
     "Invalid syntax": "无效语法",
-    "[INFO] Downloading Playwright browsers via mirror: {url}": "[INFO] 通过镜像下载 Playwright 浏览器: {url}",
-    "[INFO] Retrying Playwright browser download via official CDN...": "[INFO] 通过官方 CDN 重试下载 Playwright 浏览器...",
-    "[WARN] Playwright browser installation failed across all sources, build will proceed with risk...": "[WARN] 所有 Playwright 浏览器下载源均失败，继续构建 (有风险)...",
-    "[WARN] Icon conversion to .icns failed, building without icon.": "[WARN] 图标转换为 .icns 失败，将不使用图标构建。",
     "OK": "确定",
+    "Packaging Mode:": "打包模式:",
+    "Compatibility Mode (Default)": "兼容模式 (默认)",
+    "Lite Mode (Smaller size)": "精简模式 (体积小)",
+    "Maximum compatibility. Recommended for apps with complex dynamic imports.": "最大兼容性。适合使用了复杂动态导入的项目。",
+    "Smaller output size. Recommended for 95% of standard apps.": "产物体积最小。推荐 95% 的常规应用使用。",
+    "Tip: Build failed in Lite Mode. You can try switching to [Compatibility Mode] in Build Settings and rebuild.": "提示: 精简模式构建失败。您可以尝试在【构建设置】中勾选 [兼容模式] 重新打包。",
     "Unknown": "未知"
 }
 
@@ -458,6 +443,7 @@ class TranslationEngine(QObject):
         self.current_lang = self.DEFAULT_LOCALE
         self.translations = {}
         self.fallback_zh_cn = ZH_CN_DICT
+        self.qt_translator = QTranslator()
 
     def init_locale(self):
         self.load_all_locales()
@@ -528,8 +514,32 @@ class TranslationEngine(QObject):
                 
         return langs
 
+    def update_qt_translator(self, lang_code: str):
+        app = QApplication.instance()
+        if not app:
+            return
+
+        app.removeTranslator(self.qt_translator)
+        trans_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+
+        target_locale = self.normalize_locale(lang_code)
+        short_lang = target_locale.split("_")[0] if "_" in target_locale else target_locale
+
+        candidates = [
+            f"qtbase_{target_locale}",
+            f"qtbase_{short_lang}",
+            f"qt_{target_locale}",
+            f"qt_{short_lang}"
+        ]
+
+        for name in candidates:
+            if self.qt_translator.load(name, trans_path):
+                app.installTranslator(self.qt_translator)
+                break
+
     def set_language(self, lang_code: str):
         target = self.normalize_locale(lang_code)
+        self.update_qt_translator(target)
         if target != self.current_lang:
             self.current_lang = target
             self.language_changed.emit(self.current_lang)
@@ -678,6 +688,7 @@ def load_config(retry=True):
         updated = False
         default_updates = {
             'language': 'auto',
+            'keep_venv': 'False',
             'pip_index': default_mirror,
             'pip_index_backup': default_backup,
             'concise_log': 'True',
@@ -777,13 +788,12 @@ def create_pleasant_audio_files():
 
 _AUDIO_EFFECT_REF = None
 
-def play_alert(success=True):
+def play_alert(success=True, sound_enabled=True):
     global _AUDIO_EFFECT_REF
+    if not sound_enabled:
+        return
+        
     try:
-        config = load_config()
-        if not config['Settings'].getboolean('sound_notify', True):
-            return
-            
         sound_file = _CONFIG_DIR / ("sound_success.wav" if success else "sound_failure.wav")
         if not sound_file.exists():
             create_pleasant_audio_files()
@@ -827,7 +837,7 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
         files_to_scan = []
         for root, _, files in os.walk(target_path):
             path_parts = set(Path(root).parts)
-            if path_parts & {'__pycache__', '.qpypack_build', '.venv', 'venv', 'build', 'dist', 'env', '.env'}:
+            if path_parts & {'__pycache__', '.qpypack_build', '.qpypack_venv', '.venv', 'venv', 'build', 'dist', 'env', '.env'}:
                 continue
             for file in files:
                 if file.endswith(('.py', '.pyw')):
@@ -1113,21 +1123,11 @@ def setup_combo_white_theme(combo: QComboBox, min_view_width: int = None):
     combo.setView(list_view)
     combo.setItemDelegate(ComboItemDelegate(combo))
     
+    combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+    
     if min_view_width and combo.view():
         combo.view().setMinimumWidth(min_view_width)
         combo.view().setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        
-    if combo.view():
-        combo.view().setStyleSheet("""
-            QListView {
-                background-color: #ffffff; color: #111827; border: 1px solid #d1d5db;
-                border-radius: 6px; outline: none; padding: 4px; font-size: 12px;
-                font-family: Consolas, "Segoe UI", sans-serif;
-                selection-background-color: #2563eb; selection-color: #ffffff;
-            }
-            QListView::item { background-color: #ffffff; color: #111827; padding: 4px 8px; border-radius: 4px; }
-            QListView::item:hover, QListView::item:selected { background-color: #2563eb; color: #ffffff; }
-        """)
 
     arrow_url = _ARROW_ICON_PATH.replace("\\", "/")
     combo.setStyleSheet(f"""
@@ -1933,10 +1933,12 @@ class SettingsPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent;")
+        scroll.setStyleSheet("QScrollArea { background: transparent; }")
         
         content = QWidget()
-        content.setStyleSheet("background: transparent;")
+        content.setObjectName("ScrollContent")
+        content.setStyleSheet("QWidget#ScrollContent { background: transparent; }")
+        
         lay = QVBoxLayout(content)
         lay.setContentsMargins(0, 5, 0, 15)
         lay.setSpacing(15)
@@ -2126,6 +2128,7 @@ class SettingsPanel(QWidget):
         self.name_edit.setPlaceholderText(_("Leave blank to auto-match script name"))
         
         self.icon_edit = QLineEdit()
+
         self.icon_preview = QLabel()
         self.icon_preview.setFixedSize(24, 24)
         self.icon_preview.setScaledContents(True)
@@ -2142,12 +2145,25 @@ class SettingsPanel(QWidget):
         h_icon.addWidget(self.icon_preview)
         h_icon.addWidget(self.btn_icon)
 
+        self.rb_compat_mode = QRadioButton(_("Compatibility Mode (Default)"))
+        self.rb_lite_mode = QRadioButton(_("Lite Mode (Smaller size)"))
+        self.rb_compat_mode.setChecked(True)
+        
+        pack_mode_cont = QWidget()
+        h_pack_mode = QHBoxLayout(pack_mode_cont)
+        h_pack_mode.setContentsMargins(0, 0, 0, 0)
+        h_pack_mode.addWidget(self.rb_compat_mode)
+        h_pack_mode.addWidget(self.rb_lite_mode)
+        h_pack_mode.addStretch()
+
         self.lbl_eng_title = QLabel(_("Build Engine:"))
+        self.lbl_pack_mode_title = QLabel(_("Packaging Mode:"))
         self.lbl_py_title = QLabel(_("Python Interpreter:"))
         self.lbl_app_title = QLabel(_("Output Name:"))
         self.lbl_icon_title = QLabel(_("App Icon:"))
 
         self.form_engine.addRow(self.lbl_eng_title, engine_cont)
+        self.form_engine.addRow(self.lbl_pack_mode_title, pack_mode_cont)
         self.form_engine.addRow(self.lbl_py_title, py_cont)
         self.form_engine.addRow(self.lbl_app_title, self.name_edit)
         self.form_engine.addRow(self.lbl_icon_title, icon_cont)
@@ -2156,6 +2172,7 @@ class SettingsPanel(QWidget):
         self.card_mode, c_lay_mode = self._create_card(_("Execution Mode"))
         v_mode = QVBoxLayout()
         h_radio = QHBoxLayout()
+        h_radio.setSpacing(10)
 
         self.rb_onefile = QRadioButton(_("One-File Mode (--onefile)"))
         self.rb_onedir = QRadioButton(_("Folder Mode (--onedir)"))
@@ -2254,14 +2271,18 @@ class SettingsPanel(QWidget):
         g_dep.setSpacing(10)
         
         self.venv_check = QCheckBox(_("Use Virtual Environment (Recommended)"))
+        self.keep_venv_check = QCheckBox(_("Keep Virtual Environment (Faster Rebuilds)"))
+        self.venv_check.toggled.connect(self.keep_venv_check.setEnabled)
+        
         self.reqs_check = QCheckBox(_("Install requirements.txt"))
         self.pipreqs_check = QCheckBox(_("Analyze Dependencies (AST)"))
         self.pipreqs_dir_check = QCheckBox(_("Scan Entire Folder"))
         
         g_dep.addWidget(self.venv_check, 0, 0)
-        g_dep.addWidget(self.reqs_check, 0, 1)
-        g_dep.addWidget(self.pipreqs_check, 1, 0)
-        g_dep.addWidget(self.pipreqs_dir_check, 1, 1)
+        g_dep.addWidget(self.keep_venv_check, 0, 1)
+        g_dep.addWidget(self.reqs_check, 1, 0)
+        g_dep.addWidget(self.pipreqs_check, 1, 1)
+        g_dep.addWidget(self.pipreqs_dir_check, 2, 0)
         c_lay_deps.addLayout(g_dep)
 
         lay_sub2.addWidget(self.card_deps)
@@ -2275,7 +2296,6 @@ class SettingsPanel(QWidget):
         c_lay_res.addWidget(self.lbl_res_hint)
 
         self.add_data_list = DropListWidget()
-
         self.add_data_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.add_data_list.setMinimumHeight(120)
         self.add_data_list.setToolTip(_("Double-click to edit target path; Drag & drop supported"))
@@ -2347,12 +2367,7 @@ class SettingsPanel(QWidget):
         self.lbl_upx_path = QLabel(_("UPX Path:"))
         self.form_opt.addRow(self.lbl_upx_path, h_upx_row)
         
-        self.lite_mode_check = QCheckBox(_("Lite Mode (Exclude Dev/Test Dependencies)"))
-        self.lite_mode_check.setStyleSheet("color: #D93025; font-weight: bold;")
-        self.lite_mode_check.setToolTip(_("Dynamically exclude redundant dependencies in build environment, improving speed and reducing size."))
-        
         c_lay_opt.addLayout(self.form_opt)
-        c_lay_opt.addWidget(self.lite_mode_check)
 
         self.card_ver, c_lay_ver = self._create_card(_("Lock Core Dependencies"))
         self.form_ver = QFormLayout()
@@ -2378,9 +2393,7 @@ class SettingsPanel(QWidget):
         self.mapping_table.setItemDelegate(TableItemDelegate(self.mapping_table))
         self.mapping_table.setColumnCount(2)
         self.mapping_table.setHorizontalHeaderLabels([_("Import Name"), _("PyPI Package Name")])
-        
         self.mapping_table.verticalHeader().setVisible(False)
-        
         self.mapping_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.mapping_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.mapping_table.setMinimumHeight(150)
@@ -2444,7 +2457,9 @@ class SettingsPanel(QWidget):
         c_lay_meta.addLayout(self.form_meta)
 
         c_lay_meta.addSpacing(10)
-        h_preset = QHBoxLayout()
+        
+        g_preset = QGridLayout()
+        g_preset.setSpacing(8)
         self.btn_exp_preset = QPushButton(_("Export Preset..."))
         self.btn_exp_preset.setProperty("class", "ToolBtn")
         self.btn_exp_preset.clicked.connect(self.export_preset)
@@ -2457,11 +2472,10 @@ class SettingsPanel(QWidget):
         self.btn_reset_config.setProperty("class", "ToolBtn")
         self.btn_reset_config.clicked.connect(self.reset_global_config)
         
-        h_preset.addWidget(self.btn_exp_preset)
-        h_preset.addWidget(self.btn_imp_preset)
-        h_preset.addWidget(self.btn_reset_config)
-        h_preset.addStretch()
-        c_lay_meta.addLayout(h_preset)
+        g_preset.addWidget(self.btn_exp_preset, 0, 0)
+        g_preset.addWidget(self.btn_imp_preset, 0, 1)
+        g_preset.addWidget(self.btn_reset_config, 1, 0, 1, 2)
+        c_lay_meta.addLayout(g_preset)
 
         self.card1, lay1 = self._create_card(_("Output Location"))
         self.out_mode_combo = QComboBox()
@@ -2521,7 +2535,6 @@ class SettingsPanel(QWidget):
 
     def build_about_tab(self):
         main_lay = self.lay_about
-        # 缩小上下边距，节省垂直空间，避免出现滚动条
         main_lay.setContentsMargins(40, 10, 40, 10)
         main_lay.setSpacing(15)
         main_lay.addStretch(1)
@@ -2541,9 +2554,7 @@ class SettingsPanel(QWidget):
         logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_lay.addWidget(logo_lbl)
         
-        # 顶部文字块布局
         text_vlay = QVBoxLayout()
-        # 1. 缩小全局基础间距，让“标题”和“一句话标语”紧密贴合
         text_vlay.setSpacing(6)
         text_vlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
@@ -2557,7 +2568,6 @@ class SettingsPanel(QWidget):
         self.about_desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         text_vlay.addWidget(self.about_desc_lbl)
         
-        # 2. 在标语和版权之间额外插入一点空隙，巧妙地拉开层次感
         text_vlay.addSpacing(6)
         
         current_year = time.localtime().tm_year
@@ -2568,7 +2578,6 @@ class SettingsPanel(QWidget):
         text_vlay.addWidget(ver_lbl)
         
         main_lay.addLayout(text_vlay)
-        # 3. 将整个文字块与下方四个按钮的距离适当拉大，增加呼吸感
         main_lay.addSpacing(25)
 
         btn_lay = QHBoxLayout()
@@ -2662,6 +2671,12 @@ class SettingsPanel(QWidget):
         self.card2.findChild(QLabel, "CardTitle").setText(_("Preferences & System Behavior"))
 
         self.lbl_eng_title.setText(_("Build Engine:"))
+        self.lbl_pack_mode_title.setText(_("Packaging Mode:"))
+        self.rb_compat_mode.setText(_("Compatibility Mode (Default)"))
+        self.rb_lite_mode.setText(_("Lite Mode (Smaller size)"))
+        self.rb_compat_mode.setToolTip(_("Maximum compatibility. Recommended for apps with complex dynamic imports."))
+        self.rb_lite_mode.setToolTip(_("Smaller output size. Recommended for 95% of standard apps."))
+
         self.lbl_py_title.setText(_("Python Interpreter:"))
         self.lbl_app_title.setText(_("Output Name:"))
         self.lbl_icon_title.setText(_("App Icon:"))
@@ -2683,6 +2698,12 @@ class SettingsPanel(QWidget):
         self.lbl_sandbox_title.setText(_("Temporary Directory:"))
         self.sandbox_mode_combo.setItemText(0, _("Source Directory (.qpypack_build)"))
         self.sandbox_mode_combo.setItemText(1, _("System Temp Directory"))
+
+        if not self.ver_comp.isModified():
+            self.ver_comp.setText(_("My Studio"))
+
+        if not self.ver_desc.isModified():
+            self.ver_desc.setText(_("Python Executable"))
 
         if hasattr(self, 'pip_source_combo') and hasattr(self, 'pip_backup_combo'):
             cur_main = self._get_url_from_combo(self.pip_source_combo)
@@ -2708,7 +2729,6 @@ class SettingsPanel(QWidget):
         self.btn_save.setText(_("Save & Return"))
         self.btn_python_path.setText(_("Browse"))
         self.btn_download_py.setText(_("View Python"))
-        self.btn_download_py.setToolTip("")
         self.btn_icon.setText(_("Browse"))
         self.btn_reqs.setText(_("Browse"))
         self.btn_scan.setText(_("AST Scan"))
@@ -2737,12 +2757,11 @@ class SettingsPanel(QWidget):
         self.lbl_contents_dir.setText(_("Contents Directory (--contents-directory):"))
         self.contents_dir_edit.setPlaceholderText(_("Internal directory name for dependencies (default: _internal)"))
         self.noconsole_check.setText(_("Hide Console (--noconsole)"))
-        self.venv_check.setText(_("Use Virtual Environment (Recommended)"))
+        self.keep_venv_check.setText(_("Keep Virtual Environment (Faster Rebuilds)"))
         self.reqs_check.setText(_("Install requirements.txt"))
         self.pipreqs_check.setText(_("Analyze Dependencies (AST)"))
         self.pipreqs_dir_check.setText(_("Scan Entire Folder"))
         self.upx_check.setText(_("Enable UPX Compression"))
-        self.lite_mode_check.setText(_("Lite Mode (Exclude Dev/Test Dependencies)"))
         
         self.concise_log_check.setText(_("Concise Log Output"))
         self.auto_save_log_check.setText(_("Auto-save Build Log"))
@@ -2753,7 +2772,6 @@ class SettingsPanel(QWidget):
         self.out_mode_combo.setItemText(0, _("Source File Directory"))
         self.out_mode_combo.setItemText(1, _("Custom Directory"))
         self.mapping_table.setHorizontalHeaderLabels([_("Import Name"), _("PyPI Package Name")])
-        self.about_desc_lbl.setText(_("Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"))
         
         if hasattr(self, 'sponsor_desc_p1'):
             self.sponsor_desc_p1.setText(_("QPyPack is a free and open-source tool. If it has improved your efficiency or solved packaging problems, consider buying the author a coffee!"))
@@ -2764,13 +2782,6 @@ class SettingsPanel(QWidget):
         if hasattr(self, 'lbl_res_hint'):
             self.lbl_res_hint.setText(_("Project-specific. Not saved to global preferences. Use 'Export Preset' to save config."))
         self.add_data_list.setToolTip(_("Double-click to edit target path; Drag & drop supported. Use 'Export Preset' to save for reuse."))
-        self.lite_mode_check.setToolTip(_("Dynamically exclude redundant dependencies in build environment, improving speed and reducing size."))
-        
-        if hasattr(self, 'btn_github'):
-            self.btn_github.setText(" " + _("GitHub Repository"))
-            self.btn_issue.setText(" " + _("Issues & Feedback"))
-            self.btn_pypi.setText(" " + _("PyPI Home"))
-            self.btn_sponsor.setText(" " + _("Sponsor"))
             
         self.on_engine_changed()
         self.on_python_path_changed()
@@ -2848,6 +2859,7 @@ class SettingsPanel(QWidget):
             try:
                 data = {
                     "engine": self.engine_combo.currentText(),
+                    "lite_mode": self.rb_lite_mode.isChecked(),
                     "onefile": self.rb_onefile.isChecked(),
                     "contents_dir": self.contents_dir_edit.text().strip(),
                     "icon": self.icon_edit.text(),
@@ -2858,13 +2870,13 @@ class SettingsPanel(QWidget):
                     "hidden_imports": self.hidden_edit.text(),
                     "exclude_modules": self.exclude_edit.text(),
                     "use_venv": self.venv_check.isChecked(),
+                    "keep_venv": self.keep_venv_check.isChecked(),
                     "use_reqs": self.reqs_check.isChecked(),
                     "use_pipreqs": self.pipreqs_check.isChecked(),
                     "use_pipreqs_dir": self.pipreqs_dir_check.isChecked(),
                     "reqs_file": self.reqs_file_edit.text(),
                     "pip_source": self._get_url_from_combo(self.pip_source_combo),
                     "pip_backup": self._get_url_from_combo(self.pip_backup_combo),
-                    "lite_mode": self.lite_mode_check.isChecked(),
                     "add_data_list": [self.add_data_list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.add_data_list.count())]
                 }
                 Path(fp).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -2880,6 +2892,9 @@ class SettingsPanel(QWidget):
             try:
                 data = json.loads(Path(fp).read_text(encoding='utf-8'))
                 if "engine" in data: self.engine_combo.setCurrentText(data["engine"])
+                if "lite_mode" in data:
+                    self.rb_lite_mode.setChecked(bool(data["lite_mode"]))
+                    self.rb_compat_mode.setChecked(not bool(data["lite_mode"]))
                 if "onefile" in data:
                     if data["onefile"]:
                         self.rb_onefile.setChecked(True)
@@ -2896,14 +2911,16 @@ class SettingsPanel(QWidget):
                 if "ver_desc" in data: self.ver_desc.setText(data["ver_desc"])
                 if "hidden_imports" in data: self.hidden_edit.setText(data["hidden_imports"])
                 if "exclude_modules" in data: self.exclude_edit.setText(data["exclude_modules"])
-                if "use_venv" in data: self.venv_check.setChecked(bool(data["use_venv"]))
+                if "use_venv" in data: 
+                    self.venv_check.setChecked(bool(data["use_venv"]))
+                    self.keep_venv_check.setEnabled(bool(data["use_venv"]))
+                if "keep_venv" in data: self.keep_venv_check.setChecked(bool(data["keep_venv"]))
                 if "use_reqs" in data: self.reqs_check.setChecked(bool(data["use_reqs"]))
                 if "use_pipreqs" in data: self.pipreqs_check.setChecked(bool(data["use_pipreqs"]))
                 if "use_pipreqs_dir" in data: self.pipreqs_dir_check.setChecked(bool(data["use_pipreqs_dir"]))
                 if "reqs_file" in data: self.reqs_file_edit.setText(data["reqs_file"])
                 if "pip_source" in data: self._set_combo_value(self.pip_source_combo, data["pip_source"])
                 if "pip_backup" in data: self._set_combo_value(self.pip_backup_combo, data["pip_backup"])
-                if "lite_mode" in data: self.lite_mode_check.setChecked(bool(data["lite_mode"]))
                 if "add_data_list" in data:
                     self.add_data_list.clear()
                     for item in data["add_data_list"]:
@@ -2925,6 +2942,11 @@ class SettingsPanel(QWidget):
                     self.lang_combo.setCurrentIndex(i); break
                     
             self.engine_combo.setCurrentText(s.get('engine', 'PyInstaller'))
+            
+            is_lite = s.getboolean('lite_mode', False)
+            self.rb_lite_mode.setChecked(is_lite)
+            self.rb_compat_mode.setChecked(not is_lite)
+            
             is_onefile = s.getboolean('onefile', True)
             if is_onefile:
                 self.rb_onefile.setChecked(True)
@@ -2943,6 +2965,8 @@ class SettingsPanel(QWidget):
             self._set_combo_value(self.pip_backup_combo, pip_backup)
 
             self.venv_check.setChecked(s.getboolean('use_venv', True))
+            self.keep_venv_check.setChecked(s.getboolean('keep_venv', False))
+            self.keep_venv_check.setEnabled(self.venv_check.isChecked())
             self.reqs_check.setChecked(s.getboolean('use_reqs', True))
             self.pipreqs_check.setChecked(s.getboolean('use_pipreqs', True))
             self.pipreqs_dir_check.setChecked(s.getboolean('use_pipreqs_dir', False))
@@ -2963,7 +2987,6 @@ class SettingsPanel(QWidget):
             self.concise_log_check.setChecked(s.getboolean('concise_log', True))
             self.sound_notify_check.setChecked(s.getboolean('sound_notify', True))
             self.auto_save_log_check.setChecked(s.getboolean('auto_save_log', False))
-            self.lite_mode_check.setChecked(s.getboolean('lite_mode', False))
             
             self.pyi_ver_edit.setText(s.get('pyi_version', '6.21.0'))
             self.nuitka_ver_edit.setText(s.get('nuitka_version', '4.1.3'))
@@ -2983,6 +3006,8 @@ class SettingsPanel(QWidget):
         s['language'] = new_lang
         
         s['engine'] = self.engine_combo.currentText()
+        s['lite_mode'] = str(self.rb_lite_mode.isChecked())
+        
         s['onefile'] = str(self.rb_onefile.isChecked())
         s['contents_dir'] = self.contents_dir_edit.text().strip() or '_internal'
         s['noconsole'] = str(self.noconsole_check.isChecked())
@@ -2993,6 +3018,7 @@ class SettingsPanel(QWidget):
         s['pip_index_backup'] = self._get_url_from_combo(self.pip_backup_combo)
 
         s['use_venv'] = str(self.venv_check.isChecked())
+        s['keep_venv'] = str(self.keep_venv_check.isChecked())
         s['use_reqs'] = str(self.reqs_check.isChecked())
         s['use_pipreqs'] = str(self.pipreqs_check.isChecked())
         s['use_pipreqs_dir'] = str(self.pipreqs_dir_check.isChecked())
@@ -3012,7 +3038,6 @@ class SettingsPanel(QWidget):
         s['concise_log'] = str(self.concise_log_check.isChecked())
         s['sound_notify'] = str(self.sound_notify_check.isChecked())
         s['auto_save_log'] = str(self.auto_save_log_check.isChecked())
-        s['lite_mode'] = str(self.lite_mode_check.isChecked())
         
         s['pyi_version'] = self.pyi_ver_edit.text().strip()
         s['nuitka_version'] = self.nuitka_ver_edit.text().strip()
@@ -3021,8 +3046,10 @@ class SettingsPanel(QWidget):
 
         config['Mappings'] = {}
         for r in range(self.mapping_table.rowCount()):
-            k = self.mapping_table.item(r, 0).text().strip()
-            v = self.mapping_table.item(r, 1).text().strip()
+            item_k = self.mapping_table.item(r, 0)
+            item_v = self.mapping_table.item(r, 1)
+            k = item_k.text().strip() if item_k else ""
+            v = item_v.text().strip() if item_v else ""
             if k and v: config['Mappings'][k] = v
         
         save_config(config)
@@ -3169,6 +3196,34 @@ class SettingsPanel(QWidget):
         item.setData(Qt.ItemDataRole.UserRole, (r_type, src, dst))
         self.add_data_list.addItem(item)
 
+    def _show_lineedit_menu(self, line_edit, pos):
+        menu = QMenu(line_edit)
+
+        act_undo = menu.addAction(_("Undo") if False else "Undo")
+        act_undo.triggered.connect(line_edit.undo)
+        act_undo.setEnabled(line_edit.isUndoAvailable())
+
+        menu.addSeparator()
+
+        act_cut = menu.addAction("Cut")
+        act_cut.triggered.connect(line_edit.cut)
+        act_cut.setEnabled(line_edit.hasSelectedText() and not line_edit.isReadOnly())
+
+        act_copy = menu.addAction("Copy")
+        act_copy.triggered.connect(line_edit.copy)
+        act_copy.setEnabled(line_edit.hasSelectedText())
+
+        act_paste = menu.addAction("Paste")
+        act_paste.triggered.connect(line_edit.paste)
+        act_paste.setEnabled(not line_edit.isReadOnly())
+
+        menu.addSeparator()
+
+        act_select_all = menu.addAction("Select All")
+        act_select_all.triggered.connect(line_edit.selectAll)
+
+        menu.exec(line_edit.mapToGlobal(pos))
+
     def edit_resource(self, item=None):
         if not item: item = self.add_data_list.currentItem()
         if not item: return
@@ -3310,15 +3365,19 @@ class PackingThread(QThread):
                     self.process.kill()
             except: pass
 
-    def run_cmd(self, cmd, cwd=None, timeout=None, silent_error=False):
+    def run_cmd(self, cmd, cwd=None, timeout=None, silent_error=False, extra_env=None):
         if self._is_cancelled: return False
-        
+    
         timer = None
         is_timeout = [False]
-        
+    
         clean_env = os.environ.copy()
         clean_env.pop("PYTHONHOME", None)
-        clean_env.pop("PYTHONPATH", None)
+    
+        if not (extra_env and "PYTHONPATH" in extra_env):
+            if not ("PYTHONPATH" in clean_env and "_qpypack_temp_" in clean_env["PYTHONPATH"]):
+                clean_env.pop("PYTHONPATH", None)
+
         clean_env["PYTHONUTF8"] = "1"
         clean_env["PYTHONIOENCODING"] = "utf-8"
         clean_env["LANG"] = "en_US.UTF-8"
@@ -3326,17 +3385,16 @@ class PackingThread(QThread):
         clean_env["PYTHONUNBUFFERED"] = "1"
         clean_env["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 
-        primary_idx = self.params.get('pip_index_url', '')
-        if any(domain in primary_idx for domain in ['tsinghua', 'aliyun', 'tencent', 'huawei', 'ustc']) or I18N.current_lang == 'zh_CN':
-            clean_env["PLAYWRIGHT_DOWNLOAD_HOST"] = "https://npmmirror.com/mirrors/playwright/" 
+        if extra_env:
+            clean_env.update(extra_env)
 
         try:
             kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "cwd": cwd, 
                       "text": True, "encoding": "utf-8", "errors": "replace", "env": clean_env}
             if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-            
+        
             self.process = subprocess.Popen(cmd, **kwargs)
-            
+        
             if timeout:
                 def kill_proc():
                     is_timeout[0] = True
@@ -3352,7 +3410,7 @@ class PackingThread(QThread):
 
             buffer = []
             last_emit = time.time()
-            
+        
             for line in self.process.stdout:
                 if self._is_cancelled:
                     try:
@@ -3361,23 +3419,23 @@ class PackingThread(QThread):
                     except Exception:
                         pass
                     return False
-                
+            
                 stripped = line.rstrip('\r\n')
                 self.all_raw_logs.append(stripped)
-                
+            
                 buffer.append(stripped)
                 if len(buffer) >= 15 or (time.time() - last_emit) > 0.1:
                     self.progress.emit('\n'.join(buffer))
                     buffer.clear()
                     last_emit = time.time()
-            
+        
             if buffer: self.progress.emit('\n'.join(buffer))
             self.process.wait()
-            
+        
             if is_timeout[0]:
                 self.progress.emit(_("[WARN] Command timeout (>{timeout}s)", timeout=timeout))
                 return False
-                
+            
             return self.process.returncode == 0
         except FileNotFoundError as e:
             self.progress.emit(_("[ERROR] Process error: command or binary missing ({error})", error=str(e)))
@@ -3503,6 +3561,8 @@ class PackingThread(QThread):
         build_script_path = None
         ext = ".exe" if os.name == "nt" else ""
         failed_packages = []
+        
+        script_dir = Path(self.params['script_path']).parent if self.params.get('script_path') else Path.cwd()
 
         try:
             if self._is_cancelled:
@@ -3521,7 +3581,7 @@ class PackingThread(QThread):
                     "  - File: {file}\n"
                     "  - Line: Line {line}\n"
                     "  - Detail: {desc}\n\n"
-                    "💡 Tip: This is usually NOT a fault of the packaging tool.\n"
+                    "Tip: This is usually NOT a fault of the packaging tool.\n"
                     "Please ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\n"
                     "Using newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\n"
                     "We recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.", 
@@ -3655,42 +3715,72 @@ class PackingThread(QThread):
             if self.params['use_venv']:
                 if self._is_cancelled:
                     return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
-                self.progress.emit(_("[INFO] Creating virtual environment..."))
-                self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
-                if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
+                
+                if self.params.get('keep_venv'):
+                    self.venv_dir = (script_dir / ".qpypack_venv").resolve()
+                else:
+                    self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
+
+                python_exe_in_venv = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
+                
+                is_venv_valid = False
+                if self.params.get('keep_venv') and self.venv_dir.exists() and Path(python_exe_in_venv).exists():
+                    try:
+                        kw = {"capture_output": True, "creationflags": subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {"capture_output": True}
+                        if subprocess.run([python_exe_in_venv, "-c", "pass"], **kw).returncode == 0:
+                            is_venv_valid = True
+                    except Exception: pass
+
+                if is_venv_valid:
+                    self.progress.emit(_("[INFO] Reusing existing virtual environment..."))
+                    python_exe = python_exe_in_venv
+                else:
+                    if self.params.get('keep_venv') and self.venv_dir.exists():
+                        robust_rmtree(self.venv_dir)
+                        
+                    self.progress.emit(_("[INFO] Creating virtual environment..."))
+                    if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
+                        if self._is_cancelled:
+                            return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
+                        return self.build_finished.emit(False, _("[ERROR] Failed to create virtual environment. Current Python environment might be missing necessary modules or have restricted permissions."), [])
+                    
+                    if self.params.get('keep_venv') and self.venv_dir.exists():
+                        try:
+                            (self.venv_dir / ".gitignore").write_text("*\n", encoding="utf-8")
+                        except Exception: pass
+                        
+                    python_exe = python_exe_in_venv
+                    
                     if self._is_cancelled:
                         return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
-                    return self.build_finished.emit(False, _("[ERROR] Failed to create virtual environment. Current Python environment might be missing necessary modules or have restricted permissions."), [])
-                python_exe = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
-                
-                if self._is_cancelled:
-                    return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
-                self.progress.emit(_("[INFO] Synchronizing and upgrading pip package manager..."))
-                self.run_pip_install(python_exe, ["--upgrade", "pip", "-q"])
+                    self.progress.emit(_("[INFO] Synchronizing and upgrading pip package manager..."))
+                    self.run_pip_install(python_exe, ["--upgrade", "pip", "-q"])
             else: 
                 python_exe = system_python_exe
 
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
 
-            if self.params.get('use_pipreqs'):
-                self.progress.emit(_("[INFO] Scanning project source code via AST engine..."))
-                
-                scan_dir_mode = self.params.get('use_pipreqs_dir', False)
-                scan_target = script_dir if scan_dir_mode else build_script_path
-                
-                ast_discovered_imports = extract_project_imports_via_ast(scan_target, scan_dir=scan_dir_mode)
-                env_pkg_map = query_target_env_packages(system_python_exe)
-                
-                for m in ast_discovered_imports:
-                    if m.lower() in target_std_libs or m.lower() in local_modules:
-                        continue
-                    canon_name = env_pkg_map.get(m) or get_canonical_pypi_name(m)
-                    if canon_name.lower() not in target_std_libs:
-                        auto_detected_pkgs.add(canon_name)
-                        if canon_name not in final_dependencies:
-                            final_dependencies[canon_name] = canon_name
-                            auto_added_supplements.add(canon_name)
+            self.progress.emit(_("[INFO] Scanning project source code via AST engine..."))
+            
+            scan_dir_mode = self.params.get('use_pipreqs_dir', False)
+            if scan_dir_mode:
+                ast_discovered_imports = extract_project_imports_via_ast(script_dir, scan_dir=True)
+            else:
+                ast_discovered_imports = script_imports
+            
+            env_pkg_map = query_target_env_packages(system_python_exe)
+            
+            for m in ast_discovered_imports:
+                if m.lower() in target_std_libs or m.lower() in local_modules:
+                    continue
+                canon_name = (env_pkg_map.get(m) or get_canonical_pypi_name(m)).lower()
+                if canon_name not in target_std_libs:
+                    auto_detected_pkgs.add(canon_name)
+                    if canon_name not in final_dependencies:
+                        final_dependencies[canon_name] = canon_name
+                        auto_added_supplements.add(canon_name)
+
 
             engine_pkg = "pyinstaller" if engine == "PyInstaller" else "nuitka"
             if engine == "PyInstaller" and self.params.get('pyi_version'):
@@ -3797,14 +3887,15 @@ class PackingThread(QThread):
                 success_pw = False
                 for mirror in pw_mirrors:
                     if self._is_cancelled: break
+                    
+                    pw_env = {}
                     if mirror:
-                        os.environ["PLAYWRIGHT_DOWNLOAD_HOST"] = mirror
+                        pw_env["PLAYWRIGHT_DOWNLOAD_HOST"] = mirror
                         self.progress.emit(_("[INFO] Downloading Playwright browsers via mirror: {url}", url=mirror))
                     else:
-                        os.environ.pop("PLAYWRIGHT_DOWNLOAD_HOST", None)
                         self.progress.emit(_("[INFO] Retrying Playwright browser download via official CDN..."))
 
-                    if self.run_cmd([python_exe, "-m", "playwright", "install"], timeout=300, silent_error=True):
+                    if self.run_cmd([python_exe, "-m", "playwright", "install"], timeout=300, silent_error=True, extra_env=pw_env):
                         success_pw = True
                         break
 
@@ -4056,11 +4147,14 @@ class PackingThread(QThread):
                     cmd.append("--enable-plugin=multiprocessing")
                     if os.name == "nt":
                         self.progress.emit(_("[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs)."))          
+                is_lite = self.params.get('lite_mode')
+                
                 if 'ttkbootstrap' in imports_lower:
-                    cmd.append("--include-package=ttkbootstrap")
+                    if not is_lite: cmd.append("--include-package=ttkbootstrap")
                     cmd.append("--include-package-data=ttkbootstrap")
+                    
                 if 'playwright' in imports_lower or has_playwright_pkg:
-                    cmd.append("--include-package=playwright")
+                    if not is_lite: cmd.append("--include-package=playwright")
                     cmd.append("--include-package-data=playwright")
 
                 if any(lib in imports_lower for lib in ('requests', 'httpx', 'urllib3', 'aiohttp')):
@@ -4069,7 +4163,7 @@ class PackingThread(QThread):
                     
                 for web_fw in ('fastapi', 'uvicorn', 'flask', 'streamlit', 'pywebio', 'dash'):
                     if web_fw in imports_lower:
-                        cmd.append(f"--include-package={web_fw}")
+                        if not is_lite: cmd.append(f"--include-package={web_fw}")
                         cmd.append(f"--include-package-data={web_fw}")
 
                 if 'numpy' in imports_lower: cmd.append("--enable-plugin=numpy")
@@ -4237,7 +4331,7 @@ class PackingThread(QThread):
                 else:
                     msg = _(
                         "[FAILED] Build interrupted exceptionally!\n\n"
-                        "🔍 Common Troubleshooting:\n"
+                        "Common Troubleshooting:\n"
                         "1. Environment Mismatch (Most Common): The selected Python version is incompatible with your source code. Please go to [Build Settings] to switch to the Python version you normally use for this code.\n"
                         "2. Missing Dependencies: Click 'Detailed Mode' above to check for ModuleNotFoundError.\n"
                         "3. Antivirus Block: Ensure your security software is not blocking the build process.\n\n"
@@ -4277,7 +4371,12 @@ class PackingThread(QThread):
                 
             if self.params['clean_all']:
                 self.progress.emit(_("[INFO] Freeing up space, cleaning temporary build environment..."))
-                for p in [self.venv_dir, self.temp_workpath, self.temp_out_dir, self.temp_dist_dir]:
+                cleanup_dirs = [self.temp_workpath, self.temp_out_dir, self.temp_dist_dir]
+                
+                if not self.params.get('keep_venv'):
+                    cleanup_dirs.append(self.venv_dir)
+                    
+                for p in cleanup_dirs:
                     if p and p.exists(): robust_rmtree(p)
                     
                 app_name = self.params.get('app_name', 'app')
@@ -4349,7 +4448,7 @@ class PythonInstallerDialog(QDialog):
 
         if is_missing_mode:
             tip_card = QLabel(_(
-                "💡 <b>Recommendation:</b> Python <b>3.11.9</b> is recommended for optimal build compatibility and engine support."
+                "<b>Recommendation:</b> Python <b>3.11.9</b> is recommended for optimal build compatibility and engine support."
             ))
             tip_card.setWordWrap(True)
             tip_card.setStyleSheet("""
@@ -4519,7 +4618,7 @@ class PythonInstallerDialog(QDialog):
                 text = combo.itemText(i)
                 path = combo.itemData(i) or text
                 if path and os.path.exists(path):
-                    item = QListWidgetItem(f"🐍  {text}")
+                    item = QListWidgetItem(text)
                     item.setData(Qt.ItemDataRole.UserRole, path)
                     self.local_list.addItem(item)
                     found_any = True
@@ -4527,7 +4626,7 @@ class PythonInstallerDialog(QDialog):
         if not found_any:
             sys_py = find_system_python()
             if sys_py and os.path.exists(sys_py):
-                item = QListWidgetItem(f"🐍  {sys_py}")
+                item = QListWidgetItem(sys_py)
                 item.setData(Qt.ItemDataRole.UserRole, sys_py)
                 self.local_list.addItem(item)
                 found_any = True
@@ -5224,8 +5323,10 @@ class MainWindow(QMainWindow):
 
         mappings = DEFAULT_MAPPINGS.copy()
         for r in range(sp.mapping_table.rowCount()):
-            k = sp.mapping_table.item(r, 0).text().strip()
-            v = sp.mapping_table.item(r, 1).text().strip()
+            item_k = sp.mapping_table.item(r, 0)
+            item_v = sp.mapping_table.item(r, 1)
+            k = item_k.text().strip() if item_k else ""
+            v = item_v.text().strip() if item_v else ""
             if k and v: mappings[k] = v
 
         params = {
@@ -5251,6 +5352,7 @@ class MainWindow(QMainWindow):
             'custom_out_dir': sp.out_dir_edit.text().strip(),
             'temp_sandbox_mode': sp.sandbox_mode_combo.currentIndex(), 
             'use_venv': sp.venv_check.isChecked(),
+            'keep_venv': sp.keep_venv_check.isChecked(),
             'clean_all': sp.clean_all_check.isChecked(),
             'version_file': version_file.as_posix() if version_file else None,
             'temp_icon_file': temp_icon_file,
@@ -5261,7 +5363,7 @@ class MainWindow(QMainWindow):
             'pip_index_backup': backup_pip,
             'concise_log': sp.concise_log_check.isChecked(),
             'auto_save_log': sp.auto_save_log_check.isChecked(),
-            'lite_mode': sp.lite_mode_check.isChecked(),
+            'lite_mode': sp.rb_lite_mode.isChecked(),
             'pyi_version': sp.pyi_ver_edit.text().strip(),
             'nuitka_version': sp.nuitka_ver_edit.text().strip(),
         }
@@ -5280,6 +5382,9 @@ class MainWindow(QMainWindow):
         self.drop_area.start_build_anim()
 
     def on_pack_finished(self, success, msg, failed_pkgs=None):
+        if not success and self.thread and self.thread.params.get('lite_mode') and not getattr(self.thread, '_is_cancelled', False):
+            msg += "\n\n" + _("Tip: Build failed in Lite Mode. You can try switching to [Compatibility Mode] in Build Settings and rebuild.")
+            
         self.append_log("\n" + msg)
         self.drop_area.stop_build_anim()
         
@@ -5291,8 +5396,7 @@ class MainWindow(QMainWindow):
                 self.update_ui_state("idle")
             self.set_status(_("Status: Build Cancelled"))
             return
-
-        play_alert(success)
+        play_alert(success, self.settings_panel.sound_notify_check.isChecked())
             
         if success:
             icon_path = self.settings_panel.icon_edit.text().strip()
@@ -5423,14 +5527,39 @@ class MainWindow(QMainWindow):
             text_edit.append(msg)
         text_edit.ensureCursorVisible()
 
-    def show_log_context_menu(self, pos):
+    def show_log_context_menu(self, pos):   
         current_log = self.log_stack.currentWidget()
         menu = QMenu(self)
         menu.setStyleSheet("""
-            QMenu { background-color: #ffffff; color: #111827; border: 1px solid #d1d5db; border-radius: 8px; padding: 4px; }
-            QMenu::item { padding: 6px 20px; border-radius: 4px; font-size: 12px; font-family: Consolas, "Segoe UI", sans-serif; }
-            QMenu::item:selected { background-color: #eff6ff; color: #2563eb; font-weight: 600; }
-            QMenu::separator { height: 1px; background-color: #e5e7eb; margin: 4px 2px; }
+            QMenu {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 5px;
+            }
+            QMenu::item {
+                background-color: transparent;
+                color: #1e293b;
+                padding: 6px 16px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                font-family: Consolas, "Segoe UI", sans-serif;
+            }
+            QMenu::item:selected {
+                background-color: #eff6ff;
+                color: #2563eb;
+                font-weight: 600;
+            }
+            QMenu::item:disabled {
+                color: #94a3b8;
+                background-color: transparent;
+            }
+            QMenu::separator {
+                height: 1px;
+                background-color: #f1f5f9;
+                margin: 4px 6px;
+            }
         """)
         
         act_copy = menu.addAction(_("Copy"))
@@ -5477,7 +5606,55 @@ def main():
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    
+
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Window, QColor("#ffffff"))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor("#111827"))
+    palette.setColor(QPalette.ColorRole.Base, QColor("#ffffff"))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#f9fafb"))
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#ffffff"))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#111827"))
+    palette.setColor(QPalette.ColorRole.Text, QColor("#111827"))
+    palette.setColor(QPalette.ColorRole.Button, QColor("#f1f5f9"))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor("#111827"))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor("#2563eb"))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+    app.setPalette(palette)
+
+    app.setStyleSheet("""
+        QMenu {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 5px;
+        }
+        QMenu::item {
+            background-color: transparent;
+            color: #1e293b;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: Consolas, "Segoe UI", sans-serif;
+        }
+        QMenu::item:selected {
+            background-color: #eff6ff;
+            color: #2563eb;
+            font-weight: 600;
+        }
+        QMenu::item:disabled {
+            color: #94a3b8;
+            background-color: transparent;
+        }
+        QMenu::separator {
+            height: 1px;
+            background-color: #f1f5f9;
+            margin: 4px 6px;
+        }
+    """)
+
+    I18N.update_qt_translator(I18N.current_lang)
+
     font = QFont()
     font.setFamilies([
         "Segoe UI", "Microsoft YaHei", "PingFang SC", 

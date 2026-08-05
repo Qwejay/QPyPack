@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.4] - 2026-08-05
+
+#### Added
+- **Packaging Mode Selection**: Supports switching between "Compatibility Mode" and "Lite Mode". Compatibility Mode minimizes build errors, while Lite Mode produces smaller output sizes and provides automated retry tips upon build failures.
+- **Keep Virtual Environment**: Supports generating and reusing local virtual environments per project without recreating them every time, significantly accelerating rebuilds.
+
+#### Improved
+- **Nuitka Strategy Optimization**: Dynamically optimizes packaging parameters for frameworks like `playwright` and `ttkbootstrap` in Lite Mode to further shrink output size.
+- **Context Menu Enhancement**: Dynamically loads Qt system translation packages for improved multilingual native context menus and dialogs, and fixed a bug where the context menu background rendered in black (took an entire afternoon to fix==!).
+- **UI & Visual Consistency**: Explicitly configured the Fusion light theme Palette, unified global context menu styling, and optimized preset button layouts and page margins.
+- **AST Dependency Scanning**: Scanning paths now automatically exclude virtual packaging directories, and package name comparisons are standardized to lowercase.
+- **Bug Fixes & Tweaks**: Fixed audio alert toggle logic; added support for independent subprocess environment variables; strengthened null-pointer checks in tables; updated translations and fixed multiple minor bugs.
+
 ## [2.7.3] - 2026-08-04
 
 #### Added
