@@ -71,6 +71,7 @@ ZH_CN_DICT = {
     "Huawei Cloud (China)": "华为云镜像",
     "USTC (China)": "中科大镜像",
 
+    "Modern Cross-Platform Python Application Packager": "现代化的跨平台 Python 应用打包工具",
     "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka": "基于 PyInstaller 与 Nuitka 的现代化跨平台 Python 打包工具",
     "Python Packaging, Reimagined.": "重新定义 Python 应用打包体验",
     "Drop Python source code to start": "拖拽 Python 源码至此开始",
@@ -82,7 +83,7 @@ ZH_CN_DICT = {
     "Engine": "构建引擎",
     "Dependencies": "依赖管理",
     "Resources": "附加资源",
-    "Optimization": "性能优化",
+    "Optimization & Security": "优化与安全",
     "Package Map": "包名映射",
     "Execution Log": "执行日志",
 
@@ -134,6 +135,13 @@ ZH_CN_DICT = {
     "Clear Log": "清空日志",
     "Export Log...": "导出日志...",
     "Reset": "重置",
+    "Undo": "撤销",
+    "Cut": "剪切",
+    "Paste": "粘贴",
+    "Create": "创建",
+    "Generate": "生成",
+    "Save Certificate": "保存证书",
+    "Error": "错误",
     "<b>Are you sure you want to reset all preferences?</b><br><span style='color:#64748b; font-size:12px;'>All settings will be restored to default state.</span>":
         "<b>确定重置所有偏好设置？</b><br><span style='color:#64748b; font-size:12px;'>所有设置将恢复为默认状态。</span>",
 
@@ -142,14 +150,17 @@ ZH_CN_DICT = {
     "Mirrors & Scanner": "镜像与扫描",
     "Additional Resources (Drag & Drop Supported)": "附加资源 (支持拖拽)",
     "Performance Optimization": "性能优化",
+    "Code Signing": "代码签名",
     "Lock Core Dependencies": "锁定核心依赖",
     "Package Name Mappings": "包名映射",
     "UI Language:": "界面语言:",
     "App Metadata & Presets": "元数据与预设",
     "Output Location": "输出位置",
     "Preferences & System Behavior": "偏好与行为",
+
     "Build Engine:": "构建引擎:",
-    "Python Interpreter:": "Python 解释器:",
+    "Packaging Mode:": "打包模式:",
+    "Interpreter:": "解释器:",
     "Output Name:": "输出名称:",
     "App Icon:": "应用图标:",
     "Primary PIP Index:": "主 PIP 源:",
@@ -179,8 +190,16 @@ ZH_CN_DICT = {
     "Target relative path:": "目标相对路径:",
     "Import name (e.g. cv2):": "导入名 (如 cv2):",
     "PyPI package name for [{imp_name}]:": "[{imp_name}] 对应 PyPI 包名:",
-    "Script and settings retained. Ready to rebuild.": "已保留当前配置，就绪等待重新构建。",
+    "Commercial PFX File:": "商业证书文件 (.pfx):",
+    "Cert Password:": "证书密钥密码:",
+    "Certificate Subject (e.g. My Company):": "证书颁发者 (如 My Company):",
+    "Confirm Password:": "确认密码:",
 
+    "Compatibility Mode (Default)": "兼容模式 (默认)",
+    "Lite Mode (Smaller size)": "精简模式 (体积小)",
+    "Maximum compatibility. Recommended for apps with complex dynamic imports.": "最大兼容性。适合使用了复杂动态导入的项目。",
+    "Smaller output size. Recommended for 95% of standard apps.": "产物体积最小。推荐 95% 的常规应用使用。",
+    "Tip: Build failed in Lite Mode. You can try switching to [Compatibility Mode] in Build Settings and rebuild.": "提示: 精简模式构建失败。您可以尝试在【构建设置】中勾选 [兼容模式] 重新打包。",
     "One-File Mode (--onefile)": "单文件模式 (--onefile)",
     "Folder Mode (--onedir)": "文件夹模式 (--onedir)",
     "Contents Directory (--contents-directory):": "内部资源目录:",
@@ -188,38 +207,50 @@ ZH_CN_DICT = {
     "Hide Console (--noconsole)": "隐藏控制台 (--noconsole)",
     "Use Virtual Environment (Recommended)": "使用虚拟环境 (推荐)",
     "Keep Virtual Environment (Faster Rebuilds)": "保留虚拟环境 (适合频繁重编)",
-    "[INFO] Reusing existing virtual environment...": "[INFO] 复用本地已存在的虚拟环境...",
     "Install requirements.txt": "安装 requirements.txt",
     "Analyze Dependencies (AST)": "分析依赖 (原生 AST)",
     "Scan Entire Folder": "扫描整个文件夹",
     "Enable UPX Compression": "启用 UPX 压缩",
+    "Enable Smart Code Signing": "开启数字签名",
+    "Auto-applies digital signature to built app, eliminating 'Unknown Publisher' warning": "自动为生成的应用程序添加数字签名，提升系统信任度",
+    "Use Custom Commercial Cert (Optional) ▸": "配置商业数字证书 (可选) ▸",
+    "Hide Custom Cert Settings ▾": "折叠证书高级设置 ▾",
+    "Create Self-Signed Cert": "创建自签证书",
+    "Self-Signed Certificate (*.pfx)": "自签名证书 (*.pfx)",
     "Concise Log Output": "精简日志",
     "Auto-save Build Log": "自动保存日志",
     "Auto Extract Icon": "自动提取图标",
     "Clean Temporary Cache After Build": "构建后清理缓存",
     "Sound Notification": "完成提示音",
+
     "Leave blank to auto-detect system default Python": "留空则自动检测系统 Python",
     "Leave blank to auto-match script name": "留空则自动匹配脚本名",
     "Leave blank to auto-search requirements.txt in current directory": "留空则自动检索当前目录 requirements.txt",
     "Comma separated (e.g. pandas, PyQt5)": "逗号分隔 (如 pandas, PyQt5)",
     "Comma separated (e.g. tkinter, matplotlib)": "逗号分隔 (如 tkinter, matplotlib)",
     "Leave blank to auto-detect from environment variables": "留空则从环境变量自动检测",
+    "Select .pfx / .p12 certificate file": "请选择 .pfx / .p12 格式证书",
+    "Certificate password": "证书密钥密码",
     "Double-click to edit target path; Drag & drop supported": "双击编辑目标路径；支持拖拽",
     "Double-click to edit target path; Drag & drop supported. Use 'Export Preset' to save for reuse.": "双击编辑目标路径；支持拖拽。建议使用「导出预设」进行保存。",
+    "Project-specific. Not saved to global preferences. Use 'Export Preset' to save config.": "提示：此处资源配置仅对当前项目生效。如需长期复用，请使用「导出预设」。",
+    "Recommendation: 6+ chars, alphanumeric, '-' and '_' only. Avoid spaces or Chinese to prevent signing errors.": "建议：6位以上，仅使用英文字母、数字、减号及下划线。避免使用中文或空格以防签名失败。",
 
     "PyInstaller — Bundles Python interpreter and bytecode. Fast build speed, zero configuration (no C compiler needed), and excellent compatibility.":
         "PyInstaller — 打包解释器与字节码。构建迅速，零配置 (无需 C 编译器)，兼容性优异。",
     "Nuitka — Compiles source code into native C/C++ binary. Produces smaller package size, faster execution, and deep anti-decompilation protection (requires C compiler).":
         "Nuitka — 编译为原生 C/C++ 二进制。体积更小，执行更快，具备强抗反编译能力 (需 C 编译器)。",
-
-    '<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Legacy OS</span> <span style="color:#6b7280; font-size:11px;">Full backward compatibility</span>':
-        '<div style="margin-bottom: 5px;"><b>Python {ver} 平台支持：</b></div><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">兼容旧系统</span> <span style="color:#6b7280; font-size:11px;">支持 Windows 7 及旧版操作系统</span>',
-    '<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>':
-        '<div style="margin-bottom: 5px;"><b>Python {ver} 平台支持：</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>',
-    '<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">Auto-detecting and managing C backend compiler</span>':
-        '<div style="margin-bottom: 5px;"><b>Python {ver} 平台支持：</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8/8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10/11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">自动检测并管理 C 后端编译器</span>',
-    '<div style="margin-bottom: 5px;"><b>Python Interpreter</b></div><span style="color:#6b7280;">Auto-detecting system environment for Windows, macOS & Linux...</span>':
-        '<div style="margin-bottom: 5px;"><b>Python 解释器</b></div><span style="color:#6b7280;">自动检测系统环境 (Win/macOS/Linux)...</span>',
+    "OS Support Matrix:": "支持操作系统情况：",
+    "Platform Support Matrix:": "平台支持：",
+    "No Windows 7 Support": "不支持 Windows 7",
+    "Full backward compatibility": "兼容旧版操作系统",
+    "Legacy macOS Compatible": "兼容旧版 macOS",
+    "Apple Silicon (M1/M2) & Intel": "支持 Apple Silicon (M1/M2) 与 Intel",
+    "Apple Silicon (M-Series) & Intel": "支持 Apple Silicon (M系列) 与 Intel",
+    "Compatibility depends on build environment glibc version.": "兼容性取决于当前系统的 glibc 版本",
+    "* Nuitka Auto-manages C Compiler": "* Nuitka 自动接管 C 编译器",
+    '<div style="margin-bottom: 5px;"><b>Interpreter</b></div><span style="color:#6b7280;">Auto-detecting system environment and OS support matrix...</span>':
+        '<div style="margin-bottom: 5px;"><b>解释器</b></div><span style="color:#6b7280;">正在自动检测系统环境与支持操作系统情况...</span>',
 
     "[INFO] Build Cancelled.": "[INFO] 构建已取消。",
     "[INFO] Performing pre-flight environment checks...": "[INFO] 执行预构建环境检查...",
@@ -228,6 +259,7 @@ ZH_CN_DICT = {
     "[INFO] Playwright detected. Installing built-in browsers (PLAYWRIGHT_BROWSERS_PATH=0)...": "[INFO] 检测到 Playwright。正在安装内置浏览器驱动...",
     "[INFO] Python interpreter path: {path}": "[INFO] Python 路径: {path}",
     "[INFO] Creating virtual environment...": "[INFO] 创建虚拟环境...",
+    "[INFO] Reusing existing virtual environment...": "[INFO] 复用本地已存在的虚拟环境...",
     "[INFO] Synchronizing and upgrading pip package manager...": "[INFO] 更新 pip...",
     "[INFO] Scanning project source code via AST engine...": "[INFO] 使用原生 AST 引擎扫描依赖...",
     "[INFO] Nuitka Tip: If prompted to download GCC/MinGW compiler on first build, please ensure stable network connection.": "[INFO] Nuitka 提示: 首次构建如需下载 GCC/MinGW，请确保网络畅通。",
@@ -258,6 +290,9 @@ ZH_CN_DICT = {
     "[INFO] Freeing up space, cleaning temporary build environment...": "[INFO] 清理临时构建环境...",
     "[INFO] Downloading Playwright browsers via mirror: {url}": "[INFO] 通过镜像下载 Playwright 浏览器: {url}",
     "[INFO] Retrying Playwright browser download via official CDN...": "[INFO] 通过官方 CDN 重试下载 Playwright 浏览器...",
+    "[INFO] Applying smart digital signature...": "[INFO] 正在为应用程序添加数字签名...",
+    "[SUCCESS] Digital signature applied successfully!": "[SUCCESS] 数字签名添加成功！",
+    "[WARN] Smart signing failed, but build output is retained.": "[WARN] 数字签名未成功，但应用产物已正常保留。",
     "[SUCCESS] Compilation completed, output path: {path}": "[SUCCESS] 构建成功，输出路径: {path}",
     "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] 项目位于云同步目录，可能锁定构建文件。",
     "[WARN] Specified versions failed to install. Stripping version constraints for automatic compatibility match...": "[WARN] 指定版本安装失败，尝试自动匹配兼容版本...",
@@ -278,6 +313,7 @@ ZH_CN_DICT = {
     "[WARN] Playwright browser installation failed across all sources, build will proceed with risk...": "[WARN] 所有 Playwright 浏览器下载源均失败，继续构建 (有风险)...",
     "[WARN] Icon conversion to .icns failed, building without icon.": "[WARN] 图标转换为 .icns 失败，将不使用图标构建。",
     "[INFO] Tip: Packaged executables might be falsely flagged by Windows Defender/Antivirus. Adding exclusions or code-signing is recommended.": "[INFO] 提示: 独立可执行程序可能被安全软件误报。建议加入白名单或添加代码签名。",
+
     "[ERROR] Build aborted: Insufficient disk space (NoSpaceLeft / Errno 28). Please clean up drive space (at least 5 GB free space recommended) and try again.": "[ERROR] 构建中止: 磁盘空间不足 (NoSpaceLeft / Errno 28)。建议预留至少 5GB 可用空间。",
     "[ERROR] Output directory is missing write permissions: {error}": "[ERROR] 目标输出目录无写入权限: {error}",
     "[ERROR] Requirements file not found: {path}": "[ERROR] 指定的依赖清单文件不存在: {path}",
@@ -299,56 +335,33 @@ ZH_CN_DICT = {
     "[ERROR] System execution exception: {error}": "[ERROR] 系统执行异常: {error}",
     "[ERROR] I/O Exception: {err_msg}": "[ERROR] I/O 异常: {err_msg}",
     "[ERROR] Python installation failed or was cancelled.": "[ERROR] Python 安装失败或已被主动取消。",
-    "[ERROR] Build completed, but the following dependencies failed to install:\n\n  - {pkgs}\n\nNote: The application might raise ModuleNotFoundError at runtime.": 
+    "Passwords do not match!": "两次输入的密码不一致！",
+    "Failed to generate certificate.": "生成证书失败。",
+    "Certificate generated successfully!": "证书生成成功！",
+    "Only supported on Windows.": "仅支持在 Windows 系统下生成 .pfx 证书。",
+    "Password cannot be empty!": "密码不能为空！",
+
+    "[ERROR] Build completed, but the following dependencies failed to install:\n\n  - {pkgs}\n\nNote: The application might raise ModuleNotFoundError at runtime.":
         "[ERROR] 构建完成，但以下依赖安装失败:\n\n  - {pkgs}\n\n注意: 运行时程序可能会抛出 ModuleNotFoundError。",
 
-    "[Syntax Error] Source code syntax parsing failed, build aborted:\n"
-    "  - File: {file}\n"
-    "  - Line: Line {line}\n"
-    "  - Detail: {desc}\n\n"
-    "Tip: This is usually NOT a fault of the packaging tool.\n"
-    "Please ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\n"
-    "Using newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\n"
-    "We recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.":
-        "[Syntax Error] 源码语法解析失败，构建中止:\n"
-        "  - 文件: {file}\n"
-        "  - 行号: {line}\n"
-        "  - 详情: {desc}\n\n"
-        "提示：这通常不是打包工具的故障。\n"
-        "请确认您当前选择的【打包 Python 版本】与您【编写代码时的版本】是否一致。\n"
-        "高版本语法（如海象运算符 :=、类型联合 |、match-case 等）在低版本 Python 中会导致此错误。\n"
-        "建议前往【构建设置】->【构建引擎】切换至对应版本的 Python。",
+    "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.":
+        "[Syntax Error] 源码语法解析失败，构建中止:\n  - 文件: {file}\n  - 行号: {line}\n  - 详情: {desc}\n\n提示：这通常不是打包工具的故障。\n请确认您当前选择的【打包 Python 版本】与您【编写代码时的版本】是否一致。\n高版本语法（如海象运算符 :=、类型联合 |、match-case 等）在低版本 Python 中会导致此错误。\n建议前往【构建设置】->【构建引擎】切换至对应版本的 Python。",
 
-    "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": 
+    "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.":
         "[ERROR] 源码语法错误，构建中止:\n  - 文件: {file}\n  - 类型: {type}\n  - 行号: {line}\n  - 详情: {desc}\n\n提示: 请确保源码可在本地运行。",
-        
-    "[FAILED] Build interrupted exceptionally!\n\n"
-    "Common Troubleshooting:\n"
-    "1. Environment Mismatch (Most Common): The selected Python version is incompatible with your source code. Please go to [Build Settings] to switch to the Python version you normally use for this code.\n"
-    "2. Missing Dependencies: Click 'Detailed Mode' above to check for ModuleNotFoundError.\n"
-    "3. Antivirus Block: Ensure your security software is not blocking the build process.\n\n"
-    "(Note: This is usually caused by environment/code discrepancies rather than the packaging engine itself. Please check the detailed log for exact reasons.)":
-        "[FAILED] 构建异常中断！\n\n"
-        "常见原因排查：\n"
-        "1. 环境不匹配 (最常见)：您选择的打包 Python 版本与您的源码不兼容。请前往【构建设置】切换为您平时开发运行该代码的 Python 版本。\n"
-        "2. 依赖缺失：请点击上方切换至「详细日志」，查看是否有模块未找到 (ModuleNotFoundError)。\n"
-        "3. 杀毒软件拦截：请检查是否有安全软件阻止了打包过程。\n\n"
-        "（注意：这通常是环境配置与代码差异导致，并非打包引擎本身故障，请查阅详细日志获取确切原因。）",
-    "[FAILED] Compilation interrupted with exceptions, please click 'Detailed Mode' above the log window for troubleshooting.": 
+
+    "[FAILED] Build interrupted exceptionally!\n\nCommon Troubleshooting:\n1. Environment Mismatch (Most Common): The selected Python version is incompatible with your source code. Please go to [Build Settings] to switch to the Python version you normally use for this code.\n2. Missing Dependencies: Click 'Detailed Mode' above to check for ModuleNotFoundError.\n3. Antivirus Block: Ensure your security software is not blocking the build process.\n\n(Note: This is usually caused by environment/code discrepancies rather than the packaging engine itself. Please check the detailed log for exact reasons.)":
+        "[FAILED] 构建异常中断！\n\n常见原因排查：\n1. 环境不匹配 (最常见)：您选择的打包 Python 版本与您的源码不兼容。请前往【构建设置】切换为您平时开发运行该代码的 Python 版本。\n2. 依赖缺失：请点击上方切换至「详细日志」，查看是否有模块未找到 (ModuleNotFoundError)。\n3. 杀毒软件拦截：请检查是否有安全软件阻止了打包过程。\n\n（注意：这通常是环境配置与代码差异导致，并非打包引擎本身故障，请查阅详细日志获取确切原因。）",
+
+    "[FAILED] Compilation interrupted with exceptions, please click 'Detailed Mode' above the log window for troubleshooting.":
         "[FAILED] 构建异常中断，请切换至「详细日志」排查原因。",
 
-    "No log content.": "无日志内容。",
-    "Log saved to: {path}": "日志已保存: {path}",
-    "\\nProgram execution completed, press Enter to exit...": "\\n程序执行完成，按回车键退出...",
-    "Project-specific. Not saved to global preferences. Use 'Export Preset' to save config.": 
-        "提示：此处资源配置仅对当前项目生效。如需长期复用，请使用「导出预设」。",
     "GitHub Repository": "GitHub 仓库",
     "Issues & Feedback": "问题与反馈",
     "PyPI Home": "PyPI 主页",
     "Sponsor": "赞助支持",
     "QPyPack is a free and open-source tool. If it has improved your efficiency or solved packaging problems, consider buying the author a coffee!": "QPyPack 是一款免费开源工具。如果它提升了您的效率或解决了打包难题，欢迎赞助支持本开源项目。",
     "* Sponsorship is completely voluntary, serves as an unconditional encouragement to the open-source community, and involves no commercial commitments. Thank you for your support!": "* 赞助完全出于自愿，属于对开源社区的无偿鼓励，不涉及任何商业承诺。感谢您的支持！",
-    
     "Python Environment Required": "需要 Python 环境",
     "<b>Python is not detected on your system!</b><br><br>QPyPack requires a Python environment to compile your code.<br>If you haven't installed Python, please download and install it (remember to check <b>'Add Python.exe to PATH'</b> during installation).": "<b>未在系统中检测到有效的 Python 环境</b><br><br>QPyPack 需要依赖 Python 才能编译代码。<br>如果您尚未安装，请前往官网下载安装 (提示：安装界面底部请务必勾选 <b>'Add Python.exe to PATH'</b>)。",
     "Download Python": "前往下载 Python",
@@ -397,19 +410,19 @@ ZH_CN_DICT = {
     "Config preset exported to: {path}": "配置预设已成功导出至: {path}",
     "Config preset imported successfully.": "配置预设已成功导入。",
     "AST scan completed, found {count} dependencies.": "AST 扫描完成，发现 {count} 个隐式依赖。",
+    "No log content.": "无日志内容。",
+    "Log saved to: {path}": "日志已保存: {path}",
     "Attention: Please check the log for details.": "提示: 请检查下方日志排查详细原因。",
-    
     "System Default ({sys_native})": "系统默认 ({sys_native})",
-    "My Studio": "我的工作室",
-    "Python Executable": "Python 可执行程序",
+    "Independent Developer": "独立开发者",
+    "Desktop Application": "桌面应用程序",
     "Invalid syntax": "无效语法",
     "OK": "确定",
-    "Packaging Mode:": "打包模式:",
-    "Compatibility Mode (Default)": "兼容模式 (默认)",
-    "Lite Mode (Smaller size)": "精简模式 (体积小)",
-    "Maximum compatibility. Recommended for apps with complex dynamic imports.": "最大兼容性。适合使用了复杂动态导入的项目。",
-    "Smaller output size. Recommended for 95% of standard apps.": "产物体积最小。推荐 95% 的常规应用使用。",
-    "Tip: Build failed in Lite Mode. You can try switching to [Compatibility Mode] in Build Settings and rebuild.": "提示: 精简模式构建失败。您可以尝试在【构建设置】中勾选 [兼容模式] 重新打包。",
+    "QPyPack Developer": "QPyPack 开发者",
+    "\\nProgram execution completed, press Enter to exit...": "\\n程序执行完成，按回车键退出...",
+    "Script and settings retained. Ready to rebuild.": "已保留当前配置，就绪等待重新构建。",
+    "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] 时间戳服务器连通超时，进行本地快速签名...",
+    "[INFO] Applied digital signature with timestamp ({tsa})...": "[INFO] 已通过时间戳服务器 ({tsa}) 完成数字签名与盖章...",
     "Unknown": "未知"
 }
 
@@ -689,6 +702,9 @@ def load_config(retry=True):
         default_updates = {
             'language': 'auto',
             'keep_venv': 'False',
+            'enable_sign': 'True' if sys.platform == 'darwin' else 'False',
+            'cert_path': '',
+            'cert_pass': '',
             'pip_index': default_mirror,
             'pip_index_backup': default_backup,
             'concise_log': 'True',
@@ -1092,6 +1108,82 @@ class CustomInputDialog(QDialog):
         
     def get_text(self):
         return self.edit.text()
+
+class GenCertDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(_("Create Self-Signed Cert"))
+        self.setMinimumWidth(380)
+        self.setStyleSheet("""
+            QDialog { background-color: #ffffff; }
+            QLabel { font-size: 12px; color: #111827; }
+            QLineEdit { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; }
+            QLineEdit:focus { border: 1px solid #2563eb; }
+            QPushButton { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: bold; padding: 6px 16px; min-width: 70px; }
+            QPushButton:hover { background-color: #e2e8f0; }
+            QPushButton#btnOk { background-color: #2563eb; color: #ffffff; border: none; }
+            QPushButton#btnOk:hover { background-color: #1d4ed8; }
+        """)
+        
+        lay = QVBoxLayout(self)
+        lay.setSpacing(10)
+        lay.setContentsMargins(20, 20, 20, 20)
+        
+        form_lay = QFormLayout()
+        
+        self.subject_edit = QLineEdit(_("QPyPack Developer"))
+        self.pass_edit = QLineEdit()
+        self.pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.confirm_edit = QLineEdit()
+        self.confirm_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        form_lay.addRow(QLabel(_("Certificate Subject (e.g. My Company):")), self.subject_edit)
+        form_lay.addRow(QLabel(_("Password:")), self.pass_edit)
+        form_lay.addRow(QLabel(_("Confirm Password:")), self.confirm_edit)
+        
+        lay.addLayout(form_lay)
+        
+        self.hint_label = QLabel(_("Recommendation: 6+ chars, alphanumeric, '-' and '_' only. Avoid spaces or Chinese to prevent signing errors."))
+        self.hint_label.setWordWrap(True)
+        self.hint_label.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 2px;")
+        lay.addWidget(self.hint_label)
+        
+        lay.addSpacing(10)
+        
+        btn_lay = QHBoxLayout()
+        btn_lay.addStretch()
+        
+        self.btn_ok = QPushButton(_("Generate"))
+        self.btn_ok.setObjectName("btnOk")
+        self.btn_ok.clicked.connect(self.on_generate)
+        
+        self.btn_cancel = QPushButton(_("Cancel"))
+        self.btn_cancel.clicked.connect(self.reject)
+        
+        btn_lay.addWidget(self.btn_ok)
+        btn_lay.addWidget(self.btn_cancel)
+        lay.addLayout(btn_lay)
+        
+        self.cert_info = None
+
+    def on_generate(self):
+        subject = self.subject_edit.text().strip()
+        pwd = self.pass_edit.text()
+        confirm = self.confirm_edit.text()
+        
+        if not subject:
+            return
+            
+        if not pwd:
+            QMessageBox.warning(self, _("Error"), _("Password cannot be empty!"))
+            return
+            
+        if pwd != confirm:
+            QMessageBox.warning(self, _("Error"), _("Passwords do not match!"))
+            return
+            
+        self.cert_info = (subject, pwd)
+        self.accept()
 
 class ComboItemDelegate(QStyledItemDelegate):
     def sizeHint(self, option, index):
@@ -1653,7 +1745,8 @@ class DropArea(QFrame):
                 self, 
                 _("Drag & Drop Python script (.py/.pyw) here\nor Click to Browse"), 
                 "", 
-                "Python Scripts (*.py *.pyw);;All Files (*)"
+                "Python Scripts (*.py *.pyw);;All Files (*)",
+                options=QFileDialog.Option.DontUseNativeDialog
             )
             if fp: self.fileDropped.emit(fp)
 
@@ -2041,13 +2134,13 @@ class SettingsPanel(QWidget):
         sub_scroll3, _cnt3, lay_sub3 = self._create_scroll_tab()
         sub_scroll4, _cnt4, lay_sub4 = self._create_scroll_tab()
         sub_scroll5, _cnt5, lay_sub5 = self._create_scroll_tab()
-        
+
         self.sub_tabs.addTab(sub_scroll1, get_svg_icon('engine', "#5F6368", 16), _("Engine"))
         self.sub_tabs.addTab(sub_scroll2, get_svg_icon('package', "#5F6368", 16), _("Dependencies"))
         self.sub_tabs.addTab(sub_scroll3, get_svg_icon('folder', "#5F6368", 16), _("Resources"))
-        self.sub_tabs.addTab(sub_scroll4, get_svg_icon('bolt', "#5F6368", 16), _("Optimization"))
+        self.sub_tabs.addTab(sub_scroll4, get_svg_icon('bolt', "#5F6368", 16), _("Optimization & Security"))
         self.sub_tabs.addTab(sub_scroll5, get_svg_icon('link', "#5F6368", 16), _("Package Map"))
-        
+
         self.card_engine, c_lay_engine = self._create_card(_("Engine & Environment"))
         self.form_engine = QFormLayout()
         self.form_engine.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
@@ -2158,7 +2251,7 @@ class SettingsPanel(QWidget):
 
         self.lbl_eng_title = QLabel(_("Build Engine:"))
         self.lbl_pack_mode_title = QLabel(_("Packaging Mode:"))
-        self.lbl_py_title = QLabel(_("Python Interpreter:"))
+        self.lbl_py_title = QLabel(_("Interpreter:"))
         self.lbl_app_title = QLabel(_("Output Name:"))
         self.lbl_icon_title = QLabel(_("App Icon:"))
 
@@ -2366,8 +2459,53 @@ class SettingsPanel(QWidget):
         
         self.lbl_upx_path = QLabel(_("UPX Path:"))
         self.form_opt.addRow(self.lbl_upx_path, h_upx_row)
-        
         c_lay_opt.addLayout(self.form_opt)
+
+        self.card_sign, c_lay_sign = self._create_card(_("Code Signing"))
+        self.enable_sign_check = QCheckBox(_("Enable Smart Code Signing"))
+        self.enable_sign_check.setToolTip(_("Auto-applies digital signature to built app, eliminating 'Unknown Publisher' warning"))
+        c_lay_sign.addWidget(self.enable_sign_check)
+
+        self.adv_sign_container = QWidget()
+        form_adv_sign = QFormLayout(self.adv_sign_container)
+        form_adv_sign.setContentsMargins(0, 5, 0, 0)
+        form_adv_sign.setSpacing(10)
+
+        self.cert_path_edit = QLineEdit()
+        self.cert_path_edit.setPlaceholderText(_("Select .pfx / .p12 certificate file"))
+     
+        self.btn_cert = QPushButton(_("Browse"))
+        self.btn_cert.setProperty("class", "ToolBtn")
+        self.btn_cert.clicked.connect(self.select_cert_file)
+
+        self.btn_gen_cert = QPushButton(_("Create"))
+        self.btn_gen_cert.setProperty("class", "ToolBtn")
+        self.btn_gen_cert.setToolTip(_("Create Self-Signed Cert"))
+        self.btn_gen_cert.clicked.connect(self.create_self_signed_cert)
+
+        cert_cont = QWidget()
+        h_cert = QHBoxLayout(cert_cont)
+        h_cert.setContentsMargins(0, 0, 0, 0)
+        h_cert.setSpacing(6)
+        h_cert.addWidget(self.cert_path_edit, 1)
+        h_cert.addWidget(self.btn_cert)
+        h_cert.addWidget(self.btn_gen_cert)
+
+        self.cert_pass_edit = QLineEdit()
+        self.cert_pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.cert_pass_edit.setPlaceholderText(_("Certificate password"))
+
+        form_adv_sign.addRow(QLabel(_("Commercial PFX File:")), cert_cont)
+        form_adv_sign.addRow(QLabel(_("Cert Password:")), self.cert_pass_edit)
+        self.adv_sign_container.setVisible(False)
+
+        self.btn_toggle_adv_sign = QPushButton(_("Use Custom Commercial Cert (Optional) ▸"))
+        self.btn_toggle_adv_sign.setFlat(True)
+        self.btn_toggle_adv_sign.setStyleSheet("QPushButton { color: #2563eb; font-size: 12px; text-align: left; background: transparent; border: none; font-weight: bold; } QPushButton:hover { text-decoration: underline; }")
+        self.btn_toggle_adv_sign.clicked.connect(self.toggle_adv_sign_ui)
+
+        c_lay_sign.addWidget(self.btn_toggle_adv_sign)
+        c_lay_sign.addWidget(self.adv_sign_container)
 
         self.card_ver, c_lay_ver = self._create_card(_("Lock Core Dependencies"))
         self.form_ver = QFormLayout()
@@ -2385,6 +2523,7 @@ class SettingsPanel(QWidget):
         c_lay_ver.addLayout(self.form_ver)
 
         lay_sub4.addWidget(self.card_opt)
+        lay_sub4.addWidget(self.card_sign)
         lay_sub4.addWidget(self.card_ver)
         lay_sub4.addStretch()
 
@@ -2420,7 +2559,7 @@ class SettingsPanel(QWidget):
 
         lay_sub5.addWidget(self.card_map)
         lay_sub5.addStretch()
-        
+
         main_lay.addWidget(self.sub_tabs)
         self.on_engine_changed()
 
@@ -2444,8 +2583,8 @@ class SettingsPanel(QWidget):
         self.form_meta.setSpacing(15)
         
         self.ver_ver = QLineEdit("1.0.0")
-        self.ver_comp = QLineEdit(_("My Studio"))
-        self.ver_desc = QLineEdit(_("Python Executable"))
+        self.ver_comp = QLineEdit(_("Independent Developer"))
+        self.ver_desc = QLineEdit(_("Desktop Application"))
         
         self.lbl_ver_title = QLabel(_("Version:"))
         self.lbl_company_title = QLabel(_("Author/Company:"))
@@ -2655,7 +2794,7 @@ class SettingsPanel(QWidget):
         self.sub_tabs.setTabText(0, _("Engine"))
         self.sub_tabs.setTabText(1, _("Dependencies"))
         self.sub_tabs.setTabText(2, _("Resources"))
-        self.sub_tabs.setTabText(3, _("Optimization"))
+        self.sub_tabs.setTabText(3, _("Optimization & Security"))
         self.sub_tabs.setTabText(4, _("Package Map"))
         
         self.card_engine.findChild(QLabel, "CardTitle").setText(_("Engine & Environment"))
@@ -2677,7 +2816,7 @@ class SettingsPanel(QWidget):
         self.rb_compat_mode.setToolTip(_("Maximum compatibility. Recommended for apps with complex dynamic imports."))
         self.rb_lite_mode.setToolTip(_("Smaller output size. Recommended for 95% of standard apps."))
 
-        self.lbl_py_title.setText(_("Python Interpreter:"))
+        self.lbl_py_title.setText(_("Interpreter:"))
         self.lbl_app_title.setText(_("Output Name:"))
         self.lbl_icon_title.setText(_("App Icon:"))
         self.lbl_pip_main.setText(_("Primary PIP Index:"))
@@ -2700,10 +2839,10 @@ class SettingsPanel(QWidget):
         self.sandbox_mode_combo.setItemText(1, _("System Temp Directory"))
 
         if not self.ver_comp.isModified():
-            self.ver_comp.setText(_("My Studio"))
+            self.ver_comp.setText(_("Independent Developer"))
 
         if not self.ver_desc.isModified():
-            self.ver_desc.setText(_("Python Executable"))
+            self.ver_desc.setText(_("Desktop Application"))
 
         if hasattr(self, 'pip_source_combo') and hasattr(self, 'pip_backup_combo'):
             cur_main = self._get_url_from_combo(self.pip_source_combo)
@@ -2730,6 +2869,11 @@ class SettingsPanel(QWidget):
         self.btn_python_path.setText(_("Browse"))
         self.btn_download_py.setText(_("View Python"))
         self.btn_icon.setText(_("Browse"))
+        self.btn_cert.setText(_("Browse"))
+        self.btn_gen_cert.setText(_("Create"))
+        self.btn_gen_cert.setToolTip(_("Create Self-Signed Cert"))
+        self.cert_path_edit.setPlaceholderText(_("Select .pfx / .p12 certificate file"))
+        self.cert_pass_edit.setPlaceholderText(_("Certificate password"))
         self.btn_reqs.setText(_("Browse"))
         self.btn_scan.setText(_("AST Scan"))
         self.btn_upx.setText(_("Browse"))
@@ -2853,8 +2997,63 @@ class SettingsPanel(QWidget):
         if hasattr(self.parent_win, "show_notification"):
             self.parent_win.show_notification(_("Package mappings have been reset to defaults."))
 
+    def toggle_adv_sign_ui(self):
+        is_visible = not self.adv_sign_container.isVisible()
+        self.adv_sign_container.setVisible(is_visible)
+        if is_visible:
+            self.btn_toggle_adv_sign.setText(_("Hide Custom Cert Settings ▾"))
+        else:
+            self.btn_toggle_adv_sign.setText(_("Use Custom Commercial Cert (Optional) ▸"))
+
+    def select_cert_file(self):
+        f, _filter = QFileDialog.getOpenFileName(self, _("Commercial PFX File:"), "", "PKCS#12 Certificate (*.pfx *.p12);;All Files (*)", options=QFileDialog.Option.DontUseNativeDialog)
+        if f: self.cert_path_edit.setText(Path(f).resolve().as_posix())
+
+    def create_self_signed_cert(self):
+        if os.name != 'nt':
+            if hasattr(self.parent_win, "show_notification"):
+                self.parent_win.show_notification(_("Only supported on Windows."))
+            return
+            
+        dlg = GenCertDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            subject, pwd = dlg.cert_info
+            
+            fp, _filter = QFileDialog.getSaveFileName(
+                self, 
+                _("Save Certificate"), 
+                "my_cert.pfx", 
+                _("Self-Signed Certificate (*.pfx)"),
+                options=QFileDialog.Option.DontUseNativeDialog
+            )
+            
+            if fp:
+                try:
+                    fp_posix = Path(fp).resolve().as_posix()
+                    safe_subject = subject.replace("'", "''")
+                    safe_pwd = pwd.replace("'", "''")
+                    ps_cmd = (
+                        f'$subject = "CN={safe_subject}"; '
+                        f'$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject $subject -CertStoreLocation "Cert:\\CurrentUser\\My"; '
+                        f'$pwd = ConvertTo-SecureString -String \'{safe_pwd}\' -Force -AsPlainText; '
+                        f'Export-PfxCertificate -Cert $cert -FilePath "{fp_posix}" -Password $pwd; '
+                        f'Remove-Item -Path "Cert:\\CurrentUser\\My\\$($cert.Thumbprint)"'
+                    )
+                    res = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                    if res.returncode == 0 and Path(fp).exists():
+                        self.cert_path_edit.setText(fp_posix)
+                        self.cert_pass_edit.setText(pwd)
+                        if hasattr(self.parent_win, "show_notification"):
+                            self.parent_win.show_notification(_("Certificate generated successfully!"))
+                    else:
+                        if hasattr(self.parent_win, "show_error_log"):
+                            self.parent_win.show_error_log(_("Failed to generate certificate.") + f" {res.stderr}")
+                except Exception as e:
+                    if hasattr(self.parent_win, "show_error_log"):
+                        self.parent_win.show_error_log(_("Failed to generate certificate.") + f" {str(e)}")
+
     def export_preset(self):
-        fp, _filter = QFileDialog.getSaveFileName(self, _("Export Preset..."), "project_config.qpypack", "QPyPack Presets (*.qpypack *.json)")
+        fp, _filter = QFileDialog.getSaveFileName(self, _("Export Preset..."), "project_config.qpypack", "QPyPack Presets (*.qpypack *.json)", options=QFileDialog.Option.DontUseNativeDialog)
         if fp:
             try:
                 data = {
@@ -2887,7 +3086,7 @@ class SettingsPanel(QWidget):
                     self.parent_win.show_error_log(_("[ERROR] Failed to export preset file: {error}", error=str(e)))
 
     def import_preset(self):
-        fp, _filter = QFileDialog.getOpenFileName(self, _("Import Preset..."), "", "QPyPack Presets (*.qpypack *.json);;All Files (*)")
+        fp, _filter = QFileDialog.getOpenFileName(self, _("Import Preset..."), "", "QPyPack Presets (*.qpypack *.json);;All Files (*)", options=QFileDialog.Option.DontUseNativeDialog)
         if fp:
             try:
                 data = json.loads(Path(fp).read_text(encoding='utf-8'))
@@ -2990,7 +3189,16 @@ class SettingsPanel(QWidget):
             
             self.pyi_ver_edit.setText(s.get('pyi_version', '6.21.0'))
             self.nuitka_ver_edit.setText(s.get('nuitka_version', '4.1.3'))
-            
+
+            default_sign_on_os = True if sys.platform == 'darwin' else False
+            self.enable_sign_check.setChecked(s.getboolean('enable_sign', default_sign_on_os))
+
+            self.cert_path_edit.setText(s.get('cert_path', ''))
+            self.cert_pass_edit.setText(s.get('cert_pass', ''))
+            if self.cert_path_edit.text():
+                self.adv_sign_container.setVisible(True)
+                self.btn_toggle_adv_sign.setText(_("Hide Custom Cert Settings ▾"))
+
             self.add_data_list.clear()
 
         if 'Mappings' in config:
@@ -3041,7 +3249,11 @@ class SettingsPanel(QWidget):
         
         s['pyi_version'] = self.pyi_ver_edit.text().strip()
         s['nuitka_version'] = self.nuitka_ver_edit.text().strip()
-        
+
+        s['enable_sign'] = str(self.enable_sign_check.isChecked())
+        s['cert_path'] = self.cert_path_edit.text().strip()
+        s['cert_pass'] = self.cert_pass_edit.text().strip()
+
         s['add_data_list'] = ''
 
         config['Mappings'] = {}
@@ -3090,24 +3302,53 @@ class SettingsPanel(QWidget):
             m_path = re.search(r'python(\d)(\d+)', raw_text, re.I)
             if m_path: ver_str = f"{m_path.group(1)}.{m_path.group(2)}"
 
-        self.python_desc_lbl.setStyleSheet("QLabel { background-color: #f8fafc; color: #334155; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 12px; line-height: 1.5; }")
+        self.python_desc_lbl.setStyleSheet("QLabel { background-color: #f8fafc; color: #334155; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; font-size: 12px; line-height: 1.6; }")
 
         if ver_str:
             try:
                 parts = [int(x) for x in ver_str.split('.')]
                 major, minor = parts[0], parts[1]
                 
-                if (major, minor) <= (3, 8):
-                    self.python_desc_lbl.setText(_('<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#16a34a; font-weight:bold;">✔ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#f1f5f9; color:#475569; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Legacy OS</span> <span style="color:#6b7280; font-size:11px;">Full backward compatibility</span>', ver=ver_str))
-                elif (major, minor) <= (3, 10):
-                    self.python_desc_lbl.setText(_('<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span>', ver=ver_str))
+                html = f'<div style="margin-bottom: 6px;"><b>Python {ver_str} { _("OS Support Matrix:") }</b></div>'
+                
+                tag_style = "background-color:#f1f5f9; color:#475569; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:10px; margin-right: 8px;"
+                
+                if sys.platform == "win32":
+                    if (major, minor) <= (3, 8):
+                        html += '<span style="color:#16a34a; font-weight:bold;">✔ Windows 7 / 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows Server 2008+</span><br>'
+                        html += f'<div style="margin-top: 6px;"><span style="{tag_style}">x86 / AMD64</span><span style="{tag_style}">{_("Full backward compatibility")}</span></div>'
+                    elif (major, minor) <= (3, 10):
+                        html += '<span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows Server 2012+</span><br>'
+                        html += f'<div style="margin-top: 6px;"><span style="{tag_style}">AMD64 / ARM64</span><span style="{tag_style}">{_("No Windows 7 Support")}</span></div>'
+                    else:
+                        html += '<span style="color:#dc2626; font-weight:bold;">✖ Windows 7 / 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows Server 2016+</span><br>'
+                        html += f'<div style="margin-top: 6px;"><span style="{tag_style}">{_("* Nuitka Auto-manages C Compiler")}</span></div>'
+                
+                elif sys.platform == "darwin":
+                    if (major, minor) <= (3, 8):
+                        html += '<span style="color:#16a34a; font-weight:bold;">✔ OS X 10.9 (Mavericks) +</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.15 (Catalina)</span><br>'
+                        html += f'<div style="margin-top: 6px;"><span style="{tag_style}">x86_64 Intel Only</span><span style="{tag_style}">{_("Legacy macOS Compatible")}</span></div>'
+                    elif (major, minor) <= (3, 10):
+                        html += '<span style="color:#16a34a; font-weight:bold;">✔ macOS 10.9 (Mavericks) +</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 11 (Big Sur) +</span><br>'
+                        html += f'<div style="margin-top: 6px;"><span style="{tag_style}">Universal2 Binary</span><span style="{tag_style}">{_("Apple Silicon (M1/M2) & Intel")}</span></div>'
+                    else:
+                        html += '<span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13 (High Sierra) +</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 13 / 14 / 15+</span><br>'
+                        html += f'<div style="margin-top: 6px;"><span style="{tag_style}">Universal2 Binary</span><span style="{tag_style}">{_("Apple Silicon (M-Series) & Intel")}</span></div>'
+                
                 else:
-                    self.python_desc_lbl.setText(_('<div style="margin-bottom: 5px;"><b>Python {ver} Platform Matrix:</b></div><span style="color:#dc2626; font-weight:bold;">✖ Windows 7</span> &nbsp;&nbsp; <span style="color:#dc2626; font-weight:bold;">✖ Windows 8 / 8.1</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Windows 10 / 11</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ macOS 10.13+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Linux</span><br><span style="background-color:#dcfce7; color:#15803d; padding:1px 5px; border-radius:3px; font-weight:bold; font-size:10px;">Nuitka</span> <span style="color:#16a34a; font-size:11px;">Auto-detecting and managing C backend compiler</span>', ver=ver_str))
+                    if (major, minor) <= (3, 9):
+                        html += '<span style="color:#16a34a; font-weight:bold;">✔ Ubuntu 16.04+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ CentOS / RHEL 7+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Debian 9+</span><br>'
+                        html += f'<div style="margin-top: 6px;"><span style="{tag_style}">x86_64 / aarch64</span><span style="{tag_style}">glibc >= 2.17</span></div>'
+                    else:
+                        html += '<span style="color:#16a34a; font-weight:bold;">✔ Ubuntu 20.04+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Fedora 32+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ Debian 11+</span> &nbsp;&nbsp; <span style="color:#16a34a; font-weight:bold;">✔ RHEL 8+</span><br>'
+                        html += f'<div style="margin-top: 6px;"><span style="{tag_style}">x86_64 / aarch64</span><span style="{tag_style}">glibc >= 2.28</span></div>'
+
+                self.python_desc_lbl.setText(html)
                 return
             except Exception:
                 pass
 
-        self.python_desc_lbl.setText(_('<div style="margin-bottom: 5px;"><b>Python Interpreter</b></div><span style="color:#6b7280;">Auto-detecting system environment for Windows, macOS & Linux...</span>'))
+        self.python_desc_lbl.setText(_('<div style="margin-bottom: 5px;"><b>Interpreter</b></div><span style="color:#6b7280;">Auto-detecting system environment and OS support matrix...</span>'))
 
     def on_upx_toggled(self, checked):
         if getattr(self, 'upx_path_container', None) is not None:
@@ -3119,20 +3360,20 @@ class SettingsPanel(QWidget):
             self.out_dir_container.setVisible(show_custom)
 
     def select_out_dir(self):
-        d = QFileDialog.getExistingDirectory(self, _("Target Directory:"))
+        d = QFileDialog.getExistingDirectory(self, _("Target Directory:"), options=QFileDialog.Option.DontUseNativeDialog)
         if d: self.out_dir_edit.setText(Path(d).resolve().as_posix())
 
     def select_upx_path(self):
-        d = QFileDialog.getExistingDirectory(self, _("UPX Path:"))
+        d = QFileDialog.getExistingDirectory(self, _("UPX Path:"), options=QFileDialog.Option.DontUseNativeDialog)
         if d: self.upx_path_edit.setText(Path(d).resolve().as_posix())
 
     def select_reqs_file(self):
-        f, _filter = QFileDialog.getOpenFileName(self, _("Requirements File:"), "", "Requirements Files (*.txt);;All Files (*)")
+        f, _filter = QFileDialog.getOpenFileName(self, _("Requirements File:"), "", "Requirements Files (*.txt);;All Files (*)", options=QFileDialog.Option.DontUseNativeDialog)
         if f: self.reqs_file_edit.setText(Path(f).resolve().as_posix())
 
     def select_python_path(self):
         exe_filter = "Executable (*.exe);;All Files (*)" if os.name == 'nt' else "All Files (*)"
-        f, _filter = QFileDialog.getOpenFileName(self, _("Python Interpreter:"), "", exe_filter)
+        f, _filter = QFileDialog.getOpenFileName(self, _("Interpreter:"), "", exe_filter, options=QFileDialog.Option.DontUseNativeDialog)
         if f: self.python_path_combo.setCurrentText(Path(f).resolve().as_posix())
 
     def on_download_python_clicked(self):
@@ -3148,7 +3389,7 @@ class SettingsPanel(QWidget):
         self.icon_preview.clear()
 
     def select_icon(self):
-        p, _filter = QFileDialog.getOpenFileName(self, _("App Icon:"), "", "Icon Files (*.ico *.svg *.png *.icns)")
+        p, _filter = QFileDialog.getOpenFileName(self, _("App Icon:"), "", "Icon Files (*.ico *.svg *.png *.icns)", options=QFileDialog.Option.DontUseNativeDialog)
         if p: self.icon_edit.setText(Path(p).resolve().as_posix())
 
     def auto_scan_hidden(self):
@@ -3177,13 +3418,13 @@ class SettingsPanel(QWidget):
                 self._add_resource_item('dir', p.as_posix(), p.name)
 
     def add_resource_files(self):
-        files, _filter = QFileDialog.getOpenFileNames(self, _("Add File"), "", "All Files (*)")
+        files, _filter = QFileDialog.getOpenFileNames(self, _("Add File"), "", "All Files (*)", options=QFileDialog.Option.DontUseNativeDialog)
         for f in files:
             src = Path(f).resolve().as_posix()
             self._add_resource_item('file', src, ".")
             
     def add_resource_dir(self):
-        folder = QFileDialog.getExistingDirectory(self, _("Add Dir"))
+        folder = QFileDialog.getExistingDirectory(self, _("Add Dir"), options=QFileDialog.Option.DontUseNativeDialog)
         if folder:
             src = Path(folder).resolve().as_posix()
             dst = Path(folder).name
@@ -3199,27 +3440,27 @@ class SettingsPanel(QWidget):
     def _show_lineedit_menu(self, line_edit, pos):
         menu = QMenu(line_edit)
 
-        act_undo = menu.addAction(_("Undo") if False else "Undo")
+        act_undo = menu.addAction(_("Undo"))
         act_undo.triggered.connect(line_edit.undo)
         act_undo.setEnabled(line_edit.isUndoAvailable())
 
         menu.addSeparator()
 
-        act_cut = menu.addAction("Cut")
+        act_cut = menu.addAction(_("Cut"))
         act_cut.triggered.connect(line_edit.cut)
         act_cut.setEnabled(line_edit.hasSelectedText() and not line_edit.isReadOnly())
 
-        act_copy = menu.addAction("Copy")
+        act_copy = menu.addAction(_("Copy"))
         act_copy.triggered.connect(line_edit.copy)
         act_copy.setEnabled(line_edit.hasSelectedText())
 
-        act_paste = menu.addAction("Paste")
+        act_paste = menu.addAction(_("Paste"))
         act_paste.triggered.connect(line_edit.paste)
         act_paste.setEnabled(not line_edit.isReadOnly())
 
         menu.addSeparator()
 
-        act_select_all = menu.addAction("Select All")
+        act_select_all = menu.addAction(_("Select All"))
         act_select_all.triggered.connect(line_edit.selectAll)
 
         menu.exec(line_edit.mapToGlobal(pos))
@@ -3305,8 +3546,8 @@ class ScriptAnalysisThread(QThread):
         
         app_name = Path(self.path).stem
         version = ""
-        author = "My Studio"
-        desc = "Python Executable"
+        author = "Independent Developer"
+        desc = "Desktop Application"
         script_imports = set()
 
         try:
@@ -3422,6 +3663,9 @@ class PackingThread(QThread):
             
                 stripped = line.rstrip('\r\n')
                 self.all_raw_logs.append(stripped)
+
+                if silent_error:
+                    continue
             
                 buffer.append(stripped)
                 if len(buffer) >= 15 or (time.time() - last_emit) > 0.1:
@@ -3429,7 +3673,8 @@ class PackingThread(QThread):
                     buffer.clear()
                     last_emit = time.time()
         
-            if buffer: self.progress.emit('\n'.join(buffer))
+            if buffer and not silent_error:
+                self.progress.emit('\n'.join(buffer))
             self.process.wait()
         
             if is_timeout[0]:
@@ -3445,9 +3690,14 @@ class PackingThread(QThread):
             return False
         finally:
             if timer: timer.cancel()
-            if self.process and self.process.stdout:
+            if self.process:
+                if self.process.stdout:
+                    try:
+                        self.process.stdout.close()
+                    except Exception:
+                        pass
                 try:
-                    self.process.stdout.close()
+                    self.process.wait(timeout=5)
                 except Exception:
                     pass
 
@@ -3550,6 +3800,199 @@ class PackingThread(QThread):
                 "file": file_name
             }
         return {"is_code_error": False}
+
+    def auto_sign_executable(self, target_path: Path) -> bool:
+        is_macos = (sys.platform == 'darwin')
+        enable_sign_setting = self.params.get('enable_sign', False)
+
+        if not is_macos and not enable_sign_setting:
+            return True
+
+        self.progress.emit(_("[INFO] Applying smart digital signature..."))
+
+        if os.name == 'nt':
+            if target_path.is_file():
+                for _wait in range(6):
+                    try:
+                        with open(target_path, 'r+b'):
+                            break
+                    except (IOError, OSError):
+                        time.sleep(0.5)
+
+            cert_path = self.params.get('cert_path', '').strip()
+            cert_pass = self.params.get('cert_pass', '').strip()
+
+            targets = []
+            if target_path.is_dir():
+                targets.extend(list(target_path.rglob("*.exe")))
+                targets.extend(list(target_path.rglob("*.dll")))
+                targets.extend(list(target_path.rglob("*.pyd")))
+            else:
+                targets.append(target_path)
+
+            if not targets:
+                return True
+
+            tsa_servers = [
+                "http://timestamp.digicert.com",
+                "http://ts.ssl.com",
+                "http://timestamp.sectigo.com",
+                "http://timestamp.acs.microsoft.com",
+                "http://timestamp.comodoca.com",
+            ]
+
+            signtool_exe = self._find_signtool()
+            success_all = True
+
+            for target_file in targets:
+                target_str = target_file.resolve().as_posix()
+                signed_with_ts = False
+
+                if signtool_exe:
+                    signed_with_ts = self._sign_with_signtool(
+                        signtool_exe, target_str, cert_path, cert_pass, tsa_servers
+                    )
+                    if signed_with_ts and target_file == targets[0]:
+                        self.progress.emit(_("[INFO] Applied digital signature with timestamp ({tsa})...", tsa="RFC3161/signtool"))
+
+                if not signed_with_ts:
+                    signed_with_ts = self._sign_with_powershell(
+                        target_str, cert_path, cert_pass, tsa_servers, is_first=(target_file == targets[0])
+                    )
+
+                if not signed_with_ts:
+                    success_all = False
+
+            if success_all:
+                self.progress.emit(_("[SUCCESS] Digital signature applied successfully!"))
+                return True
+            else:
+                self.progress.emit(_("[WARN] Smart signing failed, but build output is retained."))
+                return False
+
+        elif is_macos:
+            target_posix = target_path.resolve().as_posix()
+            cmd = ["codesign", "--force", "--deep", "--options", "runtime", "--sign", "-", target_posix]
+
+            ok = self.run_cmd(cmd, silent_error=True)
+            if not ok:
+                fallback_cmd = ["codesign", "--force", "--deep", "--sign", "-", target_posix]
+                ok = self.run_cmd(fallback_cmd, silent_error=True)
+
+            if ok:
+                self.progress.emit(_("[SUCCESS] Digital signature applied successfully!"))
+                return True
+            else:
+                self.progress.emit(_("[WARN] Smart signing failed, but build output is retained."))
+                return False
+
+        return True
+
+    def _find_signtool(self) -> str:
+        signtool = shutil.which("signtool") or shutil.which("signtool.exe")
+        if signtool:
+            return signtool
+
+        sdk_base = Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Windows Kits" / "10" / "bin"
+        if sdk_base.exists():
+            candidates = sorted(sdk_base.glob("10.*/x64/signtool.exe"), reverse=True)
+            if candidates:
+                return candidates[0].as_posix()
+
+        return ""
+
+    def _sign_with_signtool(self, signtool_exe, target_path, cert_path, cert_pass, tsa_servers) -> bool:
+        thumbprint = None
+
+        if not (cert_path and Path(cert_path).exists()):
+            company_name = self.params.get('ver_comp', '').strip() or 'QPyPack App'
+            safe_company = company_name.replace("'", "''").replace('"', '""')
+            ps_create = (
+                f'$subject = "CN={safe_company}"; '
+                '$cert = Get-ChildItem Cert:\\CurrentUser\\My -CodeSigningCert | Where-Object { $_.Subject -eq $subject } | Select-Object -First 1; '
+                'if (-not $cert) { $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject $subject -CertStoreLocation Cert:\\CurrentUser\\My }; '
+                'Write-Output $cert.Thumbprint'
+            )
+            try:
+                kw = {"capture_output": True, "text": True, "timeout": 10, "errors": "ignore"}
+                if os.name == 'nt':
+                    kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+                res = subprocess.run(
+                    ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_create],
+                    **kw
+                )
+                thumbprint = res.stdout.strip().split('\n')[-1].strip() if res.returncode == 0 else ""
+                if not thumbprint:
+                    return False
+            except Exception:
+                return False
+
+        for tsa in tsa_servers:
+            if self._is_cancelled:
+                return False
+
+            if cert_path and Path(cert_path).exists():
+                cmd = [signtool_exe, "sign", "/f", cert_path, "/fd", "sha256",
+                       "/tr", tsa, "/td", "sha256"]
+                if cert_pass:
+                    cmd.extend(["/p", cert_pass])
+                cmd.append(target_path)
+            else:
+                cmd = [signtool_exe, "sign", "/sha1", thumbprint, "/fd", "sha256",
+                       "/tr", tsa, "/td", "sha256", target_path]
+
+            if self.run_cmd(cmd, silent_error=True, timeout=30):
+                return True
+
+        return False
+
+    def _sign_with_powershell(self, target_path, cert_path, cert_pass, tsa_servers, is_first=False) -> bool:
+        company_name = self.params.get('ver_comp', '').strip()
+        if not company_name:
+            app_title = self.params.get('app_name', 'App').strip() or 'App'
+            company_name = f"{app_title} Developer"
+
+        safe_company = company_name.replace("'", "''").replace('"', '""')
+
+        if cert_path and Path(cert_path).exists():
+            safe_pwd = (cert_pass or '').replace("'", "''")
+            pass_part = f' -Password (ConvertTo-SecureString -String \'{safe_pwd}\' -Force -AsPlainText)' if cert_pass else ''
+            base_cert_script = f'$cert = Get-PfxCertificate -FilePath "{cert_path}"{pass_part}; '
+        else:
+            base_cert_script = (
+                f'$subject = "CN={safe_company}"; '
+                '$cert = Get-ChildItem Cert:\\CurrentUser\\My -CodeSigningCert | Where-Object { $_.Subject -eq $subject } | Select-Object -First 1; '
+                'if (-not $cert) { '
+                '$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject $subject -CertStoreLocation Cert:\\CurrentUser\\My '
+                '}; '
+            )
+
+        for tsa in tsa_servers:
+            if self._is_cancelled:
+                return False
+
+            ps_cmd = (
+                f'{base_cert_script}'
+                f'$sig = Set-AuthenticodeSignature -FilePath "{target_path}" -Certificate $cert '
+                f'-TimestampServer "{tsa}" -HashAlgorithm SHA256; '
+                f'if ($sig.Status -ne "Valid" -and $sig.Status -ne "UnknownError") {{ exit 1 }}; '
+                f'if ($null -eq $sig.TimeStamperCertificate) {{ exit 1 }}'
+            )
+            if self.run_cmd(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
+                           silent_error=True, timeout=30):
+                if is_first:
+                    self.progress.emit(_("[INFO] Applied digital signature with timestamp ({tsa})...", tsa=tsa))
+                return True
+
+        self.progress.emit(_("[WARN] Timestamp server connection timed out, performing local fast signing..."))
+
+        ps_cmd_no_ts = (
+            f'{base_cert_script}'
+            f'$sig = Set-AuthenticodeSignature -FilePath "{target_path}" -Certificate $cert -HashAlgorithm SHA256; '
+            f'if ($sig.Status -ne "Valid" -and $sig.Status -ne "UnknownError") {{ exit 1 }}'
+        )
+        return self.run_cmd(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd_no_ts],
+                           silent_error=True, timeout=15)
 
     def run(self):
         os.environ["NUITKA_ACCEPT_DOWNLOADS"] = "yes"
@@ -4310,6 +4753,9 @@ class PackingThread(QThread):
                     self.progress.emit(_("[ERROR] Could not locate valid executable product in temporary build directory: {path}", path=str(src_out)))
 
             if success and final_out.exists(): 
+                if self.params.get('enable_sign'):
+                    self.auto_sign_executable(final_out)
+
                 self.progress.emit(_("[INFO] Validating output files and generating final product..."))
                 if self.params.get('auto_save_log') and self.all_raw_logs:
                     try:
@@ -5143,8 +5589,8 @@ class MainWindow(QMainWindow):
         if version: self.settings_panel.ver_ver.setText(version)
         else: self.settings_panel.ver_ver.setText("1.0.0")
             
-        self.settings_panel.ver_comp.setText(_(author) if author == "My Studio" else author)
-        self.settings_panel.ver_desc.setText(_(desc) if desc == "Python Executable" else desc)
+        self.settings_panel.ver_comp.setText(_(author) if author == "Independent Developer" else author)
+        self.settings_panel.ver_desc.setText(_(desc) if desc == "Desktop Application" else desc)
 
         gui_libs = {
             'pyqt5', 'pyqt6', 'pyside2', 'pyside6', 'tkinter', 'wx', 'kivy', 'libavg', 
@@ -5333,6 +5779,9 @@ class MainWindow(QMainWindow):
             'engine': engine,
             'python_exe': raw_py,
             'script_path': self.script_path,
+            'enable_sign': sp.enable_sign_check.isChecked(),
+            'cert_path': sp.cert_path_edit.text().strip(),
+            'cert_pass': sp.cert_pass_edit.text().strip(),
             'app_name': app_name,
             'onefile': sp.rb_onefile.isChecked(),
             'contents_dir': sp.contents_dir_edit.text().strip() or '_internal',
@@ -5366,6 +5815,7 @@ class MainWindow(QMainWindow):
             'lite_mode': sp.rb_lite_mode.isChecked(),
             'pyi_version': sp.pyi_ver_edit.text().strip(),
             'nuitka_version': sp.nuitka_ver_edit.text().strip(),
+            'mappings': mappings,
         }
 
         self.log_concise.clear()
@@ -5445,8 +5895,8 @@ class MainWindow(QMainWindow):
         self.settings_panel.reqs_file_edit.clear()
         self.settings_panel.out_dir_edit.clear()
         self.settings_panel.ver_ver.setText("1.0.0")
-        self.settings_panel.ver_comp.setText(_("My Studio"))
-        self.settings_panel.ver_desc.setText(_("Python Executable"))
+        self.settings_panel.ver_comp.setText(_("Independent Developer"))
+        self.settings_panel.ver_desc.setText(_("Desktop Application"))
         self.log_concise.clear()
         self.log_detailed.clear()
         
@@ -5591,7 +6041,7 @@ class MainWindow(QMainWindow):
         if self.script_path:
             default_name = f"qpypack_{Path(self.script_path).stem}.log"
             
-        fp, _filter = QFileDialog.getSaveFileName(self, _("Export Log..."), default_name, "Log Files (*.log);;Text Files (*.txt);;All Files (*)")
+        fp, _filter = QFileDialog.getSaveFileName(self, _("Export Log..."), default_name, "Log Files (*.log);;Text Files (*.txt);;All Files (*)", options=QFileDialog.Option.DontUseNativeDialog)
         if fp:
             try:
                 Path(fp).write_text(content, encoding='utf-8')

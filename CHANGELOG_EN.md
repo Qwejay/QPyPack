@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.5] - 2026-08-06
+
+#### Added
+- **Code Signing & Timestamping**: Added automatic digital signing for Windows / macOS build artifacts, supporting `.pfx` self-signed certificate generation and commercial certificate configuration; integrated timestamp server (TSA) stamping for Windows signatures with support for authoritative providers like Microsoft, DigiCert, and Sectigo.
+- **macOS DMG Building**: CI/CD build workflows now support automatically generating `.dmg` installer images for macOS.
+
+#### Improved
+- **macOS Default Signing**: Enabled Ad-hoc signing by default on macOS, resolving the "App is damaged and can't be opened" error when running unsigned binaries on M-series Apple Silicon chips.
+- **Cross-Platform Packaging**: Refactored CI/CD automated build workflows, optimizing PySide6 plugin dependency bundling and stability on Linux.
+- **OS Support Matrix**: Adjusted interpreter detection logic to dynamically evaluate and display compatibility requirements across operating systems and architectures.
+- **UI & Copywriting Enhancements**: Unified cross-platform file dialog rendering mechanics; updated default author to "Independent Developer" and app description to "Desktop Application".
+
+#### Fixed
+- **Localization & i18n Sync**: Completed and synchronized signature log entries and text box context menu translations across 8+ languages (Simplified/Traditional Chinese, Japanese, Korean, German, French, Spanish, Portuguese, Russian, etc.).
+- **Process Resource Cleanup**: Optimized process pipe and handle cleanup logic when packaging tasks terminate abnormally.
+
+---
+
 ## [2.7.4] - 2026-08-05
 
 #### Added

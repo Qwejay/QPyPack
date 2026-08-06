@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Manual build version tag (e.g. v2.7.5.dev0)'
+        required: false
+        default: 'v2.7.5.dev0'
+      publish_pypi:
+        description: 'Publish to PyPI during manual test?'
+        type: boolean
+        required: false
+        default: false
 
 env:
   PROJECT_NAME: qpypack
@@ -28,8 +39,8 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v4
       with:
-        ref: main 
-        fetch-depth: 0 
+        ref: ${{ github.ref }}
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -42,33 +53,20 @@ jobs:
         import re
         import os
         
-        tag = "${{ github.ref_name }}"
+        tag = "${{ inputs.version || github.ref_name }}"
         version = tag[1:] if tag.lower().startswith('v') else tag
-        print(f"Target version to sync: {version}")
         
         toml_path = 'pyproject.toml'
-        if not os.path.exists(toml_path):
-            raise FileNotFoundError(f"Missing critical configuration: {toml_path}")
-            
-        with open(toml_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-        with open(toml_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        print("Successfully synchronized pyproject.toml.")
+        if os.path.exists(toml_path):
+            with open(toml_path, 'r', encoding='utf-8') as f: content = f.read()
+            new_content = re.sub(r'(version\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+            with open(toml_path, 'w', encoding='utf-8') as f: f.write(new_content)
         
         main_path = os.environ['MAIN_SCRIPT']
-        if not os.path.exists(main_path):
-            raise FileNotFoundError(f"Missing critical entrypoint: {main_path}")
-            
-        with open(main_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-        with open(main_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        print(f"Successfully synchronized {main_path}.")
-
-    # 已删除原有 git commit & git push 步骤（避免产生多余 Commit）
+        if os.path.exists(main_path):
+            with open(main_path, 'r', encoding='utf-8') as f: content = f.read()
+            new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
+            with open(main_path, 'w', encoding='utf-8') as f: f.write(new_content)
 
     - name: Install build dependencies
       if: env.BUILD_PIP_PACKAGE == 'true'
@@ -88,37 +86,33 @@ jobs:
           dist/*.whl
           dist/*.tar.gz
         generate_release_notes: true
+        tag_name: ${{ inputs.version || github.ref_name }}
+        prerelease: ${{ contains(inputs.version || github.ref_name, 'dev') || contains(inputs.version || github.ref_name, 'rc') || contains(inputs.version || github.ref_name, 'alpha') || contains(inputs.version || github.ref_name, 'beta') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Publish to PyPI
-      if: env.BUILD_PIP_PACKAGE == 'true' && env.PUBLISH_TO_PYPI == 'true'
+      if: env.BUILD_PIP_PACKAGE == 'true' && env.PUBLISH_TO_PYPI == 'true' && (github.event_name == 'push' || inputs.publish_pypi == true)
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         skip-existing: true
 
   build-binaries:
     name: Build Standalone for ${{ matrix.os }} (${{ matrix.arch }})
-    needs: publish-pypi 
+    needs: publish-pypi
     runs-on: ${{ matrix.os }}
     permissions:
-      contents: write 
+      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             arch: x64
-            artifact_name: QPyPack.exe
-            package_extension: zip
           - os: macos-14
-            arch: arm64        
-            artifact_name: QPyPack.app
-            package_extension: zip
-          - os: ubuntu-latest
+            arch: arm64
+          - os: ubuntu-22.04
             arch: x64
-            artifact_name: QPyPack
-            package_extension: tar.gz
 
     steps:
     - name: Checkout source code
@@ -133,11 +127,10 @@ jobs:
     - name: Extract version
       shell: bash
       run: |
-        TAG_NAME=${{ github.ref_name }}
+        TAG_NAME="${{ inputs.version || github.ref_name }}"
         VERSION=${TAG_NAME#v}
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-    # 确保编译二进制文件前，main.py 中的 __version__ 也被同步为 Tag 版本
     - name: Sync version to main.py
       shell: python
       run: |
@@ -145,84 +138,63 @@ jobs:
         import os
         version = os.environ['VERSION']
         main_path = os.environ['MAIN_SCRIPT']
-        with open(main_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        with open(main_path, 'r', encoding='utf-8') as f: content = f.read()
         new_content = re.sub(r'(__version__\s*=\s*["\'])[^"\']+(["\'])', f'\\g<1>{version}\\g<2>', content, count=1)
-        with open(main_path, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-
-    - name: Generate Windows Version Info File
-      if: runner.os == 'Windows'
-      shell: python
-      run: |
-        import os
-        import re
-        
-        version = os.environ['VERSION']
-        parts = re.findall(r'\d+', version)
-        v_num = (parts + ['0', '0', '0', '0'])[:4]
-        v_tuple = ",".join(v_num)
-        print(f"Windows FileVersion tuple parsed: ({v_tuple})")
-        
-        info_content = f"""
-        VSVersionInfo(
-          ffi=FixedFileInfo(
-            filevers=({v_tuple}),
-            prodvers=({v_tuple}),
-            mask=0x3f,
-            flags=0x0,
-            OS=0x40004,
-            fileType=0x1,
-            subtype=0x0,
-            date=(0,0)
-          ),
-          kids=[
-            StringFileInfo(
-              [
-                StringTable(
-                  '040904B0',
-                  [
-                    StringStruct('CompanyName', '${{ env.COMPANY_NAME }}'),
-                    StringStruct('FileDescription', '${{ env.FILE_DESCRIPTION }}'),
-                    StringStruct('FileVersion', '{version}'),
-                    StringStruct('InternalName', '${{ env.EXE_NAME_PREFIX }}'),
-                    StringStruct('LegalCopyright', '${{ env.LEGAL_COPYRIGHT }}'),
-                    StringStruct('OriginalFilename', '${{ env.EXE_NAME_PREFIX }}.exe'),
-                    StringStruct('ProductName', '${{ env.PRODUCT_NAME }}'),
-                    StringStruct('ProductVersion', '{version}')
-                  ]
-                )
-              ]
-            ),
-            VarFileInfo([VarStruct('Translation', [1033, 1200])])
-          ]
-        )
-        """
-        with open('file_version_info.txt', 'w', encoding='utf-8') as f:
-            f.write(info_content.strip())
+        with open(main_path, 'w', encoding='utf-8') as f: f.write(new_content)
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install PySide6 Pillow pyinstaller
 
-    - name: Build with PyInstaller (Windows with Version Info)
-      if: runner.os == 'Windows'
+    - name: Convert ICO to ICNS (macOS Only)
+      if: runner.os == 'macOS'
+      shell: python
       run: |
-        pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Standalone" ${{ env.MAIN_SCRIPT }}
-        
-        pyinstaller --clean --onedir --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Portable" ${{ env.MAIN_SCRIPT }}
+        import os
+        from PIL import Image
+        img = Image.open(os.environ['ICON_PATH'])
+        icns_path = 'qpypack/icon.icns'
+        img.save(icns_path, format='ICNS')
+        with open(os.environ['GITHUB_ENV'], 'a') as f:
+            f.write(f"MAC_ICON_PATH={icns_path}\n")
 
-    - name: Build with PyInstaller (macOS / Linux)
-      if: runner.os != 'Windows'
+    - name: Generate Windows Version Info File
+      if: runner.os == 'Windows'
+      shell: python
+      run: |
+        import os, re
+        version = os.environ['VERSION']
+        parts = re.findall(r'\d+', version)
+        v_tuple = ",".join((parts + ['0', '0', '0', '0'])[:4])
+        info_content = f"""
+        VSVersionInfo(
+          ffi=FixedFileInfo(filevers=({v_tuple}),prodvers=({v_tuple}),mask=0x3f,flags=0x0,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),
+          kids=[
+            StringFileInfo([StringTable('040904B0',[StringStruct('CompanyName', '${{ env.COMPANY_NAME }}'),StringStruct('FileDescription', '${{ env.FILE_DESCRIPTION }}'),StringStruct('FileVersion', '{version}'),StringStruct('InternalName', '${{ env.EXE_NAME_PREFIX }}'),StringStruct('LegalCopyright', '${{ env.LEGAL_COPYRIGHT }}'),StringStruct('OriginalFilename', '${{ env.EXE_NAME_PREFIX }}.exe'),StringStruct('ProductName', '${{ env.PRODUCT_NAME }}'),StringStruct('ProductVersion', '{version}')])]),
+            VarFileInfo([VarStruct('Translation', [1033, 1200])])
+          ]
+        )
+        """
+        with open('file_version_info.txt', 'w', encoding='utf-8') as f: f.write(info_content.strip())
+
+    - name: Build with PyInstaller (All Platforms)
       shell: bash
       run: |
-        if [ "${{ runner.os }}" = "macOS" ]; then
-          pyinstaller --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Standalone" --icon=${{ env.ICON_PATH }} --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
-          pyinstaller --onedir --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Portable" --icon=${{ env.ICON_PATH }} --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          pyinstaller --clean --onefile --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Standalone" ${{ env.MAIN_SCRIPT }}
+          pyinstaller --clean --onedir --noconsole --version-file=file_version_info.txt --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }};." --add-data "qpypack/locales;locales" --name="${{ env.EXE_NAME_PREFIX }}_Portable" ${{ env.MAIN_SCRIPT }}
+        elif [ "${{ runner.os }}" = "macOS" ]; then
+          pyinstaller --clean --onedir --noconsole --name="${{ env.EXE_NAME_PREFIX }}" --icon=${{ env.MAC_ICON_PATH }} --add-data "${{ env.ICON_PATH }}:." --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
+          codesign --force --deep --sign - dist/${{ env.EXE_NAME_PREFIX }}.app
         else
-          pyinstaller --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Standalone" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
-          pyinstaller --onedir --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Portable" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
+          PYSIDE_PLUGINS=$(python -c "import PySide6, os; print(os.path.join(os.path.dirname(PySide6.__file__), 'Qt', 'plugins'))")
+          mkdir -p qt_plugins
+          cp -r "$PYSIDE_PLUGINS/platforms" qt_plugins/
+          cp -r "$PYSIDE_PLUGINS/wayland"* qt_plugins/ 2>/dev/null || true
+          
+          pyinstaller --clean --noupx --onefile --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Standalone" --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }}:." --add-data "qt_plugins:PySide6/Qt/plugins" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
+          pyinstaller --clean --noupx --onedir --noconsole --name="${{ env.EXE_NAME_PREFIX }}_Portable" --icon=${{ env.ICON_PATH }} --add-data "${{ env.ICON_PATH }}:." --add-data "qt_plugins:PySide6/Qt/plugins" --add-data "qpypack/locales:locales" ${{ env.MAIN_SCRIPT }}
         fi
 
     - name: Package Artifact (Windows)
@@ -230,39 +202,32 @@ jobs:
       shell: pwsh
       run: |
         $BASE_NAME = "${{ env.EXE_NAME_PREFIX }}-${{ env.VERSION }}-windows-${{ matrix.arch }}"
-        
         Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_Standalone.exe" -DestinationPath "$BASE_NAME-Standalone.zip" -Force
-        
         Compress-Archive -Path "dist/${{ env.EXE_NAME_PREFIX }}_Portable" -DestinationPath "$BASE_NAME-Portable.zip" -Force
 
     - name: Package Artifact (macOS / Linux)
       if: runner.os != 'Windows'
       shell: bash
       run: |
-        VERSION=${{ env.VERSION }}
         OS_NAME=$(echo "${{ runner.os }}" | tr '[:upper:]' '[:lower:]')
-        BASE_NAME="${{ env.EXE_NAME_PREFIX }}-${VERSION}-${OS_NAME}-${{ matrix.arch }}"
         cd dist
-        
         if [ "${{ runner.os }}" = "macOS" ]; then
-          TARGET_STANDALONE="${{ env.EXE_NAME_PREFIX }}_Standalone.app"
-          TARGET_PORTABLE="${{ env.EXE_NAME_PREFIX }}_Portable.app"
+          BASE_NAME="${{ env.EXE_NAME_PREFIX }}-${{ env.VERSION }}-${OS_NAME}-${{ matrix.arch }}"
+          mkdir -p dmg_staging
+          mv "${{ env.EXE_NAME_PREFIX }}.app" dmg_staging/
+          ln -s /Applications dmg_staging/Applications
+          hdiutil create -volname "${{ env.EXE_NAME_PREFIX }}" -srcfolder dmg_staging -ov -format UDZO "../${BASE_NAME}.dmg"
         else
-          TARGET_STANDALONE="${{ env.EXE_NAME_PREFIX }}_Standalone"
-          TARGET_PORTABLE="${{ env.EXE_NAME_PREFIX }}_Portable"
-        fi
-        
-        if [ "${{ matrix.package_extension }}" = "zip" ]; then
-          zip -r "../${BASE_NAME}-Standalone.zip" "$TARGET_STANDALONE"
-          zip -r "../${BASE_NAME}-Portable.zip" "$TARGET_PORTABLE"
-        else
-          tar -czf "../${BASE_NAME}-Standalone.tar.gz" "$TARGET_STANDALONE"
-          tar -czf "../${BASE_NAME}-Portable.tar.gz" "$TARGET_PORTABLE"
+          BASE_NAME="${{ env.EXE_NAME_PREFIX }}-${{ env.VERSION }}-${OS_NAME}-${{ matrix.arch }}"
+          tar -czf "../${BASE_NAME}-Standalone.tar.gz" "${{ env.EXE_NAME_PREFIX }}_Standalone"
+          tar -czf "../${BASE_NAME}-Portable.tar.gz" "${{ env.EXE_NAME_PREFIX }}_Portable"
         fi
 
     - name: Append Standalone Binary to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: ${{ env.EXE_NAME_PREFIX }}-*.*   
+        files: ${{ env.EXE_NAME_PREFIX }}-*.*
+        tag_name: ${{ inputs.version || github.ref_name }}
+        prerelease: ${{ contains(inputs.version || github.ref_name, 'dev') || contains(inputs.version || github.ref_name, 'rc') || contains(inputs.version || github.ref_name, 'alpha') || contains(inputs.version || github.ref_name, 'beta') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
