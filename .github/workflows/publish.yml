@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Manual build version tag (e.g. v2.7.5)'
+        description: 'Manual build version tag (e.g. v2.7.5.dev0)'
         required: false
-        default: 'v2.7.5-test'
+        default: 'v2.7.5.dev0'
       publish_pypi:
         description: 'Publish to PyPI during manual test?'
         type: boolean
