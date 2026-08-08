@@ -205,8 +205,8 @@ ZH_CN_DICT = {
     "Contents Directory (--contents-directory):": "内部资源目录:",
     "Internal directory name for dependencies (default: _internal)": "内部依赖与资源存放目录名 (默认: _internal)",
     "Hide Console (--noconsole)": "隐藏控制台 (--noconsole)",
-    "Use Virtual Environment (Recommended)": "使用虚拟环境 (推荐)",
-    "Keep Virtual Environment (Faster Rebuilds)": "保留虚拟环境 (适合频繁重编)",
+    "Use Virtual Environment": "使用虚拟环境",
+    "Keep Local Venv": "保留当前脚本虚拟环境",
     "Install requirements.txt": "安装 requirements.txt",
     "Analyze Dependencies (AST)": "分析依赖 (原生 AST)",
     "Scan Entire Folder": "扫描整个文件夹",
@@ -423,6 +423,17 @@ ZH_CN_DICT = {
     "Script and settings retained. Ready to rebuild.": "已保留当前配置，就绪等待重新构建。",
     "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] 时间戳服务器连通超时，进行本地快速签名...",
     "[INFO] Applied digital signature with timestamp ({tsa})...": "[INFO] 已通过时间戳服务器 ({tsa}) 完成数字签名与盖章...",
+    "[INFO] Reusing existing virtual environment: {path}": "[INFO] 复用本地隔离虚拟环境: {path}",
+    "[INFO] Creating virtual environment ({name})...": "[INFO] 创建隔离虚拟环境 ({name})...",
+    "[WARN] Python environment info detection fallback: {error}": "[WARN] Python 环境信息检测降级: {error}",
+    "[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}": "[WARN] 清理失效环境失败，降级为临时沙箱: {error}",
+    "Clear Local Venvs": "清理虚拟环境",
+    "Clear Virtual Environments": "清理项目虚拟环境",
+    "No local virtual environments found to clean.": "当前项目目录下未发现可清理的虚拟环境。",
+    "<b>Found {count} virtual environment(s) for the current project:</b><br><span style='color:#64748b; font-size:11px;'>{paths}</span><br><br>Are you sure you want to delete them to free up disk space?":
+        "<b>在当前项目下检测到 {count} 个隔离虚拟环境：</b><br><span style='color:#64748b; font-size:11px;'>{paths}</span><br><br>确定要全部清理以释放磁盘空间吗？",
+    "Delete All": "一键清空",
+    "Successfully cleaned {count} virtual environment(s), freed {size:.1f} MB disk space.": "已成功清理 {count} 个虚拟环境，共释放 {size:.1f} MB 磁盘空间。",
     "Unknown": "未知"
 }
 
@@ -549,6 +560,8 @@ class TranslationEngine(QObject):
             if self.qt_translator.load(name, trans_path):
                 app.installTranslator(self.qt_translator)
                 break
+
+        app.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
 
     def set_language(self, lang_code: str):
         target = self.normalize_locale(lang_code)
@@ -2004,7 +2017,8 @@ class SettingsPanel(QWidget):
         I18N.language_changed.connect(self.retranslate_ui)
         self.load_from_config()
         self.retranslate_ui()
-
+        if hasattr(self, 'btn_clean_venvs'):
+            self.btn_clean_venvs.setText(_("Clear Local Venvs"))
         self.scanner_thread = PythonScannerThread()
         self.scanner_thread.scan_done.connect(self.populate_python_combo)
         self.scanner_thread.start()
@@ -2363,16 +2377,21 @@ class SettingsPanel(QWidget):
         g_dep = QGridLayout()
         g_dep.setSpacing(10)
         
-        self.venv_check = QCheckBox(_("Use Virtual Environment (Recommended)"))
-        self.keep_venv_check = QCheckBox(_("Keep Virtual Environment (Faster Rebuilds)"))
+        self.venv_check = QCheckBox(_("Use Virtual Environment"))
+        self.keep_venv_check = QCheckBox(_("Keep Local Venv"))
         self.venv_check.toggled.connect(self.keep_venv_check.setEnabled)
         
         self.reqs_check = QCheckBox(_("Install requirements.txt"))
         self.pipreqs_check = QCheckBox(_("Analyze Dependencies (AST)"))
         self.pipreqs_dir_check = QCheckBox(_("Scan Entire Folder"))
         
+        self.btn_clean_venvs = QPushButton(_("Clear Local Venvs"))
+        self.btn_clean_venvs.setProperty("class", "ToolBtn")
+        self.btn_clean_venvs.clicked.connect(self.clean_local_venvs)
+
         g_dep.addWidget(self.venv_check, 0, 0)
         g_dep.addWidget(self.keep_venv_check, 0, 1)
+        g_dep.addWidget(self.btn_clean_venvs, 0, 2)
         g_dep.addWidget(self.reqs_check, 1, 0)
         g_dep.addWidget(self.pipreqs_check, 1, 1)
         g_dep.addWidget(self.pipreqs_dir_check, 2, 0)
@@ -2901,7 +2920,8 @@ class SettingsPanel(QWidget):
         self.lbl_contents_dir.setText(_("Contents Directory (--contents-directory):"))
         self.contents_dir_edit.setPlaceholderText(_("Internal directory name for dependencies (default: _internal)"))
         self.noconsole_check.setText(_("Hide Console (--noconsole)"))
-        self.keep_venv_check.setText(_("Keep Virtual Environment (Faster Rebuilds)"))
+        self.venv_check.setText(_("Use Virtual Environment"))
+        self.keep_venv_check.setText(_("Keep Local Venv"))
         self.reqs_check.setText(_("Install requirements.txt"))
         self.pipreqs_check.setText(_("Analyze Dependencies (AST)"))
         self.pipreqs_dir_check.setText(_("Scan Entire Folder"))
@@ -3371,6 +3391,85 @@ class SettingsPanel(QWidget):
         f, _filter = QFileDialog.getOpenFileName(self, _("Requirements File:"), "", "Requirements Files (*.txt);;All Files (*)", options=QFileDialog.Option.DontUseNativeDialog)
         if f: self.reqs_file_edit.setText(Path(f).resolve().as_posix())
 
+    def clean_local_venvs(self):
+        script_path = getattr(self.parent_win, 'script_path', '')
+        if script_path and Path(script_path).exists():
+            target_dir = Path(script_path).parent
+        else:
+            target_dir = Path.cwd()
+
+        venvs_to_remove = []
+        if target_dir.exists():
+            try:
+                for p in target_dir.iterdir():
+                    if p.is_dir() and p.name.startswith(".qpypack_venv"):
+                        venvs_to_remove.append(p)
+            except Exception: pass
+
+        if not venvs_to_remove:
+            if hasattr(self.parent_win, 'show_notification'):
+                self.parent_win.show_notification(_("No local virtual environments found to clean."))
+            return
+
+        freed_bytes = 0
+        paths_str_list = []
+        for venv in venvs_to_remove:
+            paths_str_list.append(f"• {venv.name}")
+            try:
+                for f in venv.rglob('*'):
+                    if f.is_file():
+                        freed_bytes += f.stat().st_size
+            except Exception: pass
+
+        count = len(venvs_to_remove)
+        freed_mb = freed_bytes / (1024 * 1024)
+        paths_html = "<br>".join(paths_str_list)
+
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(_("Clear Virtual Environments"))
+        msg_box.setText(_(
+            "<b>Found {count} virtual environment(s) for the current project:</b><br>"
+            "<span style='color:#64748b; font-size:11px;'>{paths}</span><br><br>"
+            "Are you sure you want to delete them to free up disk space?",
+            count=count, paths=paths_html
+        ))
+        msg_box.setIcon(QMessageBox.Icon.Warning)
+
+        btn_confirm = msg_box.addButton(_("Delete All"), QMessageBox.ButtonRole.AcceptRole)
+        btn_cancel = msg_box.addButton(_("Cancel"), QMessageBox.ButtonRole.RejectRole)
+
+        msg_box.setStyleSheet("""
+            QMessageBox { background-color: #ffffff; }
+            QLabel { color: #111827; font-size: 13px; line-height: 1.4; }
+            QPushButton {
+                background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;
+                border-radius: 6px; font-size: 12px; font-weight: bold;
+                padding: 6px 16px; min-width: 70px;
+            }
+            QPushButton:hover { background-color: #e2e8f0; }
+        """)
+        btn_confirm.setStyleSheet("""
+            QPushButton {
+                background-color: #D93025; color: #ffffff; border: none;
+                border-radius: 6px; font-size: 12px; font-weight: bold;
+                padding: 6px 16px; min-width: 70px;
+            }
+            QPushButton:hover { background-color: #C5221F; }
+        """)
+
+        msg_box.exec()
+
+        if msg_box.clickedButton() == btn_confirm:
+            success_count = 0
+            for venv in venvs_to_remove:
+                if robust_rmtree(venv):
+                    success_count += 1
+
+            msg = _("Successfully cleaned {count} virtual environment(s), freed {size:.1f} MB disk space.",
+                    count=success_count, size=freed_mb)
+            if hasattr(self.parent_win, 'show_notification'):
+                self.parent_win.show_notification(msg, 6000)
+
     def select_python_path(self):
         exe_filter = "Executable (*.exe);;All Files (*)" if os.name == 'nt' else "All Files (*)"
         f, _filter = QFileDialog.getOpenFileName(self, _("Interpreter:"), "", exe_filter, options=QFileDialog.Option.DontUseNativeDialog)
@@ -3603,7 +3702,8 @@ class PackingThread(QThread):
                 if os.name == "nt": 
                     subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
                 else: 
-                    self.process.kill()
+                    import signal
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
             except: pass
 
     def run_cmd(self, cmd, cwd=None, timeout=None, silent_error=False, extra_env=None):
@@ -3632,7 +3732,10 @@ class PackingThread(QThread):
         try:
             kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "cwd": cwd, 
                       "text": True, "encoding": "utf-8", "errors": "replace", "env": clean_env}
-            if os.name == 'nt': kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+            if os.name == 'nt': 
+                kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+            else:
+                kwargs["start_new_session"] = True
         
             self.process = subprocess.Popen(cmd, **kwargs)
         
@@ -3644,7 +3747,8 @@ class PackingThread(QThread):
                             subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], 
                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
                         else:
-                            self.process.kill()
+                            import signal
+                            os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
                     except: pass
                 timer = threading.Timer(timeout, kill_proc)
                 timer.start()
@@ -4159,29 +4263,64 @@ class PackingThread(QThread):
                 if self._is_cancelled:
                     return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
                 
+                import hashlib
+                
+                target_py_ver = "3.x"
+                target_py_arch = "x64" if sys.maxsize > 2**32 else "x86"
+                try:
+                    kw_check = {"capture_output": True, "text": True, "timeout": 4, "errors": "ignore"}
+                    if os.name == 'nt': kw_check["creationflags"] = subprocess.CREATE_NO_WINDOW
+                    
+                    code_info = "import sys, platform; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}|{platform.architecture()[0]}')"
+                    res_info = subprocess.run([system_python_exe, "-c", code_info], **kw_check)
+                    if res_info.returncode == 0 and "|" in res_info.stdout:
+                        v_part, a_part = res_info.stdout.strip().split("|")
+                        target_py_ver = v_part
+                        target_py_arch = "x64" if "64" in a_part else "x86"
+                except Exception as e:
+                    self.progress.emit(_("[WARN] Python environment info detection fallback: {error}", error=str(e)))
+
+                raw_stem = build_script_path.stem
+                clean_stem = re.sub(r'[^a-zA-Z0-9]', '', raw_stem) or "script"
+                short_stem = clean_stem[:12]
+                path_hash = hashlib.md5(script_path.resolve().as_posix().encode('utf-8')).hexdigest()[:6]
+                
+                safe_venv_name = f".qpypack_venv_{short_stem}_{path_hash}_py{target_py_ver}_{target_py_arch}"
+
                 if self.params.get('keep_venv'):
-                    self.venv_dir = (script_dir / ".qpypack_venv").resolve()
+                    self.venv_dir = (script_dir / safe_venv_name).resolve()
                 else:
-                    self.venv_dir = Path(tempfile.mkdtemp(prefix="qpypack_env_")).resolve()
+                    self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_")).resolve()
 
                 python_exe_in_venv = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
                 
                 is_venv_valid = False
                 if self.params.get('keep_venv') and self.venv_dir.exists() and Path(python_exe_in_venv).exists():
                     try:
-                        kw = {"capture_output": True, "creationflags": subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {"capture_output": True}
-                        if subprocess.run([python_exe_in_venv, "-c", "pass"], **kw).returncode == 0:
+                        kw_val = {"capture_output": True, "text": True, "timeout": 5, "errors": "ignore"}
+                        if os.name == 'nt': kw_val["creationflags"] = subprocess.CREATE_NO_WINDOW
+                        
+                        code_val = "import sys, pip; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"
+                        check_proc = subprocess.run([python_exe_in_venv, "-c", code_val], **kw_val)
+                        
+                        if check_proc.returncode == 0 and check_proc.stdout.strip() == target_py_ver:
                             is_venv_valid = True
-                    except Exception: pass
+                    except Exception:
+                        is_venv_valid = False
 
                 if is_venv_valid:
-                    self.progress.emit(_("[INFO] Reusing existing virtual environment..."))
+                    self.progress.emit(_("[INFO] Reusing existing virtual environment: {path}", path=self.venv_dir.name))
                     python_exe = python_exe_in_venv
                 else:
-                    if self.params.get('keep_venv') and self.venv_dir.exists():
-                        robust_rmtree(self.venv_dir)
-                        
-                    self.progress.emit(_("[INFO] Creating virtual environment..."))
+                    if self.venv_dir.exists():
+                        try:
+                            robust_rmtree(self.venv_dir)
+                        except Exception as e:
+                            self.progress.emit(_("[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}", error=str(e)))
+                            self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_")).resolve()
+                            python_exe_in_venv = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
+
+                    self.progress.emit(_("[INFO] Creating virtual environment ({name})...", name=self.venv_dir.name))
                     if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
                         if self._is_cancelled:
                             return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
@@ -5116,12 +5255,22 @@ class MainWindow(QMainWindow):
     def init_style(self):
         self.setWindowTitle(f"{__app_name__} {__version__}")
         self.setMinimumSize(560, 460)
-        self.resize(760, 580)
+        
+        try:
+            config = load_config()
+            w = int(config.get('Settings', 'window_width', fallback='760'))
+            h = int(config.get('Settings', 'window_height', fallback='580'))
+            self.resize(w, h)
+            if config.get('Settings', 'window_maximized', fallback='False') == 'True':
+                self.setWindowState(Qt.WindowState.WindowMaximized)
+        except Exception:
+            self.resize(760, 580)
         
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         elif getattr(sys, 'frozen', False):
+
             provider = QFileIconProvider()
             exe_icon = provider.icon(QFileInfo(sys.executable))
             if not exe_icon.isNull(): self.setWindowIcon(exe_icon)
@@ -5358,6 +5507,17 @@ class MainWindow(QMainWindow):
         self.adjust_status_bar()
 
     def closeEvent(self, event):
+        try:
+            config = load_config()
+            if 'Settings' not in config: config['Settings'] = {}
+            if not self.isMaximized() and not self.isFullScreen():
+                config['Settings']['window_width'] = str(self.width())
+                config['Settings']['window_height'] = str(self.height())
+            config['Settings']['window_maximized'] = str(self.isMaximized())
+            save_config(config)
+        except Exception:
+            pass
+
         if self.thread and self.thread.isRunning():
             self.thread.cancel()
             self.thread.wait(2000)
@@ -5600,6 +5760,29 @@ class MainWindow(QMainWindow):
 
         has_gui = any(lib in {m.lower() for m in script_imports} for lib in gui_libs)
         self.settings_panel.noconsole_check.setChecked(has_gui)
+        has_venv = False
+        try:
+            import hashlib
+            import re
+            
+            script_path_obj = Path(path).resolve()
+            raw_stem = script_path_obj.stem
+            clean_stem = re.sub(r'[^a-zA-Z0-9]', '', raw_stem) or "script"
+            short_stem = clean_stem[:12]
+            path_hash = hashlib.md5(script_path_obj.as_posix().encode('utf-8')).hexdigest()[:6]
+            
+            target_prefix = f".qpypack_venv_{short_stem}_{path_hash}"
+            
+            for p in script_dir.iterdir():
+                if p.is_dir() and p.name.startswith(target_prefix):
+                    has_venv = True
+                    break
+        except Exception:
+            pass
+            
+        if has_venv:
+            self.settings_panel.venv_check.setChecked(True)
+        self.settings_panel.keep_venv_check.setChecked(has_venv)
 
         default_output_name = f"{app_name}_{version}" if version else app_name
         self.settings_panel.name_edit.setText(default_output_name)
@@ -5636,6 +5819,34 @@ class MainWindow(QMainWindow):
         self.log_concise.clear()
         self.log_detailed.clear()
         self.append_log(_("Loaded: {filename}", filename=path))
+
+        found_venv_name = None
+        try:
+            import hashlib
+            import re
+            
+            script_path_obj = Path(path).resolve()
+            raw_stem = script_path_obj.stem
+            clean_stem = re.sub(r'[^a-zA-Z0-9]', '', raw_stem) or "script"
+            short_stem = clean_stem[:12]
+            path_hash = hashlib.md5(script_path_obj.as_posix().encode('utf-8')).hexdigest()[:6]
+            
+            target_prefix = f".qpypack_venv_{short_stem}_{path_hash}"
+            
+            for p in script_dir.iterdir():
+                if p.is_dir() and p.name.startswith(target_prefix):
+                    found_venv_name = p.name
+                    break
+        except Exception:
+            pass
+            
+        if found_venv_name:
+            self.settings_panel.venv_check.setChecked(True)
+            self.settings_panel.keep_venv_check.setChecked(True)
+            self.append_log(_("[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.", venv=found_venv_name))
+        else:
+            self.settings_panel.keep_venv_check.setChecked(False)
+
         self.btn_main.setEnabled(True)
         self.update_ui_state("ready")
 

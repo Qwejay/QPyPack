@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.8.0] - 2026-08-08
+
+#### Added
+- **Smart Project Sandbox Sensing**: Generates unique sandbox identifiers based on script path hashes and Python version/architecture. Automatically detects and reuses existing virtual environments upon loading project scripts.
+- **One-Click Virtual Environment Cleanup**: Added a project virtual environment cleanup feature in the Settings panel, automatically scanning associated virtual environments and providing one-click cleanup to free up disk space.
+- **AI Translation Tool**: Introduced `update_locales_ai.py`, a modern GUI translation management studio that automatically completes and updates application translations with one click using LLM APIs.
+- **Window Size Memory**: Automatically remembers and restores window size adjustments, ensuring custom dimensions are preserved across application restarts.
+
+#### Improved
+- **Self-Healing Environment & Fallback**: Refactored virtual environment validation logic. Automatically falls back to a temporary sandbox if environment corruption or purge failure is detected, ensuring zero-interruption builds.
+- **Thorough Cross-Platform Process Reclamation**: Optimized build cancellation logic by introducing independent process session group termination on Linux / macOS, completely eliminating leftover background processes upon canceling builds.
+- **Environment Detection & Fallback Alerts**: Optimized timeout handling for Python interpreter version and architecture (x64/x86) detection, adding robust exception handling and fallback log alerts.
+- **UI Copy Refinement**: Refactored dependency and virtual environment checkbox labels, unifying cleanup confirmation dialog button styles and risk warnings.
+
+#### Fixed
+- **i18n String Synchronization**: Completed and synchronized Simplified Chinese mappings for new UI strings, including environment cleanup, timestamp signing logs, and fallback warnings.
+
+---
+
 ## [2.7.5] - 2026-08-06
 
 #### Added
