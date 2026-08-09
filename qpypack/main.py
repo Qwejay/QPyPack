@@ -18,6 +18,14 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import logging
 
+_orig_resolve = Path.resolve
+def _safe_resolve(self, strict=False):
+    try:
+        return _orig_resolve(self, strict=strict)
+    except Exception:
+        return self.absolute()
+Path.resolve = _safe_resolve
+
 logger = logging.getLogger(__name__)
 
 if os.name == 'nt':
@@ -52,7 +60,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.4"
+__version__ = "2.7.7"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -751,9 +759,15 @@ def load_config(retry=True):
 
 def save_config(config):
     try:
-        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+        temp_file = CONFIG_FILE + ".tmp"
+        with open(temp_file, 'w', encoding='utf-8') as f:
             config.write(f)
-    except: pass
+        if os.path.exists(CONFIG_FILE):
+            os.replace(temp_file, CONFIG_FILE)
+        else:
+            os.rename(temp_file, CONFIG_FILE)
+    except Exception:
+        pass
 
 def create_pleasant_audio_files():
     success_wav = _CONFIG_DIR / "sound_success.wav"
@@ -874,12 +888,7 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
 
     for file_p in files_to_scan:
         try:
-            raw = file_p.read_bytes()
-            try:
-                code = raw.decode('utf-8-sig')
-            except Exception:
-                code = raw.decode(locale.getpreferredencoding(), errors='ignore')
-                
+            code = safe_read_text(file_p)
             tree = ast.parse(code, filename=file_p.as_posix())
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
@@ -889,7 +898,6 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
         except Exception:
             pass
     return imports
-
 
 def query_target_env_packages(python_exe: str) -> dict:
     if not python_exe or not os.path.exists(python_exe):
@@ -1346,6 +1354,18 @@ def get_python_executable():
         return sys.executable
         
     return find_system_python()
+
+def safe_read_text(path: Path) -> str:
+    try:
+        raw = path.read_bytes()
+        for enc in ('utf-8-sig', 'utf-8', 'gbk', 'gb18030', 'big5', 'latin-1'):
+            try:
+                return raw.decode(enc)
+            except UnicodeDecodeError:
+                continue
+        return raw.decode(locale.getpreferredencoding(), errors='ignore')
+    except Exception:
+        return ""
 
 def remove_readonly(func, path, exc_info=None):
     try: 
@@ -3650,10 +3670,10 @@ class ScriptAnalysisThread(QThread):
         script_imports = set()
 
         try:
-            with open(self.path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read(10240)
+            content = safe_read_text(Path(self.path))[:10240]
             
             v_match = re.search(r'^(?:__version__|VERSION|version)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
+
             if v_match: version = v_match.group(1)
                 
             c_match = re.search(r'^(?:__company__|COMPANY)\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.M | re.I)
@@ -3714,6 +3734,9 @@ class PackingThread(QThread):
     
         clean_env = os.environ.copy()
         clean_env.pop("PYTHONHOME", None)
+        
+        for c_var in ("VIRTUAL_ENV", "CONDA_PREFIX", "CONDA_DEFAULT_ENV", "CONDA_PYTHON_EXE", "CONDA_PROMPT_MODIFIER"):
+            clean_env.pop(c_var, None)
     
         if not (extra_env and "PYTHONPATH" in extra_env):
             if not ("PYTHONPATH" in clean_env and "_qpypack_temp_" in clean_env["PYTHONPATH"]):
@@ -3725,6 +3748,7 @@ class PackingThread(QThread):
         clean_env["LC_ALL"] = "en_US.UTF-8"
         clean_env["PYTHONUNBUFFERED"] = "1"
         clean_env["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+        clean_env["NUITKA_ACCEPT_DOWNLOADS"] = "yes"
 
         if extra_env:
             clean_env.update(extra_env)
@@ -3833,9 +3857,7 @@ class PackingThread(QThread):
         
         if not self.params['noconsole']:
             try:
-                raw = orig_path.read_bytes()
-                try: code = raw.decode('utf-8-sig')
-                except: code = raw.decode(locale.getpreferredencoding(), errors='ignore')
+                code = safe_read_text(orig_path)
                 
                 pause_prompt_str = _("\\nProgram execution completed, press Enter to exit...").replace('\\n', '\n')
                 
@@ -4099,7 +4121,6 @@ class PackingThread(QThread):
                            silent_error=True, timeout=15)
 
     def run(self):
-        os.environ["NUITKA_ACCEPT_DOWNLOADS"] = "yes"
         engine = self.params['engine']
         app_name = self.params.get('app_name', 'app').strip() or 'app'
         pip_idx = self.params.get('pip_index_url', '').strip()
@@ -4110,6 +4131,15 @@ class PackingThread(QThread):
         failed_packages = []
         
         script_dir = Path(self.params['script_path']).parent if self.params.get('script_path') else Path.cwd()
+
+        sandbox_mode = int(self.params.get('temp_sandbox_mode', 0) or 0)
+        if sandbox_mode == 0:
+            custom_temp_base = (script_dir / ".qpypack_build").resolve()
+            custom_temp_base.mkdir(parents=True, exist_ok=True)
+            temp_dir_arg = custom_temp_base.as_posix()
+        else:
+            custom_temp_base = Path(tempfile.gettempdir()).resolve()
+            temp_dir_arg = None
 
         try:
             if self._is_cancelled:
@@ -4229,12 +4259,11 @@ class PackingThread(QThread):
                 if req_file.exists():
                     try:
                         if is_cloud_locked(req_file): raise ValueError("Requirements file is locked")
-                        raw_req = req_file.read_bytes()
-                        try: req_content = raw_req.decode('utf-8-sig')
-                        except: req_content = raw_req.decode(locale.getpreferredencoding(), errors='ignore')
+                        req_content = safe_read_text(req_file)
                         
                         for line in req_content.splitlines():
                             canon_name, full_spec = parse_req_line(line)
+
                             if canon_name and canon_name.lower() not in target_std_libs:
                                 final_dependencies[canon_name] = full_spec
                                 reqs_declared_pkgs.add(canon_name)
@@ -4290,7 +4319,7 @@ class PackingThread(QThread):
                 if self.params.get('keep_venv'):
                     self.venv_dir = (script_dir / safe_venv_name).resolve()
                 else:
-                    self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_")).resolve()
+                    self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_", dir=temp_dir_arg)).resolve()
 
                 python_exe_in_venv = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
                 
@@ -4317,7 +4346,7 @@ class PackingThread(QThread):
                             robust_rmtree(self.venv_dir)
                         except Exception as e:
                             self.progress.emit(_("[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}", error=str(e)))
-                            self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_")).resolve()
+                            self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_", dir=temp_dir_arg)).resolve()
                             python_exe_in_venv = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
 
                     self.progress.emit(_("[INFO] Creating virtual environment ({name})...", name=self.venv_dir.name))
@@ -4406,8 +4435,9 @@ class PackingThread(QThread):
 
             dedup_install_list = [pkg for pkg in list(final_install_dict.values()) if re.split(r'[=><!~]', pkg)[0].strip().lower() not in target_std_libs]
 
-            temp_unified_reqs = Path(tempfile.gettempdir()) / f"qpypack_atomic_reqs_{int(time.time())}.txt"
+            temp_unified_reqs = custom_temp_base / f"qpypack_atomic_reqs_{int(time.time())}.txt"
             temp_unified_reqs.write_text('\n'.join(dedup_install_list), encoding='utf-8')
+
 
             total_pkgs = len(dedup_install_list)
             pkg_names_str = ', '.join(sorted(dedup_install_list))
@@ -4504,8 +4534,8 @@ class PackingThread(QThread):
             icon_path = Path(self.params['icon']).resolve().as_posix() if self.params.get('icon') else None
 
             if engine == "PyInstaller":
-                self.temp_workpath = Path(tempfile.mkdtemp(prefix="qpypack_build_")).resolve()
-                self.temp_dist_dir = Path(tempfile.mkdtemp(prefix="qpypack_dist_")).resolve()
+                self.temp_workpath = Path(tempfile.mkdtemp(prefix="qpypack_build_", dir=temp_dir_arg)).resolve()
+                self.temp_dist_dir = Path(tempfile.mkdtemp(prefix="qpypack_dist_", dir=temp_dir_arg)).resolve()
                 cmd = [
                     python_exe, "-m", "PyInstaller", "--clean", "--noconfirm", 
                     f"--distpath={self.temp_dist_dir.as_posix()}",
@@ -4595,13 +4625,7 @@ class PackingThread(QThread):
                         cmd.extend(["--collect-all", web_fw])
 
             elif engine == "Nuitka":
-                sandbox_mode = int(self.params.get('temp_sandbox_mode', 0) or 0)
-                if sandbox_mode == 1:
-                    self.temp_out_dir = Path(tempfile.mkdtemp(prefix="qpypack_nuitka_")).resolve()
-                else:
-                    self.temp_out_dir = (script_dir / ".qpypack_build").resolve()
-                    self.temp_out_dir.mkdir(parents=True, exist_ok=True)
-                
+                self.temp_out_dir = Path(tempfile.mkdtemp(prefix="qpypack_nuitka_", dir=temp_dir_arg)).resolve()
                 cmd = [
                     python_exe, "-m", "nuitka", "--remove-output", "--assume-yes-for-downloads",
                     f"--output-dir={self.temp_out_dir.as_posix()}", 
@@ -4880,8 +4904,17 @@ class PackingThread(QThread):
                                 except PermissionError:
                                     time.sleep(1)
                                     final_out.unlink(missing_ok=True)
-                        shutil.move(src_out.as_posix(), final_out.as_posix())
+                        
+                        for _retry in range(15):
+                            try:
+                                shutil.move(src_out.as_posix(), final_out.as_posix())
+                                break
+                            except PermissionError:
+                                time.sleep(0.5)
+                        else:
+                            raise PermissionError("File locked by Antivirus or other process.")
                 except PermissionError:
+
                     success = False
                     self.progress.emit(_("[ERROR] Target file is running or occupied. Please close the existing application and try again."))
                 except Exception as e: 
@@ -4972,6 +5005,13 @@ class PackingThread(QThread):
                 if spec_file.exists():
                     try: spec_file.unlink()
                     except: pass
+                    
+                if sandbox_mode == 0 and custom_temp_base and custom_temp_base.exists():
+                    try:
+                        if not any(custom_temp_base.iterdir()):
+                            custom_temp_base.rmdir()
+                    except Exception: pass
+
 
 class PythonInstallMonitorThread(QThread):
     finished_signal = Signal(bool)
@@ -6260,7 +6300,14 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 self.show_error_log(_("[ERROR] Failed to export log file: {error}", error=str(e)))
 
+def global_excepthook(exctype, value, tb):
+    import traceback
+    err_text = "".join(traceback.format_exception(exctype, value, tb))
+    logger.critical(f"Unhandled exception: {err_text}")
+    print(err_text, file=sys.stderr)
+
 def main():
+    sys.excepthook = global_excepthook
     try:
         QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     except Exception: pass

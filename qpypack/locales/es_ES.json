@@ -340,5 +340,6 @@
   "[INFO] Creating virtual environment ({name})...": "[INFO] Creando entorno virtual ({name})...",
   "[INFO] Reusing existing virtual environment: {path}": "[INFO] Reutilizando entorno virtual existente: {path}",
   "[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}": "[WARN] Fallo al purgar entorno no válido, usando sandbox temporal: {error}",
-  "[WARN] Python environment info detection fallback: {error}": "[WARN] Detección de información del entorno Python falló, usando respaldo: {error}"
+  "[WARN] Python environment info detection fallback: {error}": "[WARN] Detección de información del entorno Python falló, usando respaldo: {error}",
+  "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[INFO] Entorno virtual existente '{venv}' auto-detectado. 'Mantener Venv Local' está marcado."
 }

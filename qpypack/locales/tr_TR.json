@@ -313,5 +313,6 @@
   "[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}": "[UYARI] Geçersiz ortam temizlenemedi, geçici kum havuzuna geri dönülüyor: {error}",
   "[WARN] Icon conversion to .icns failed, building without icon.": "[UYARI] Simgenin .icns'e dönüştürülmesi başarısız oldu, simge olmadan derleniyor.",
   "[WARN] Icon resource writing blocked (possibly locked by system/antivirus), triggering fallback protection...": "[UYARI] Simge kaynağı yazma engellendi (muhtemelen sistem/antivirüs tarafından kilitlendi), yedek koruma tetikleniyor...",
-  "[WARN] Low disk space detected on build target drive (Available: {free:.1f} GB, >= 5.0 GB recommended). Build process may interrupt due to disk exhaustion.": "[UYARI] Derleme hedef sürücüsünde düşük disk alanı algılandı (Kullanılabilir: {free:.1f} GB, önerilen >= 5.0 GB). Derleme işlemi disk tükenmesi nedeniyle kesintiye uğrayabilir."
+  "[WARN] Low disk space detected on build target drive (Available: {free:.1f} GB, >= 5.0 GB recommended). Build process may interrupt due to disk exhaustion.": "[UYARI] Derleme hedef sürücüsünde düşük disk alanı algılandı (Kullanılabilir: {free:.1f} GB, önerilen >= 5.0 GB). Derleme işlemi disk tükenmesi nedeniyle kesintiye uğrayabilir.",
+  "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[BİLGİ] Mevcut sanal ortam '{venv}' otomatik olarak algılandı. 'Yerel Venv'i Koru' işaretli."
 }

@@ -313,5 +313,6 @@
   "[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}": "[AVVISO] Impossibile eliminare l'ambiente non valido, ripiego su sandbox temporanea: {error}",
   "[WARN] Icon conversion to .icns failed, building without icon.": "[AVVISO] Conversione icona in .icns non riuscita, build senza icona.",
   "[WARN] Icon resource writing blocked (possibly locked by system/antivirus), triggering fallback protection...": "[AVVISO] Scrittura risorsa icona bloccata (possibilmente bloccata da sistema/antivirus), attivazione protezione di fallback...",
-  "[WARN] Low disk space detected on build target drive (Available: {free:.1f} GB, >= 5.0 GB recommended). Build process may interrupt due to disk exhaustion.": "[AVVISO] Spazio su disco insufficiente rilevato sull'unità di destinazione della build (Disponibile: {free:.1f} GB, >= 5.0 GB consigliati). Il processo di build potrebbe interrompersi per esaurimento dello spazio."
+  "[WARN] Low disk space detected on build target drive (Available: {free:.1f} GB, >= 5.0 GB recommended). Build process may interrupt due to disk exhaustion.": "[AVVISO] Spazio su disco insufficiente rilevato sull'unità di destinazione della build (Disponibile: {free:.1f} GB, >= 5.0 GB consigliati). Il processo di build potrebbe interrompersi per esaurimento dello spazio.",
+  "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[INFO] Ambiente virtuale esistente '{venv}' rilevato automaticamente. 'Mantieni Venv Locale' è selezionato."
 }

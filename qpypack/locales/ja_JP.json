@@ -340,5 +340,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] クラウド同期フォルダに存在します。ファイルがロックされる可能性があります。",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] タイムスタンプサーバー接続タイムアウト。ローカル高速署名を実行します...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] '__file__' の使用を検出。単一ファイルモードでは 'sys._MEIPASS' を使用してください。",
-  "\\nProgram execution completed, press Enter to exit...": "\\n処理が完了しました。Enter キーを押して終了します..."
+  "\\nProgram execution completed, press Enter to exit...": "\\n処理が完了しました。Enter キーを押して終了します...",
+  "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[INFO] 既存の仮想環境 '{venv}' を自動検出しました。'ローカルVenvを保持' がチェックされています。"
 }

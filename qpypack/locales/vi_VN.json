@@ -313,5 +313,6 @@
   "[WARN] Detected 'requests' or 'httpx'. Auto-bundling 'certifi' certificates to prevent SSL errors.": "[CẢNH BÁO] Phát hiện 'requests' hoặc 'httpx'. Tự động đóng gói chứng chỉ 'certifi' để ngăn lỗi SSL.",
   "[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}": "[CẢNH BÁO] Không thể dọn dẹp môi trường không hợp lệ, chuyển sang sandbox tạm thời: {error}",
   "[WARN] Icon conversion to .icns failed, building without icon.": "[CẢNH BÁO] Chuyển đổi biểu tượng sang .icns thất bại, xây dựng mà không có biểu tượng.",
-  "[WARN] Icon resource writing blocked (possibly locked by system/antivirus), triggering fallback protection...": "[CẢNH BÁO] Ghi tài nguyên biểu tượng bị chặn (có thể bị khóa bởi hệ thống/phần mềm diệt virus), kích hoạt bảo vệ dự phòng..."
+  "[WARN] Icon resource writing blocked (possibly locked by system/antivirus), triggering fallback protection...": "[CẢNH BÁO] Ghi tài nguyên biểu tượng bị chặn (có thể bị khóa bởi hệ thống/phần mềm diệt virus), kích hoạt bảo vệ dự phòng...",
+  "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[THÔNG TIN] Tự động phát hiện môi trường ảo hiện có '{venv}'. Tùy chọn 'Giữ Venv Cục Bộ' đã được chọn."
 }

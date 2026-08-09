@@ -340,5 +340,6 @@
   "[INFO] Creating virtual environment ({name})...": "[INFO] Создание виртуального окружения ({name})...",
   "[INFO] Reusing existing virtual environment: {path}": "[INFO] Повторное использование существующего виртуального окружения: {path}",
   "[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}": "[WARN] Не удалось очистить недействительное окружение, используется временная песочница: {error}",
-  "[WARN] Python environment info detection fallback: {error}": "[WARN] Запасной вариант определения информации об окружении Python: {error}"
+  "[WARN] Python environment info detection fallback: {error}": "[WARN] Запасной вариант определения информации об окружении Python: {error}",
+  "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[ИНФО] Автоматически обнаружено существующее виртуальное окружение '{venv}'. Опция 'Сохранить локальное виртуальное окружение' отмечена."
 }

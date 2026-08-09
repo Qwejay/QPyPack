@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.8.0] - 2026-08-08
+## [2.7.7] - 2026-08-09
+
+#### Added
+- **Configuration Write Protection**: Introduced an atomic save mechanism to completely prevent configuration loss or corruption caused by power outages, system crashes, or full disks.
+- **Enhanced Encoding Compatibility**: Upgraded the reading logic for source code and dependencies to intelligently support various complex encodings (such as GBK and UTF-8 with BOM), eliminating crashes and garbled text.
+- **Antivirus Interception Resistance**: Added a smart retry mechanism to the build output stage, effectively resolving "Permission Denied" errors caused by security software temporarily locking files during generation.
+- **Stability Enhancements**: Added global exception logging and isolated environment variables during engine compilation to avoid interfering with main program operations.
+
+#### Fixed
+- Fixed a crash caused by path resolution issues resulting in `[WinError 1]` when packaging under certain RamDisk environments.
+- Fixed a bug where the "Temporary Directory" option in the settings panel did not fully apply to virtual environments and the PyInstaller cache.
+
+---
+
+## [2.7.6] - 2026-08-08
 
 #### Added
 - **Smart Project Sandbox Sensing**: Generates unique sandbox identifiers based on script path hashes and Python version/architecture. Automatically detects and reuses existing virtual environments upon loading project scripts.

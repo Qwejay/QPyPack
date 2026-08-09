@@ -340,5 +340,6 @@
   "[INFO] Creating virtual environment ({name})...": "[معلومة] إنشاء بيئة افتراضية ({name})...",
   "[INFO] Reusing existing virtual environment: {path}": "[معلومة] إعادة استخدام البيئة الافتراضية الموجودة: {path}",
   "[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}": "[تحذير] فشل في إزالة البيئة غير الصالحة، سيتم استخدام بيئة مؤقتة: {error}",
-  "[WARN] Python environment info detection fallback: {error}": "[تحذير] فشل في اكتشاف معلومات بيئة بايثون، سيتم استخدام طريقة بديلة: {error}"
+  "[WARN] Python environment info detection fallback: {error}": "[تحذير] فشل في اكتشاف معلومات بيئة بايثون، سيتم استخدام طريقة بديلة: {error}",
+  "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[معلومة] تم اكتشاف بيئة افتراضية موجودة تلقائيًا '{venv}'. تم تحديد خيار 'الاحتفاظ بالبيئة الافتراضية المحلية'."
 }

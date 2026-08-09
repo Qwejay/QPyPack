@@ -279,6 +279,7 @@
   "[INFO] Analyzing source code and project dependencies...": "[INFO] 分析源码与依赖...",
   "[INFO] Applied digital signature with timestamp ({tsa})...": "[INFO] 已通过时间戳服务器 ({tsa}) 完成数字签名与盖章...",
   "[INFO] Applying smart digital signature...": "[INFO] 正在为应用程序添加数字签名...",
+  "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.",
   "[INFO] Build Cancelled.": "[INFO] 构建已取消。",
   "[INFO] Build log exported to: {path}": "[INFO] 日志已导出: {path}",
   "[INFO] Compilation completed, archiving built files...": "[INFO] 编译完成，归档构建产物...",
