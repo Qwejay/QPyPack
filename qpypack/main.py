@@ -10,6 +10,7 @@ import json
 import math
 import wave
 import struct
+import traceback
 import threading
 import configparser
 import locale
@@ -60,7 +61,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.7"
+__version__ = "2.7.8"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -92,7 +93,7 @@ ZH_CN_DICT = {
     "Dependencies": "依赖管理",
     "Resources": "附加资源",
     "Optimization & Security": "优化与安全",
-    "Package Map": "包名映射",
+    "Package Map": "包名与依赖治理",
     "Execution Log": "执行日志",
 
     "Loaded: {filename}": "已载入: {filename}",
@@ -320,8 +321,7 @@ ZH_CN_DICT = {
     "[WARN] Package '{pkg}' failed to install, skipping...": "[WARN] 包 '{pkg}' 安装失败，已跳过...",
     "[WARN] Playwright browser installation failed across all sources, build will proceed with risk...": "[WARN] 所有 Playwright 浏览器下载源均失败，继续构建 (有风险)...",
     "[WARN] Icon conversion to .icns failed, building without icon.": "[WARN] 图标转换为 .icns 失败，将不使用图标构建。",
-    "[INFO] Tip: Packaged executables might be falsely flagged by Windows Defender/Antivirus. Adding exclusions or code-signing is recommended.": "[INFO] 提示: 独立可执行程序可能被安全软件误报。建议加入白名单或添加代码签名。",
-
+    "[INFO] Tip: Executables without commercial signatures might be falsely flagged by Windows Defender/Antivirus.": "[INFO] 提示: 未进行商业签名的可执行程序可能被安全软件误报。",
     "[ERROR] Build aborted: Insufficient disk space (NoSpaceLeft / Errno 28). Please clean up drive space (at least 5 GB free space recommended) and try again.": "[ERROR] 构建中止: 磁盘空间不足 (NoSpaceLeft / Errno 28)。建议预留至少 5GB 可用空间。",
     "[ERROR] Output directory is missing write permissions: {error}": "[ERROR] 目标输出目录无写入权限: {error}",
     "[ERROR] Requirements file not found: {path}": "[ERROR] 指定的依赖清单文件不存在: {path}",
@@ -442,6 +442,42 @@ ZH_CN_DICT = {
         "<b>在当前项目下检测到 {count} 个隔离虚拟环境：</b><br><span style='color:#64748b; font-size:11px;'>{paths}</span><br><br>确定要全部清理以释放磁盘空间吗？",
     "Delete All": "一键清空",
     "Successfully cleaned {count} virtual environment(s), freed {size:.1f} MB disk space.": "已成功清理 {count} 个虚拟环境，共释放 {size:.1f} MB 磁盘空间。",
+    "[WARN] System Python write permission restricted. Retrying with '--user' mode...": "[WARN] 系统 Python 缺少写入权限，正在重试以 '--user' 用户模式安装...",
+    "<b>Python is not detected on your system!</b><br><br>QPyPack requires a Python environment to compile your code.<br>If you haven't installed Python, please download and install it.": "<b>您的系统未检测到Python！</b><br><br>QPyPack需要Python环境来编译您的代码。<br>如果您尚未安装Python，请下载并安装。",
+    "Deleting...": "正在删除...",
+    "Password:": "密码：",
+    "Scanning...": "正在扫描...",
+    "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[INFO] 自动检测到现有虚拟环境'{venv}'。已勾选'保留本地虚拟环境'。",
+    "[INFO] Using MinGW64 compiler.": "[INFO] 使用MinGW64编译器。",
+    "Package Map": "包名与依赖治理",
+    "Package Mapping & Remediation": "包名与依赖治理",
+    "Obsolete Backport Exclusion Rules": "废弃兼容包拦截规则",
+    "Min Python Ver": "最低内置版本",
+    "Add Backport Rule": "添加拦截规则",
+    "Package Map": "包名映射与规则",
+    "Package Mappings & Rules": "包名映射与规则",
+    "Obsolete Backport Exclusion Rules": "废弃兼容包拦截规则",
+    "Min Python Ver": "最低内置版本",
+    "Add Backport Rule": "添加拦截规则",
+    "Environment Analysis": "运行环境分析",
+    "Environment Analysis & Remediation": "运行环境分析",
+    "Enable Automatic Backport Isolation": "开启废弃兼容包动态隔离",
+    "Inspect Interpreter Environment": "校验解释器环境",
+    "Remediate Detected Conflicts": "治理环境冲突模块",
+    "Package Name (e.g. pathlib):": "包名 (如 pathlib):",
+    "Minimum Built-in Python Version (e.g. 3.4):": "最低内置 Python 版本 (如 3.4):",
+    "Status: Environment inspection ready.": "状态: 等待环境校验。",
+    "Interpreter inspection passed: No active backport conflicts detected.": "[OK] 解释器环境校验通过: 未检测到冲突模块。",
+    "Active backport conflicts detected ({count}): {pkgs}": "[WARN] 检测到与当前解释器冲突的模块 ({count}): {pkgs}",
+    "Remediation completed for packages: {pkgs}": "[OK] 已成功清理以下冲突模块: {pkgs}",
+    "No environment conflicts detected.": "未检测到环境冲突模块。",
+    "Backport exclusion rules have been reset to defaults.": "废弃兼容包拦截规则已恢复默认设置。",
+    "[INFO] Added '{name}' to Additional Resources.": "[INFO] 已将资源 '{name}' 自动添加至附加资源列表",
+    "[INFO] Added {count} resource item(s) to Additional Resources.": "[INFO] 已将 {count} 项附加资源自动导入",
+    "Script loaded. You can drag asset folders or data files directly here to bundle them.": "脚本已载入。您可将资源文件夹或文件直接拖入主区域进行捆绑打包。",
+    "Package Name": "包名称",
+    "[ERROR] Environment remediation failed: {error}": "[ERROR] 环境修复失败：{error}",
+    "[INFO] Auto-shielded obsolete backport module: '{pkg}' (Built-in in Python {ver})": "[INFO] 已自动屏蔽过时的反向移植模块：'{pkg}'（Python {ver} 内置）",
     "Unknown": "未知"
 }
 
@@ -641,6 +677,21 @@ DEFAULT_MAPPINGS = {
     'attr': 'attrs', 'psycopg2': 'psycopg2-binary'
 }
 
+DEFAULT_BACKPORT_RULES = {
+    "pathlib": "3.4",
+    "pathlib2": "3.4",
+    "enum34": "3.4",
+    "typing": "3.5",
+    "ipaddress": "3.3",
+    "asyncio": "3.4",
+    "argparse": "3.2",
+    "dataclasses": "3.7",
+    "importlib-metadata": "3.8",
+    "importlib-resources": "3.9",
+    "zoneinfo": "3.9",
+    "tomllib": "3.11"
+}
+
 MATERIAL_ICONS = {
     'settings': 'M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z',
     'refresh': 'M17.65,6.35C16.2,4.9,14.21,4,12,4c-4.42,0-7.99,3.58-7.99,8s3.57,8,7.99,8c3.73,0,6.84-2.55,7.73-6h-2.08 c-0.82,2.33-3.04,4-5.65,4c-3.31,0-6-2.69-6-6s2.69-6,6-6c1.66,0,3.14,0.69,4.22,1.78L13,11h7V4L17.65,6.35z',
@@ -685,6 +736,7 @@ def load_config(retry=True):
             'sound_notify': 'True', 'auto_save_log': 'False',
             'use_reqs_file': '', 'add_data_list': '', 'custom_python_path': '',
             'pyi_version': '6.21.0', 'nuitka_version': '4.1.3',
+            'enable_backport_shield': 'True',
             'lite_mode': 'False'
         }
         try:
@@ -703,7 +755,9 @@ def load_config(retry=True):
                     pass
                 return load_config(retry=False)
             else:
-                pass
+                if 'Mappings' not in config: config['Mappings'] = DEFAULT_MAPPINGS
+                if 'Settings' not in config: config['Settings'] = {}
+                if 'BackportRules' not in config: config['BackportRules'] = DEFAULT_BACKPORT_RULES
 
         if 'Mappings' not in config: 
             config['Mappings'] = DEFAULT_MAPPINGS
@@ -753,21 +807,41 @@ def load_config(retry=True):
             try: save_config(config)
             except: pass
             
+        if 'BackportRules' not in config:
+            config['BackportRules'] = DEFAULT_BACKPORT_RULES
+        else:
+            updated_rules = False
+            for k, v in DEFAULT_BACKPORT_RULES.items():
+                if k not in config['BackportRules']:
+                    config['BackportRules'][k] = v
+                    updated_rules = True
+            if updated_rules:
+                try: save_config(config)
+                except Exception: pass
     lang_pref = config['Settings'].get('language', 'auto')
     I18N.set_language(lang_pref)
     return config
 
 def save_config(config):
+    import time
+    temp_file = CONFIG_FILE + ".tmp"
     try:
-        temp_file = CONFIG_FILE + ".tmp"
         with open(temp_file, 'w', encoding='utf-8') as f:
             config.write(f)
-        if os.path.exists(CONFIG_FILE):
-            os.replace(temp_file, CONFIG_FILE)
-        else:
-            os.rename(temp_file, CONFIG_FILE)
     except Exception:
-        pass
+        return
+        
+    for _ in range(5):
+        try:
+            if os.path.exists(CONFIG_FILE):
+                os.replace(temp_file, CONFIG_FILE)
+            else:
+                os.rename(temp_file, CONFIG_FILE)
+            break
+        except PermissionError:
+            time.sleep(0.2)
+        except Exception:
+            break
 
 def create_pleasant_audio_files():
     success_wav = _CONFIG_DIR / "sound_success.wav"
@@ -1645,6 +1719,20 @@ class TargetIconWidget(QWidget):
             center_x = center.x() + int(self.shake_offset)
             icon_center_y = center.y()
             draw_size = self.current_size
+
+            pop_scale = 1.0
+            if hasattr(self, 'pop_value') and self.pop_value > 0.0 and self.pop_value < 1.0:
+                pop_scale = 1.0 + math.sin(self.pop_value * math.pi) * 0.22
+                
+                ripple_radius = (self.current_size / 2.0) + self.pop_value * 35.0
+                alpha = int(180 * (1.0 - self.pop_value))
+                pen = QPen(QColor(26, 115, 232, alpha))
+                pen.setWidth(2)
+                painter.setPen(pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawEllipse(QPointF(center_x, icon_center_y), ripple_radius, ripple_radius)
+            
+            draw_size = int(self.current_size * pop_scale)
             
             if self.is_building:
                 radius = (self.current_size / 2) + 12
@@ -1658,30 +1746,6 @@ class TargetIconWidget(QWidget):
                 start_angle = int(-self.spin_angle * 16)
                 painter.drawArc(rect, start_angle, span_angle)
                 
-            elif self.burst_value > 0.0:
-                pop_scale = 1.0 + math.sin(self.burst_value * math.pi) * 0.15
-                draw_size = int(self.current_size * pop_scale)
-                if self.burst_value < 1.0:
-                    alpha = int(255 * (1.0 - self.burst_value))
-                    painter.setPen(Qt.PenStyle.NoPen)
-                    painter.setBrush(QColor(26, 115, 232, alpha))
-                    burst_radius_1 = (self.current_size / 2) + 5 + self.burst_value * 25
-                    dot_size_1 = 8 * (1.0 - self.burst_value)
-                    for i in range(8):
-                        angle = math.radians(i * 45)
-                        dx = center_x + math.cos(angle) * burst_radius_1
-                        dy = center.y() + math.sin(angle) * burst_radius_1
-                        painter.drawEllipse(QPointF(dx, dy), dot_size_1, dot_size_1)
-                    
-                    painter.setBrush(QColor(255, 193, 7, alpha))
-                    burst_radius_2 = (self.current_size / 2) + self.burst_value * 35
-                    dot_size_2 = 6 * (1.0 - self.burst_value)
-                    for i in range(8):
-                        angle = math.radians(i * 45 + 22.5)
-                        dx = center_x + math.cos(angle) * burst_radius_2
-                        dy = center.y() + math.sin(angle) * burst_radius_2
-                        painter.drawEllipse(QPointF(dx, dy), dot_size_2, dot_size_2)
-            
             pix_rect = QRectF(center_x - draw_size / 2.0, icon_center_y - draw_size / 2.0, float(draw_size), float(draw_size))
             scaled_pix = self.pixmap.scaled(
                 int(draw_size * self.devicePixelRatioF()), 
@@ -1693,6 +1757,20 @@ class TargetIconWidget(QWidget):
             painter.drawPixmap(QPointF(pix_rect.x(), pix_rect.y()), scaled_pix)
         finally:
             painter.end()
+
+    def trigger_drop_pop(self):
+        self.pop_value = 0.0
+        self.pop_anim = QVariantAnimation(self)
+        self.pop_anim.setDuration(450)
+        self.pop_anim.setStartValue(0.0)
+        self.pop_anim.setEndValue(1.0)
+        self.pop_anim.setEasingCurve(QEasingCurve.Type.OutBack)
+        self.pop_anim.valueChanged.connect(self._animate_pop)
+        self.pop_anim.start()
+
+    def _animate_pop(self, val):
+        self.pop_value = val
+        self.update()
 
 class DropArea(QFrame):
     fileDropped = Signal(str)
@@ -1747,6 +1825,12 @@ class DropArea(QFrame):
         self.sub_label.setWordWrap(True)
         self.sub_label.setStyleSheet("QLabel { background: transparent; color: #9AA0A6; font-size: 13px; border: none; }")
         layout.addWidget(self.sub_label)
+        self.chips_container = QWidget()
+        self.chips_layout = QHBoxLayout(self.chips_container)
+        self.chips_layout.setContentsMargins(0, 8, 0, 0)
+        self.chips_layout.setSpacing(8)
+        self.chips_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.chips_container)
         layout.addStretch(1)
         
         self.retranslate_ui()
@@ -1756,10 +1840,8 @@ class DropArea(QFrame):
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
-            file_path = event.mimeData().urls()[0].toLocalFile().lower()
-            if file_path.endswith('.py') or file_path.endswith('.pyw'):
-                event.acceptProposedAction()
-                self.setStyleSheet("#DropArea { background-color: #E8F0FE; border: 2px dashed #1A73E8; border-radius: 12px; }")
+            event.acceptProposedAction()
+            self.setStyleSheet("#DropArea { background-color: #E8F0FE; border: 2px dashed #1A73E8; border-radius: 12px; }")
 
     def dragLeaveEvent(self, event):
         self.setStyleSheet("#DropArea { background-color: #f8f9fa; border: 2px dashed #dadce0; border-radius: 12px; } #DropArea:hover { background-color: #f1f3f4; border: 2px dashed #bdc1c6; }")
@@ -1767,10 +1849,19 @@ class DropArea(QFrame):
     def dropEvent(self, event: QDropEvent):
         self.dragLeaveEvent(event)
         urls = event.mimeData().urls()
-        if urls:
-            file_path = urls[0].toLocalFile()
-            if file_path.lower().endswith(('.py', '.pyw')):
-                self.fileDropped.emit(file_path)
+        if not urls: return
+        
+        paths = [u.toLocalFile() for u in urls if u.toLocalFile()]
+        if not paths: return
+
+        py_files = [p for p in paths if p.lower().endswith(('.py', '.pyw'))]
+        
+        if py_files:
+            self.fileDropped.emit(py_files[0])
+        else:
+            parent_win = self.window()
+            if hasattr(parent_win, 'on_main_resources_dropped'):
+                parent_win.on_main_resources_dropped(paths)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1849,6 +1940,49 @@ class DropArea(QFrame):
         self.icon_widget.reset()
         self.retranslate_ui()
         self.label.setStyleSheet("QLabel { background: transparent; color: #5F6368; font-size: 16px; font-weight: bold; border: none; }")
+
+    def render_asset_chips(self, script_path=None, add_data_list=None):
+        while self.chips_layout.count():
+            item = self.chips_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+                
+        if not script_path and not add_data_list:
+            return
+
+        chips = []
+        if script_path:
+            chips.append(("🐍 " + Path(script_path).name, "#eff6ff", "#1d4ed8", "#bfdbfe"))
+
+        if add_data_list:
+            for item in add_data_list[:3]:
+                r_type, src, dst = item
+                p = Path(src)
+                if r_type == 'dir':
+                    chips.append(("📁 " + p.name, "#f0fdf4", "#15803d", "#bbf7d0"))
+                elif p.suffix.lower() in ('.ico', '.png', '.jpg', '.jpeg', '.svg'):
+                    chips.append(("🖼️ " + p.name, "#fef3c7", "#b45309", "#fde68a"))
+                else:
+                    chips.append(("📄 " + p.name, "#f3f4f6", "#374151", "#e5e7eb"))
+
+            if len(add_data_list) > 3:
+                chips.append((f"+{len(add_data_list) - 3} ...", "#f1f5f9", "#475569", "#cbd5e1"))
+
+        for text, bg, color, border in chips:
+            chip = QLabel(text)
+            chip.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {bg};
+                    color: {color};
+                    border: 1px solid {border};
+                    border-radius: 12px;
+                    padding: 3px 10px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    font-family: Consolas, "Segoe UI", sans-serif;
+                }}
+            """)
+            self.chips_layout.addWidget(chip)
 
 class PythonScannerThread(QThread):
     scan_done = Signal(dict)
@@ -1982,6 +2116,52 @@ class PythonScannerThread(QThread):
                     valid_pythons[res[0]] = res[1]
 
         self.scan_done.emit(valid_pythons)
+
+class VenvCleanerTaskThread(QThread):
+    scan_done = Signal(list, int)
+    delete_done = Signal(int, float)
+
+    def __init__(self, mode, target_dir=None, venvs_to_delete=None):
+        super().__init__()
+        self.mode = mode
+        self.target_dir = Path(target_dir) if target_dir else None
+        self.venvs_to_delete = venvs_to_delete or []
+
+    def run(self):
+        if self.mode == "scan":
+            venvs = []
+            freed_bytes = 0
+            if self.target_dir and self.target_dir.exists():
+                try:
+                    for p in self.target_dir.iterdir():
+                        if p.is_dir() and p.name.startswith(".qpypack_venv"):
+                            venvs.append(p)
+                except Exception: pass
+
+            for venv in venvs:
+                try:
+                    for f in venv.rglob('*'):
+                        if f.is_file():
+                            freed_bytes += f.stat().st_size
+                except Exception: pass
+
+            self.scan_done.emit(venvs, freed_bytes)
+
+        elif self.mode == "delete":
+            success_count = 0
+            total_bytes = 0
+            for venv in self.venvs_to_delete:
+                v_bytes = 0
+                try:
+                    for f in venv.rglob('*'):
+                        if f.is_file(): v_bytes += f.stat().st_size
+                except Exception: pass
+
+                if robust_rmtree(venv):
+                    success_count += 1
+                    total_bytes += v_bytes
+
+            self.delete_done.emit(success_count, total_bytes / (1024 * 1024))
 
 class SettingsPanel(QWidget):
     def __init__(self, parent=None):
@@ -2417,7 +2597,29 @@ class SettingsPanel(QWidget):
         g_dep.addWidget(self.pipreqs_dir_check, 2, 0)
         c_lay_deps.addLayout(g_dep)
 
+        self.card_env, c_lay_env = self._create_card(_("Environment Analysis"))
+        
+        btn_env_lay = QHBoxLayout()
+        self.btn_inspect_env = QPushButton(_("Inspect Interpreter Environment"))
+        self.btn_inspect_env.setProperty("class", "ToolBtn")
+        self.btn_inspect_env.clicked.connect(self.inspect_current_python_env)
+
+        self.btn_remediate_env = QPushButton(_("Remediate Detected Conflicts"))
+        self.btn_remediate_env.setProperty("class", "ToolBtn")
+        self.btn_remediate_env.setStyleSheet("QPushButton { color: #d93025; font-weight: bold; }")
+        self.btn_remediate_env.clicked.connect(self.remediate_environment_conflicts)
+
+        btn_env_lay.addWidget(self.btn_inspect_env)
+        btn_env_lay.addWidget(self.btn_remediate_env)
+        btn_env_lay.addStretch()
+        c_lay_env.addLayout(btn_env_lay)
+
+        self.lbl_env_status = QLabel(_("Status: Environment inspection ready."))
+        self.lbl_env_status.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 4px;")
+        c_lay_env.addWidget(self.lbl_env_status)
+
         lay_sub2.addWidget(self.card_deps)
+        lay_sub2.addWidget(self.card_env)
         lay_sub2.addStretch()
 
         self.card_res, c_lay_res = self._create_card(_("Additional Resources (Drag & Drop Supported)"))
@@ -2534,8 +2736,10 @@ class SettingsPanel(QWidget):
         self.cert_pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.cert_pass_edit.setPlaceholderText(_("Certificate password"))
 
-        form_adv_sign.addRow(QLabel(_("Commercial PFX File:")), cert_cont)
-        form_adv_sign.addRow(QLabel(_("Cert Password:")), self.cert_pass_edit)
+        self.lbl_cert_path = QLabel(_("Commercial PFX File:"))
+        self.lbl_cert_pass = QLabel(_("Cert Password:"))
+        form_adv_sign.addRow(self.lbl_cert_path, cert_cont)
+        form_adv_sign.addRow(self.lbl_cert_pass, self.cert_pass_edit)
         self.adv_sign_container.setVisible(False)
 
         self.btn_toggle_adv_sign = QPushButton(_("Use Custom Commercial Cert (Optional) ▸"))
@@ -2574,7 +2778,7 @@ class SettingsPanel(QWidget):
         self.mapping_table.verticalHeader().setVisible(False)
         self.mapping_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.mapping_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.mapping_table.setMinimumHeight(150)
+        self.mapping_table.setMinimumHeight(120)
         c_lay_map.addWidget(self.mapping_table)
 
         btn_map_lay = QHBoxLayout()
@@ -2596,7 +2800,44 @@ class SettingsPanel(QWidget):
         btn_map_lay.addStretch()
         c_lay_map.addLayout(btn_map_lay)
 
+        # --- 新增卡片：废弃兼容包拦截规则 ---
+        self.card_rules, c_lay_rules = self._create_card(_("Obsolete Backport Exclusion Rules"))
+        
+        self.enable_shield_check = QCheckBox(_("Enable Automatic Backport Isolation"))
+        self.enable_shield_check.setChecked(True)
+        c_lay_rules.addWidget(self.enable_shield_check)
+
+        self.backport_table = QTableWidget()
+        self.backport_table.setItemDelegate(TableItemDelegate(self.backport_table))
+        self.backport_table.setColumnCount(2)
+        self.backport_table.setHorizontalHeaderLabels([_("Package Name"), _("Min Python Ver")])
+        self.backport_table.verticalHeader().setVisible(False)
+        self.backport_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.backport_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.backport_table.setMinimumHeight(120)
+        c_lay_rules.addWidget(self.backport_table)
+
+        btn_rules_lay = QHBoxLayout()
+        self.btn_add_rule = QPushButton(_("Add Backport Rule"))
+        self.btn_add_rule.setProperty("class", "ToolBtn")
+        self.btn_add_rule.clicked.connect(self.add_backport_rule_item)
+
+        self.btn_del_rule = QPushButton(_("Remove Selected"))
+        self.btn_del_rule.setProperty("class", "ToolBtn")
+        self.btn_del_rule.clicked.connect(self.delete_backport_rule_item)
+
+        self.btn_reset_rules = QPushButton(_("Restore Defaults"))
+        self.btn_reset_rules.setProperty("class", "ToolBtn")
+        self.btn_reset_rules.clicked.connect(self.reset_backport_rules_default)
+
+        btn_rules_lay.addWidget(self.btn_add_rule)
+        btn_rules_lay.addWidget(self.btn_del_rule)
+        btn_rules_lay.addWidget(self.btn_reset_rules)
+        btn_rules_lay.addStretch()
+        c_lay_rules.addLayout(btn_rules_lay)
+
         lay_sub5.addWidget(self.card_map)
+        lay_sub5.addWidget(self.card_rules)
         lay_sub5.addStretch()
 
         main_lay.addWidget(self.sub_tabs)
@@ -2834,7 +3075,7 @@ class SettingsPanel(QWidget):
         self.sub_tabs.setTabText(1, _("Dependencies"))
         self.sub_tabs.setTabText(2, _("Resources"))
         self.sub_tabs.setTabText(3, _("Optimization & Security"))
-        self.sub_tabs.setTabText(4, _("Package Map"))
+        self.sub_tabs.setTabText(4, _("Package Mappings & Rules"))
         
         self.card_engine.findChild(QLabel, "CardTitle").setText(_("Engine & Environment"))
         self.card_mode.findChild(QLabel, "CardTitle").setText(_("Execution Mode"))
@@ -2843,6 +3084,26 @@ class SettingsPanel(QWidget):
         self.card_opt.findChild(QLabel, "CardTitle").setText(_("Performance Optimization"))
         self.card_ver.findChild(QLabel, "CardTitle").setText(_("Lock Core Dependencies"))
         self.card_map.findChild(QLabel, "CardTitle").setText(_("Package Name Mappings"))
+
+        if hasattr(self, 'card_rules'):
+            self.card_rules.findChild(QLabel, "CardTitle").setText(_("Obsolete Backport Exclusion Rules"))
+        if hasattr(self, 'card_env'):
+            self.card_env.findChild(QLabel, "CardTitle").setText(_("Environment Analysis"))
+        if hasattr(self, 'enable_shield_check'):
+            self.enable_shield_check.setText(_("Enable Automatic Backport Isolation"))
+        if hasattr(self, 'btn_inspect_env'):
+            self.btn_inspect_env.setText(_("Inspect Interpreter Environment"))
+        if hasattr(self, 'btn_remediate_env'):
+            self.btn_remediate_env.setText(_("Remediate Detected Conflicts"))
+        if hasattr(self, 'backport_table'):
+            self.backport_table.setHorizontalHeaderLabels([_("Package Name"), _("Min Python Ver")])
+        if hasattr(self, 'btn_add_rule'):
+            self.btn_add_rule.setText(_("Add Backport Rule"))
+        if hasattr(self, 'btn_del_rule'):
+            self.btn_del_rule.setText(_("Remove Selected"))
+        if hasattr(self, 'btn_reset_rules'):
+            self.btn_reset_rules.setText(_("Restore Defaults"))
+
         self.card_lang.findChild(QLabel, "CardTitle").setText(_("UI Language:"))
         self.card_meta.findChild(QLabel, "CardTitle").setText(_("App Metadata & Presets"))
         self.card1.findChild(QLabel, "CardTitle").setText(_("Output Location"))
@@ -2966,7 +3227,37 @@ class SettingsPanel(QWidget):
         if hasattr(self, 'lbl_res_hint'):
             self.lbl_res_hint.setText(_("Project-specific. Not saved to global preferences. Use 'Export Preset' to save config."))
         self.add_data_list.setToolTip(_("Double-click to edit target path; Drag & drop supported. Use 'Export Preset' to save for reuse."))
-            
+        
+        # --- 补充遗漏的语言刷新控件 ---
+        self.btn_clean_venvs.setText(_("Clear Local Venvs"))
+        self.enable_sign_check.setText(_("Enable Smart Code Signing"))
+        self.enable_sign_check.setToolTip(_("Auto-applies digital signature to built app, eliminating 'Unknown Publisher' warning"))
+        
+        if hasattr(self, 'lbl_cert_path'):
+            self.lbl_cert_path.setText(_("Commercial PFX File:"))
+        if hasattr(self, 'lbl_cert_pass'):
+            self.lbl_cert_pass.setText(_("Cert Password:"))
+
+        if self.adv_sign_container.isVisible():
+            self.btn_toggle_adv_sign.setText(_("Hide Custom Cert Settings ▾"))
+        else:
+            self.btn_toggle_adv_sign.setText(_("Use Custom Commercial Cert (Optional) ▸"))
+
+        if hasattr(self, 'lang_combo'):
+            current_lang = self.lang_combo.currentData()
+            self.lang_combo.blockSignals(True)
+            self.lang_combo.clear()
+            for code, name in I18N.get_available_languages().items():
+                self.lang_combo.addItem(name, code)
+            idx = self.lang_combo.findData(current_lang)
+            if idx >= 0:
+                self.lang_combo.setCurrentIndex(idx)
+            self.lang_combo.blockSignals(False)
+
+        if hasattr(self, 'lbl_env_status'):
+            if "ready." in self.lbl_env_status.text() or "等待环境校验" in self.lbl_env_status.text():
+                self.lbl_env_status.setText(_("Status: Environment inspection ready."))
+        
         self.on_engine_changed()
         self.on_python_path_changed()
 
@@ -3036,6 +3327,124 @@ class SettingsPanel(QWidget):
         self.populate_mapping_table(DEFAULT_MAPPINGS)
         if hasattr(self.parent_win, "show_notification"):
             self.parent_win.show_notification(_("Package mappings have been reset to defaults."))
+
+    def populate_backport_table(self, rules_dict):
+        self.backport_table.setRowCount(0)
+        for pkg_name, ver_str in rules_dict.items():
+            row = self.backport_table.rowCount()
+            self.backport_table.insertRow(row)
+            self.backport_table.setItem(row, 0, QTableWidgetItem(pkg_name))
+            self.backport_table.setItem(row, 1, QTableWidgetItem(str(ver_str)))
+
+    def add_backport_rule_item(self):
+        dlg1 = CustomInputDialog(self, _("Add Backport Rule"), _("Package Name (e.g. pathlib):"))
+        if dlg1.exec() != QDialog.DialogCode.Accepted: return
+        pkg_name = dlg1.get_text().strip().lower()
+        if not pkg_name: return
+        
+        dlg2 = CustomInputDialog(self, _("Add Backport Rule"), _("Minimum Built-in Python Version (e.g. 3.4):"), "3.4")
+        if dlg2.exec() != QDialog.DialogCode.Accepted: return
+        ver_str = dlg2.get_text().strip()
+        if not ver_str: ver_str = "3.4"
+        
+        row = self.backport_table.rowCount()
+        self.backport_table.insertRow(row)
+        self.backport_table.setItem(row, 0, QTableWidgetItem(pkg_name))
+        self.backport_table.setItem(row, 1, QTableWidgetItem(ver_str))
+
+    def delete_backport_rule_item(self):
+        rows = set(item.row() for item in self.backport_table.selectedItems())
+        for r in sorted(rows, reverse=True): self.backport_table.removeRow(r)
+
+    def reset_backport_rules_default(self):
+        self.populate_backport_table(DEFAULT_BACKPORT_RULES)
+        if hasattr(self.parent_win, "show_notification"):
+            self.parent_win.show_notification(_("Backport exclusion rules have been reset to defaults."))
+
+    def get_selected_python_ver_tuple(self):
+        raw_py = self.python_path_combo.currentText().strip()
+        if " (Python " in raw_py: raw_py = raw_py.split(" (Python ")[0].strip()
+        if not raw_py: raw_py = get_python_executable()
+        
+        try:
+            clean_env = os.environ.copy()
+            clean_env.pop("PYTHONHOME", None)
+            clean_env.pop("PYTHONPATH", None)
+            kw = {"capture_output": True, "text": True, "timeout": 3, "errors": "ignore"}
+            if os.name == 'nt': kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+            res = subprocess.run([raw_py, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], **kw)
+            if res.returncode == 0 and res.stdout.strip():
+                parts = res.stdout.strip().split('.')
+                return raw_py, (int(parts[0]), int(parts[1]))
+        except Exception: pass
+        return raw_py, (3, 8)
+
+    def get_current_active_backport_rules(self):
+        rules = {}
+        for r in range(self.backport_table.rowCount()):
+            item_k = self.backport_table.item(r, 0)
+            item_v = self.backport_table.item(r, 1)
+            pkg = item_k.text().strip().lower() if item_k else ""
+            ver_str = item_v.text().strip() if item_v else "3.4"
+            if pkg:
+                try:
+                    parts = [int(x) for x in ver_str.split('.')]
+                    major = parts[0] if len(parts) > 0 else 3
+                    minor = parts[1] if len(parts) > 1 else 0
+                    rules[pkg] = (major, minor)
+                except Exception:
+                    rules[pkg] = (3, 4)
+        return rules
+
+    def inspect_current_python_env(self):
+        py_exe, ver_tuple = self.get_selected_python_ver_tuple()
+        if not py_exe or not os.path.exists(py_exe):
+            self.lbl_env_status.setText(_("[ERROR] Python interpreter is invalid or not found: {path}", path=py_exe or "None"))
+            return
+            
+        installed = query_target_env_packages(py_exe)
+        current_rules = self.get_current_active_backport_rules()
+        conflicts_found = []
+        
+        for pkg_name in installed.keys():
+            clean_pkg = pkg_name.lower().strip()
+            if clean_pkg in current_rules:
+                req_ver_tuple = current_rules[clean_pkg]
+                if ver_tuple >= req_ver_tuple:
+                    conflicts_found.append(pkg_name)
+                    
+        if conflicts_found:
+            msg = _("Active backport conflicts detected ({count}): {pkgs}", count=len(conflicts_found), pkgs=", ".join(conflicts_found))
+            self.lbl_env_status.setText(f"<span style='color:#d93025; font-weight:bold;'>[WARN] {msg}</span>")
+        else:
+            self.lbl_env_status.setText(_("Interpreter inspection passed: No active backport conflicts detected."))
+
+    def remediate_environment_conflicts(self):
+        py_exe, ver_tuple = self.get_selected_python_ver_tuple()
+        installed = query_target_env_packages(py_exe)
+        current_rules = self.get_current_active_backport_rules()
+        
+        conflicts_to_remove = []
+        for pkg_name in installed.keys():
+            clean_pkg = pkg_name.lower().strip()
+            if clean_pkg in current_rules and ver_tuple >= current_rules[clean_pkg]:
+                conflicts_to_remove.append(pkg_name)
+                
+        if not conflicts_to_remove:
+            if hasattr(self.parent_win, "show_notification"):
+                self.parent_win.show_notification(_("No environment conflicts detected."))
+            return
+            
+        uninst_cmd = [py_exe, "-m", "pip", "uninstall", "-y"] + conflicts_to_remove
+        try:
+            kw = {"capture_output": True, "text": True, "timeout": 20, "errors": "ignore"}
+            if os.name == 'nt': kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+            subprocess.run(uninst_cmd, **kw)
+            self.inspect_current_python_env()
+            if hasattr(self.parent_win, "show_notification"):
+                self.parent_win.show_notification(_("Remediation completed for packages: {pkgs}", pkgs=", ".join(conflicts_to_remove)))
+        except Exception as e:
+            self.lbl_env_status.setText(_("[ERROR] Environment remediation failed: {error}", error=str(e)))
 
     def toggle_adv_sign_ui(self):
         is_visible = not self.adv_sign_container.isVisible()
@@ -3204,8 +3613,10 @@ class SettingsPanel(QWidget):
             self._set_combo_value(self.pip_backup_combo, pip_backup)
 
             self.venv_check.setChecked(s.getboolean('use_venv', True))
-            self.keep_venv_check.setChecked(s.getboolean('keep_venv', False))
+            
+            self.keep_venv_check.setChecked(False)
             self.keep_venv_check.setEnabled(self.venv_check.isChecked())
+            
             self.reqs_check.setChecked(s.getboolean('use_reqs', True))
             self.pipreqs_check.setChecked(s.getboolean('use_pipreqs', True))
             self.pipreqs_dir_check.setChecked(s.getboolean('use_pipreqs_dir', False))
@@ -3244,6 +3655,10 @@ class SettingsPanel(QWidget):
         if 'Mappings' in config:
             self.populate_mapping_table(dict(config['Mappings']))
 
+        if 'BackportRules' in config:
+            self.populate_backport_table(dict(config['BackportRules']))
+        self.enable_shield_check.setChecked(s.getboolean('enable_backport_shield', True))
+        
     def save_to_config(self):
         config = load_config()
         if 'Settings' not in config: config['Settings'] = {}
@@ -3303,7 +3718,16 @@ class SettingsPanel(QWidget):
             k = item_k.text().strip() if item_k else ""
             v = item_v.text().strip() if item_v else ""
             if k and v: config['Mappings'][k] = v
-        
+
+        s['enable_backport_shield'] = str(self.enable_shield_check.isChecked())
+        config['BackportRules'] = {}
+        for r in range(self.backport_table.rowCount()):
+            item_k = self.backport_table.item(r, 0)
+            item_v = self.backport_table.item(r, 1)
+            k = item_k.text().strip().lower() if item_k else ""
+            v = item_v.text().strip() if item_v else "3.4"
+            if k: config['BackportRules'][k] = v        
+
         save_config(config)
         I18N.set_language(new_lang)
 
@@ -3413,37 +3837,27 @@ class SettingsPanel(QWidget):
 
     def clean_local_venvs(self):
         script_path = getattr(self.parent_win, 'script_path', '')
-        if script_path and Path(script_path).exists():
-            target_dir = Path(script_path).parent
-        else:
-            target_dir = Path.cwd()
+        target_dir = Path(script_path).parent if (script_path and Path(script_path).exists()) else Path.cwd()
 
-        venvs_to_remove = []
-        if target_dir.exists():
-            try:
-                for p in target_dir.iterdir():
-                    if p.is_dir() and p.name.startswith(".qpypack_venv"):
-                        venvs_to_remove.append(p)
-            except Exception: pass
+        self.btn_clean_venvs.setEnabled(False)
+        self.btn_clean_venvs.setText(_("Scanning..."))
+
+        self.venv_worker = VenvCleanerTaskThread("scan", target_dir=target_dir)
+        self.venv_worker.scan_done.connect(self._on_venv_scan_done)
+        self.venv_worker.start()
+
+    def _on_venv_scan_done(self, venvs_to_remove, freed_bytes):
+        self.btn_clean_venvs.setEnabled(True)
+        self.btn_clean_venvs.setText(_("Clear Local Venvs"))
 
         if not venvs_to_remove:
             if hasattr(self.parent_win, 'show_notification'):
                 self.parent_win.show_notification(_("No local virtual environments found to clean."))
             return
 
-        freed_bytes = 0
-        paths_str_list = []
-        for venv in venvs_to_remove:
-            paths_str_list.append(f"• {venv.name}")
-            try:
-                for f in venv.rglob('*'):
-                    if f.is_file():
-                        freed_bytes += f.stat().st_size
-            except Exception: pass
-
         count = len(venvs_to_remove)
         freed_mb = freed_bytes / (1024 * 1024)
-        paths_html = "<br>".join(paths_str_list)
+        paths_html = "<br>".join([f"• {v.name}" for v in venvs_to_remove])
 
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle(_("Clear Virtual Environments"))
@@ -3480,15 +3894,21 @@ class SettingsPanel(QWidget):
         msg_box.exec()
 
         if msg_box.clickedButton() == btn_confirm:
-            success_count = 0
-            for venv in venvs_to_remove:
-                if robust_rmtree(venv):
-                    success_count += 1
+            self.btn_clean_venvs.setEnabled(False)
+            self.btn_clean_venvs.setText(_("Deleting..."))
 
-            msg = _("Successfully cleaned {count} virtual environment(s), freed {size:.1f} MB disk space.",
-                    count=success_count, size=freed_mb)
-            if hasattr(self.parent_win, 'show_notification'):
-                self.parent_win.show_notification(msg, 6000)
+            self.venv_worker = VenvCleanerTaskThread("delete", venvs_to_delete=venvs_to_remove)
+            self.venv_worker.delete_done.connect(self._on_venv_delete_done)
+            self.venv_worker.start()
+
+    def _on_venv_delete_done(self, success_count, freed_mb):
+        self.btn_clean_venvs.setEnabled(True)
+        self.btn_clean_venvs.setText(_("Clear Local Venvs"))
+        
+        msg = _("Successfully cleaned {count} virtual environment(s), freed {size:.1f} MB disk space.",
+                count=success_count, size=freed_mb)
+        if hasattr(self.parent_win, 'show_notification'):
+            self.parent_win.show_notification(msg, 6000)
 
     def select_python_path(self):
         exe_filter = "Executable (*.exe);;All Files (*)" if os.name == 'nt' else "All Files (*)"
@@ -3725,6 +4145,11 @@ class PackingThread(QThread):
                     import signal
                     os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
             except: pass
+            
+            try:
+                self.process.terminate()
+                self.process.kill()
+            except Exception: pass
 
     def run_cmd(self, cmd, cwd=None, timeout=None, silent_error=False, extra_env=None):
         if self._is_cancelled: return False
@@ -3844,9 +4269,16 @@ class PackingThread(QThread):
         cmd = [python_exe, "-m", "pip", "install"] + pkgs_or_args + pip_args
         success = self.run_cmd(cmd)
 
+        if not success and not self.params.get('use_venv') and not self._is_cancelled:
+            self.progress.emit(_("[WARN] System Python write permission restricted. Retrying with '--user' mode..."))
+            user_cmd = [python_exe, "-m", "pip", "install", "--user"] + pkgs_or_args + pip_args
+            success = self.run_cmd(user_cmd)
+
         if not success and backup_idx and backup_idx != primary_idx:
             self.progress.emit(_("[INFO] Switching to backup PyPI source for retrieval: {url}", url=backup_idx))
             fallback_cmd = [python_exe, "-m", "pip", "install"] + pkgs_or_args + ["-i", backup_idx, "--disable-pip-version-check", "--prefer-binary"]
+            if not self.params.get('use_venv'):
+                fallback_cmd.insert(4, "--user")
             success = self.run_cmd(fallback_cmd)
 
         return success
@@ -4435,6 +4867,36 @@ class PackingThread(QThread):
 
             dedup_install_list = [pkg for pkg in list(final_install_dict.values()) if re.split(r'[=><!~]', pkg)[0].strip().lower() not in target_std_libs]
 
+            enable_shield = self.params.get('enable_backport_shield', True)
+            user_backport_rules = self.params.get('backport_rules', {})
+
+            target_py_ver = (3, 8)
+            try:
+                kw_v = {"capture_output": True, "text": True, "timeout": 3, "errors": "ignore"}
+                if os.name == 'nt': kw_v["creationflags"] = subprocess.CREATE_NO_WINDOW
+                res_v = subprocess.run([system_python_exe, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], **kw_v)
+                if res_v.returncode == 0 and res_v.stdout.strip():
+                    pv = res_v.stdout.strip().split('.')
+                    target_py_ver = (int(pv[0]), int(pv[1]))
+            except Exception: pass
+
+            active_exclusions = set()
+            if enable_shield:
+                for pkg_name, min_ver_tuple in user_backport_rules.items():
+                    if target_py_ver >= min_ver_tuple:
+                        active_exclusions.add(pkg_name.lower())
+
+            sanitized_dependencies = {}
+            for canon_name, full_spec in final_dependencies.items():
+                clean_k = canon_name.lower().strip()
+                if clean_k in active_exclusions:
+                    self.progress.emit(_("[INFO] Auto-shielded obsolete backport module: '{pkg}' (Built-in in Python {ver})", 
+                                         pkg=canon_name, ver=f"{target_py_ver[0]}.{target_py_ver[1]}"))
+                    continue
+                sanitized_dependencies[canon_name] = full_spec
+
+            final_dependencies = sanitized_dependencies
+
             temp_unified_reqs = custom_temp_base / f"qpypack_atomic_reqs_{int(time.time())}.txt"
             temp_unified_reqs.write_text('\n'.join(dedup_install_list), encoding='utf-8')
 
@@ -4808,7 +5270,15 @@ class PackingThread(QThread):
                         cmd.append(f"--nofollow-import-to={ex}")
 
             cmd.append(script_posix)
-            
+
+            if enable_shield and active_exclusions:
+                if engine == "PyInstaller":
+                    for bad_pkg in active_exclusions:
+                        cmd.extend(["--exclude-module", bad_pkg])
+                elif engine == "Nuitka":
+                    for bad_pkg in active_exclusions:
+                        cmd.append(f"--nofollow-import-to={bad_pkg}")
+
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
 
@@ -4920,6 +5390,8 @@ class PackingThread(QThread):
                 except Exception as e: 
                     success = False
                     self.progress.emit(_("[ERROR] Product transfer failed, file might be occupied by system process or lack permission: {error}", error=str(e)))
+                    if src_out and src_out.exists():
+                        self.progress.emit(f"[INFO] You can manually copy the compiled product from temporary folder:\n -> {src_out.as_posix()}")
             else: 
                 if not success and not self._is_cancelled:
                     self.progress.emit(_("[ERROR] Could not locate valid executable product in temporary build directory: {path}", path=str(src_out)))
@@ -4937,7 +5409,7 @@ class PackingThread(QThread):
                     except: pass
                 
                 if self.params['onefile'] and os.name == 'nt':
-                    self.progress.emit(_("[INFO] Tip: Packaged executables might be falsely flagged by Windows Defender/Antivirus. Adding exclusions or code-signing is recommended."))
+                    self.progress.emit(_("[INFO] Tip: Executables without commercial signatures might be falsely flagged by Windows Defender/Antivirus."))
                 self.build_finished.emit(True, _("[SUCCESS] Compilation completed, output path: {path}", path=final_out.resolve().as_posix()), failed_packages)
             else: 
                 if self._is_cancelled:
@@ -5007,11 +5479,7 @@ class PackingThread(QThread):
                     except: pass
                     
                 if sandbox_mode == 0 and custom_temp_base and custom_temp_base.exists():
-                    try:
-                        if not any(custom_temp_base.iterdir()):
-                            custom_temp_base.rmdir()
-                    except Exception: pass
-
+                    robust_rmtree(custom_temp_base)
 
 class PythonInstallMonitorThread(QThread):
     finished_signal = Signal(bool)
@@ -5756,6 +6224,26 @@ class MainWindow(QMainWindow):
             if str(e) != "Cancelled":
                 self.show_error_log(f"[ERROR] Python download failed: {e}")
 
+    def on_main_resources_dropped(self, paths):
+        if not self.script_path or not Path(self.script_path).exists():
+            self.show_error_log(_("[ERROR] Please load a valid Python source file first!"))
+            return
+            
+        self.settings_panel.on_resources_dropped(paths)
+        
+        self.drop_area.icon_widget.trigger_drop_pop()
+        
+        add_data_items = [self.settings_panel.add_data_list.item(i).data(Qt.ItemDataRole.UserRole) 
+                          for i in range(self.settings_panel.add_data_list.count())]
+        self.drop_area.render_asset_chips(self.script_path, add_data_items)
+        
+        count = len(paths)
+        if count == 1:
+            name = Path(paths[0]).name
+            self.show_notification(_("[INFO] Added '{name}' to Additional Resources.", name=name))
+        else:
+            self.show_notification(_("[INFO] Added {count} resource item(s) to Additional Resources.", count=count))
+
     def on_script_selected(self, path):
         path = Path(path).resolve().as_posix()
         if is_cloud_locked(path):
@@ -5770,8 +6258,11 @@ class MainWindow(QMainWindow):
             self.settings_panel.reqs_file_edit.clear()
             self.settings_panel.name_edit.clear()
 
+            self.settings_panel.keep_venv_check.setChecked(False)
+
         self.script_path = path
         self.drop_area.set_loading(Path(path).name)
+        self.drop_area.icon_widget.trigger_drop_pop()
         self.set_status(_("Status: Parsing {filename}...", filename=Path(path).name))
         
         if self.analysis_thread and self.analysis_thread.isRunning():
@@ -5800,7 +6291,10 @@ class MainWindow(QMainWindow):
 
         has_gui = any(lib in {m.lower() for m in script_imports} for lib in gui_libs)
         self.settings_panel.noconsole_check.setChecked(has_gui)
-        has_venv = False
+
+        script_dir = Path(path).parent
+        
+        found_venv_name = None
         try:
             import hashlib
             import re
@@ -5813,30 +6307,31 @@ class MainWindow(QMainWindow):
             
             target_prefix = f".qpypack_venv_{short_stem}_{path_hash}"
             
-            for p in script_dir.iterdir():
-                if p.is_dir() and p.name.startswith(target_prefix):
-                    has_venv = True
-                    break
+            if script_dir.exists():
+                for p in script_dir.iterdir():
+                    if p.is_dir() and p.name.startswith(target_prefix):
+                        found_venv_name = p.name
+                        break
         except Exception:
             pass
-            
-        if has_venv:
+
+        if found_venv_name:
             self.settings_panel.venv_check.setChecked(True)
-        self.settings_panel.keep_venv_check.setChecked(has_venv)
+            self.settings_panel.keep_venv_check.setChecked(True)
+            self.append_log(_("[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.", venv=found_venv_name))
+        else:
+            self.settings_panel.keep_venv_check.setChecked(False)
 
         default_output_name = f"{app_name}_{version}" if version else app_name
         self.settings_panel.name_edit.setText(default_output_name)
         
-        script_dir = Path(path).parent
         auto_icon = None
-        
         if self.settings_panel.auto_icon_check.isChecked():
             ext_priority = [".ico", ".png", ".jpg", ".jpeg", ".svg"]
             if sys.platform == "darwin": 
                 ext_priority = [".icns", ".png", ".svg", ".ico"]
             name_priority = ["logo", "icon", "app", "favicon", Path(path).stem]
 
-            auto_icon = None
             found = False
             for ext in ext_priority:
                 for name in name_priority:
@@ -5853,40 +6348,15 @@ class MainWindow(QMainWindow):
                 self.settings_panel.icon_edit.setText(auto_icon.resolve().as_posix())
                 
         self.drop_area.set_success(Path(path).name, custom_icon_path=auto_icon)
+        add_data_items = [self.settings_panel.add_data_list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.settings_panel.add_data_list.count())]
+        self.drop_area.render_asset_chips(self.script_path, add_data_items)
         mode_suffix = _(" [Console]") if not has_gui else _(" [No Console]")
         self.set_status(_("Status: Loaded {filename}{mode}", filename=Path(path).name, mode=mode_suffix))
         
         self.log_concise.clear()
         self.log_detailed.clear()
         self.append_log(_("Loaded: {filename}", filename=path))
-
-        found_venv_name = None
-        try:
-            import hashlib
-            import re
-            
-            script_path_obj = Path(path).resolve()
-            raw_stem = script_path_obj.stem
-            clean_stem = re.sub(r'[^a-zA-Z0-9]', '', raw_stem) or "script"
-            short_stem = clean_stem[:12]
-            path_hash = hashlib.md5(script_path_obj.as_posix().encode('utf-8')).hexdigest()[:6]
-            
-            target_prefix = f".qpypack_venv_{short_stem}_{path_hash}"
-            
-            for p in script_dir.iterdir():
-                if p.is_dir() and p.name.startswith(target_prefix):
-                    found_venv_name = p.name
-                    break
-        except Exception:
-            pass
-            
-        if found_venv_name:
-            self.settings_panel.venv_check.setChecked(True)
-            self.settings_panel.keep_venv_check.setChecked(True)
-            self.append_log(_("[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.", venv=found_venv_name))
-        else:
-            self.settings_panel.keep_venv_check.setChecked(False)
-
+        self.show_notification(_("Script loaded. You can drag asset folders or data files directly here to bundle them."), 6000)
         self.btn_main.setEnabled(True)
         self.update_ui_state("ready")
 
@@ -5971,7 +6441,14 @@ class MainWindow(QMainWindow):
                 desc_escaped = sp.ver_desc.text().replace("\\", "\\\\").replace("'", "\\'")
                 v_str_escaped = v_str.replace("\\", "\\\\").replace("'", "\\'")
                 
-                content = f'''VSVersionInfo(ffi=FixedFileInfo(filevers=({v_tuple}),prodvers=({v_tuple}),mask=0x3f,flags=0x0,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('CompanyName','{comp_escaped}'),StringStruct('FileDescription','{desc_escaped}'),StringStruct('FileVersion','{v_str_escaped}'),StringStruct('ProductVersion','{v_str_escaped}'),StringStruct('OriginalFilename','{app_name}.exe')])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])'''
+                clean_product_name = app_name
+                if v_str and clean_product_name.endswith(f"_{v_str}"):
+                    clean_product_name = clean_product_name[:-len(f"_{v_str}")]
+                    
+                app_name_escaped = clean_product_name.replace("\\", "\\\\").replace("'", "\\'")
+                orig_filename_escaped = app_name.replace("\\", "\\\\").replace("'", "\\'")
+                
+                content = f'''VSVersionInfo(ffi=FixedFileInfo(filevers=({v_tuple}),prodvers=({v_tuple}),mask=0x3f,flags=0x0,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('CompanyName','{comp_escaped}'),StringStruct('FileDescription','{desc_escaped}'),StringStruct('FileVersion','{v_str_escaped}'),StringStruct('ProductVersion','{v_str_escaped}'),StringStruct('ProductName','{app_name_escaped}'),StringStruct('InternalName','{app_name_escaped}'),StringStruct('OriginalFilename','{orig_filename_escaped}.exe')])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])'''
                 version_file = Path(tempfile.gettempdir()) / f"qpypack_{app_name}_version.txt"
                 version_file.write_text(content, encoding='utf-8')
             except: pass
@@ -6067,6 +6544,8 @@ class MainWindow(QMainWindow):
             'pyi_version': sp.pyi_ver_edit.text().strip(),
             'nuitka_version': sp.nuitka_ver_edit.text().strip(),
             'mappings': mappings,
+            'enable_backport_shield': sp.enable_shield_check.isChecked(),
+            'backport_rules': sp.get_current_active_backport_rules(),
         }
 
         self.log_concise.clear()
@@ -6148,11 +6627,15 @@ class MainWindow(QMainWindow):
         self.settings_panel.ver_ver.setText("1.0.0")
         self.settings_panel.ver_comp.setText(_("Independent Developer"))
         self.settings_panel.ver_desc.setText(_("Desktop Application"))
+        
+        self.settings_panel.keep_venv_check.setChecked(False)
+        
         self.log_concise.clear()
         self.log_detailed.clear()
         
         if self.log_container.isVisible(): self.toggle_log()
         self.drop_area.reset()
+        self.drop_area.render_asset_chips(None, None)
         self.set_status(_("Status: Workspace Reset"))
         self.update_ui_state("idle")
     
@@ -6301,10 +6784,23 @@ class MainWindow(QMainWindow):
                 self.show_error_log(_("[ERROR] Failed to export log file: {error}", error=str(e)))
 
 def global_excepthook(exctype, value, tb):
-    import traceback
     err_text = "".join(traceback.format_exception(exctype, value, tb))
     logger.critical(f"Unhandled exception: {err_text}")
     print(err_text, file=sys.stderr)
+    try:
+        log_file = os.path.join(tempfile.gettempdir(), "qpypack_crash.log")
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(err_text + "\n")
+        
+        from PySide6.QtWidgets import QApplication, QMessageBox
+        if QApplication.instance():
+            QMessageBox.critical(
+                None, 
+                "Fatal Error / 严重错误", 
+                f"App crashed! Unhandled exception occurred.\nLog saved to: {log_file}\n\n{err_text[:500]}..."
+            )
+    except Exception:
+        pass
 
 def main():
     sys.excepthook = global_excepthook

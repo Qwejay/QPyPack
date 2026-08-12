@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.8] - 2026-08-10
+
+#### Added
+- **Asynchronous Background Venv Cleanup**: Introduced a background worker thread to offload scanning and deletion of local virtual environments from the UI thread, preventing interface freezing during large folder cleanups while accurately calculating and displaying freed disk space.
+- **Automatic Pip Permission Fallback & Retry**: Automatically retries dependency installation using `--user` mode if the system Python environment lacks write permissions, further improving build success rates.
+- **Updated AI Translation Tool**: Added support for auto-patching missing translation dictionaries back into the main application, and standardized English bracketed tags for all log prefixes.
+
+#### Fixed
+- **Thorough Temporary Directory Cleanup**: Fixed an issue where custom temp paths were not fully deleted in non-sandbox mode. Optimized with robust recursive cleanup to completely free residual build caches.
+- **UI State Synchronization Fix**: Fixed an issue where the "Keep Local Venv" checkbox was not properly reset when dragging in a new script or resetting the workspace.
+
+---
+
 ## [2.7.7] - 2026-08-09
 
 #### Added
