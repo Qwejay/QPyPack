@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.7.8] - 2026-08-10
+## [2.7.9] - 2026-08-12
+
+#### Added
+- **Build Diagnostics & Stack Tracing**: Added build environment diagnostics header and fatal traceback capturing, with a new `[DETAILED_ONLY]` log routing tag to keep concise logs clean.
+- **Venv Fault-Tolerance**: Automatically renames invalid virtual environments as backups when cleanup fails, providing clear manual instructions if backup fails.
+- **Adaptive Memory Concurrency**: Dynamically adjusts Nuitka `--jobs` concurrency based on free physical memory and automatically enables `--low-memory` flag under memory pressure.
+
+#### Fixed
+- **Config Load Bug**: Fixed an issue where the "Keep Local Venv" (`keep_venv`) setting was mistakenly reset to `False` when loading configurations.
+- **Missing Nuitka Flags**: Restored the missing `--jobs` multi-core compilation parameter in Nuitka build commands.
+- **Product Name Truncation**: Improved string suffix matching when stripping version tags from app names to prevent accidental truncation or slicing errors.
+
+---
+
+## [2.7.8] - 2026-08-11
 
 #### Added
 - **Asynchronous Background Venv Cleanup**: Introduced a background worker thread to offload scanning and deletion of local virtual environments from the UI thread, preventing interface freezing during large folder cleanups while accurately calculating and displaying freed disk space.

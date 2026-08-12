@@ -61,7 +61,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.8"
+__version__ = "2.7.9"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -478,6 +478,9 @@ ZH_CN_DICT = {
     "Package Name": "包名称",
     "[ERROR] Environment remediation failed: {error}": "[ERROR] 环境修复失败：{error}",
     "[INFO] Auto-shielded obsolete backport module: '{pkg}' (Built-in in Python {ver})": "[INFO] 已自动屏蔽过时的反向移植模块：'{pkg}'（Python {ver} 内置）",
+    "[WARN] Failed to delete invalid venv, attempting to rename: {error}": "[WARN] 无法删除失效虚拟环境，尝试重命名: {error}",
+    "[INFO] Old venv renamed to: {name}": "[INFO] 旧虚拟环境已重命名为: {name}",
+    "[ERROR] Unable to clean up invalid virtual environment:\n  Path: {path}\n  Error: {error}\n\nPlease manually delete the directory or uncheck 'Keep Local Venv' and retry.": "[ERROR] 无法清理失效的虚拟环境:\n  路径: {path}\n  错误: {error}\n\n请手动删除该目录，或取消勾选'保留本地虚拟环境'后重试。",
     "Unknown": "未知"
 }
 
@@ -2800,7 +2803,6 @@ class SettingsPanel(QWidget):
         btn_map_lay.addStretch()
         c_lay_map.addLayout(btn_map_lay)
 
-        # --- 新增卡片：废弃兼容包拦截规则 ---
         self.card_rules, c_lay_rules = self._create_card(_("Obsolete Backport Exclusion Rules"))
         
         self.enable_shield_check = QCheckBox(_("Enable Automatic Backport Isolation"))
@@ -3228,7 +3230,6 @@ class SettingsPanel(QWidget):
             self.lbl_res_hint.setText(_("Project-specific. Not saved to global preferences. Use 'Export Preset' to save config."))
         self.add_data_list.setToolTip(_("Double-click to edit target path; Drag & drop supported. Use 'Export Preset' to save for reuse."))
         
-        # --- 补充遗漏的语言刷新控件 ---
         self.btn_clean_venvs.setText(_("Clear Local Venvs"))
         self.enable_sign_check.setText(_("Enable Smart Code Signing"))
         self.enable_sign_check.setToolTip(_("Auto-applies digital signature to built app, eliminating 'Unknown Publisher' warning"))
@@ -3614,7 +3615,7 @@ class SettingsPanel(QWidget):
 
             self.venv_check.setChecked(s.getboolean('use_venv', True))
             
-            self.keep_venv_check.setChecked(False)
+            self.keep_venv_check.setChecked(s.getboolean('keep_venv', False))
             self.keep_venv_check.setEnabled(self.venv_check.isChecked())
             
             self.reqs_check.setChecked(s.getboolean('use_reqs', True))
@@ -4577,8 +4578,28 @@ class PackingThread(QThread):
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
 
+            try:
+                import platform
+                os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
+                py_arch = "64-bit" if sys.maxsize > 2**32 else "32-bit"
+                diag_msg = (
+                    "[DETAILED_ONLY]\n"
+                    "=== QPyPack Build Diagnostics ===\n"
+                    f"QPyPack Ver : {__version__}\n"
+                    f"OS Platform : {os_info}\n"
+                    f"Host Python : {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} ({py_arch}) - {sys.executable}\n"
+                    f"Target Py   : {self.params.get('python_exe')}\n"
+                    f"Build Engine: {engine} (OneFile: {self.params['onefile']}, NoConsole: {self.params['noconsole']}, LiteMode: {self.params.get('lite_mode')})\n"
+                    f"Workspace   : {script_dir.as_posix()}\n"
+                    "================================="
+                )
+                self.progress.emit(diag_msg)
+            except Exception:
+                pass
+
             self.progress.emit(_("[INFO] Analyzing source code and project dependencies..."))
             script_path = Path(self.params['script_path']).resolve()
+
             script_dir = script_path.parent
 
             try:
@@ -4777,9 +4798,27 @@ class PackingThread(QThread):
                         try:
                             robust_rmtree(self.venv_dir)
                         except Exception as e:
-                            self.progress.emit(_("[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}", error=str(e)))
-                            self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_", dir=temp_dir_arg)).resolve()
-                            python_exe_in_venv = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
+                            if self.params.get('keep_venv'):
+                                self.progress.emit(_("[WARN] Failed to delete invalid venv, attempting to rename: {error}", error=str(e)))
+                                try:
+                                    backup_name = f"{self.venv_dir.name}_backup_{int(time.time())}"
+                                    backup_path = self.venv_dir.parent / backup_name
+                                    self.venv_dir.rename(backup_path)
+                                    self.progress.emit(_("[INFO] Old venv renamed to: {name}", name=backup_name))
+                                except Exception as rename_err:
+                                    error_msg = _(
+                                        "[ERROR] Unable to clean up invalid virtual environment:\n"
+                                        "  Path: {path}\n"
+                                        "  Error: {error}\n\n"
+                                        "Please manually delete the directory or uncheck 'Keep Local Venv' and retry.",
+                                        path=self.venv_dir.as_posix(),
+                                        error=str(rename_err)
+                                    )
+                                    return self.build_finished.emit(False, error_msg, [])
+                            else:
+                                self.progress.emit(_("[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}", error=str(e)))
+                                self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_", dir=temp_dir_arg)).resolve()
+                                python_exe_in_venv = (self.venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).as_posix()
 
                     self.progress.emit(_("[INFO] Creating virtual environment ({name})...", name=self.venv_dir.name))
                     if not self.run_cmd([system_python_exe, "-m", "venv", self.venv_dir.as_posix()]):
@@ -5147,13 +5186,24 @@ class PackingThread(QThread):
 
                 cores = self.params.get('cpu_cores', os.cpu_count() or 2)
                 free_ram = get_free_ram_gb()
-                if free_ram < 4.0 and cores > 2:
-                    safe_jobs = max(1, min(cores, int(free_ram / 1.5)))
+
+                if free_ram < 2.0 and cores > 1:
+                    safe_jobs = 1
                     self.progress.emit(_("[INFO] Evaluating system physical memory (Available: {ram:.1f} GB). Adaptive concurrency adjusted: {cores} -> {safe_jobs} ...", ram=free_ram, cores=cores, safe_jobs=safe_jobs))
                     cores = safe_jobs
                     cmd.append("--low-memory")
+                elif free_ram < 3.5 and cores > 2:
+                    safe_jobs = max(2, min(cores, int(free_ram)))
+                    self.progress.emit(_("[INFO] Evaluating system physical memory (Available: {ram:.1f} GB). Adaptive concurrency adjusted: {cores} -> {safe_jobs} ...", ram=free_ram, cores=cores, safe_jobs=safe_jobs))
+                    cores = safe_jobs
+                    cmd.append("--low-memory")
+                elif free_ram < 6.0 and cores > 4:
+                    safe_jobs = max(3, min(cores, int(free_ram / 1.5)))
+                    if safe_jobs < cores:
+                        self.progress.emit(_("[INFO] Evaluating system physical memory (Available: {ram:.1f} GB). Adaptive concurrency adjusted: {cores} -> {safe_jobs} ...", ram=free_ram, cores=cores, safe_jobs=safe_jobs))
+                        cores = safe_jobs
                 cmd.append(f"--jobs={cores}")
-
+                
                 if self.params.get('upx'):
                     cmd.append("--enable-plugin=upx")
                     upx_dir_custom = (self.params.get('upx_path') or '').strip()
@@ -5270,14 +5320,6 @@ class PackingThread(QThread):
                         cmd.append(f"--nofollow-import-to={ex}")
 
             cmd.append(script_posix)
-
-            if enable_shield and active_exclusions:
-                if engine == "PyInstaller":
-                    for bad_pkg in active_exclusions:
-                        cmd.extend(["--exclude-module", bad_pkg])
-                elif engine == "Nuitka":
-                    for bad_pkg in active_exclusions:
-                        cmd.append(f"--nofollow-import-to={bad_pkg}")
 
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
@@ -5432,7 +5474,9 @@ class PackingThread(QThread):
         except Exception as e:
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
-            self.build_finished.emit(False, f"[ERROR] {str(e)}", failed_packages)
+            err_trace = traceback.format_exc()
+            self.progress.emit(f"[DETAILED_ONLY]\n[FATAL ERROR TRACE]\n{err_trace}\n")
+            self.build_finished.emit(False, f"[ERROR] {str(e)}\n\n(See Detailed Log for complete trace)", failed_packages)
         finally:
             if "PYTHONPATH" in os.environ and "_qpypack_temp_" in os.environ.get("PYTHONPATH", ""):
                 parts = os.environ["PYTHONPATH"].split(os.pathsep)
@@ -5479,7 +5523,11 @@ class PackingThread(QThread):
                     except: pass
                     
                 if sandbox_mode == 0 and custom_temp_base and custom_temp_base.exists():
-                    robust_rmtree(custom_temp_base)
+                    try:
+                        if not any(custom_temp_base.iterdir()):
+                            custom_temp_base.rmdir()
+                    except Exception:
+                        pass
 
 class PythonInstallMonitorThread(QThread):
     finished_signal = Signal(bool)
@@ -6442,8 +6490,11 @@ class MainWindow(QMainWindow):
                 v_str_escaped = v_str.replace("\\", "\\\\").replace("'", "\\'")
                 
                 clean_product_name = app_name
-                if v_str and clean_product_name.endswith(f"_{v_str}"):
-                    clean_product_name = clean_product_name[:-len(f"_{v_str}")]
+                if v_str:
+                    suffix = f"_{v_str}"
+                    if clean_product_name.endswith(suffix):
+                        clean_product_name = clean_product_name[:-len(suffix)]
+
                     
                 app_name_escaped = clean_product_name.replace("\\", "\\\\").replace("'", "\\'")
                 orig_filename_escaped = app_name.replace("\\", "\\\\").replace("'", "\\'")
@@ -6646,10 +6697,16 @@ class MainWindow(QMainWindow):
         self.log_stack.setCurrentWidget(self.log_concise if is_concise else self.log_detailed)
 
     def append_log(self, msg, is_error=False):
+        if msg.startswith("[DETAILED_ONLY]"):
+            clean_msg = msg.replace("[DETAILED_ONLY]", "", 1).lstrip('\r\n')
+            self._render_text_edit(self.log_detailed, clean_msg, is_error)
+            return
+
         concise_lines = []
         
         for line in msg.split('\n'):
             line_strip = line.strip()
+
             if not line_strip: continue
             
             if is_error:
