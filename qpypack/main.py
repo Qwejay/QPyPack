@@ -61,10 +61,23 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.9"
+__version__ = "2.7.10"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
+
+DISK_SPACE_MIN_GB = 0.5
+DISK_SPACE_WARN_GB = 5.0
+DISK_SPACE_LOW_GB = 3.0
+MEMORY_LOW_THRESHOLD_GB = 2.0
+MEMORY_MEDIUM_THRESHOLD_GB = 3.5
+MEMORY_HIGH_THRESHOLD_GB = 6.0
+BUILD_TIMEOUT_SECONDS = 3600
+COMMAND_TIMEOUT_SECONDS = 120
+PYTHON_CHECK_TIMEOUT = 3
+PROCESS_KILL_TIMEOUT = 5
+MAX_CLEANUP_RETRIES = 15
+CLEANUP_RETRY_DELAY = 0.8
 
 _CONFIG_DIR = Path.home() / ".qpypack"
 _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -481,6 +494,17 @@ ZH_CN_DICT = {
     "[WARN] Failed to delete invalid venv, attempting to rename: {error}": "[WARN] 无法删除失效虚拟环境，尝试重命名: {error}",
     "[INFO] Old venv renamed to: {name}": "[INFO] 旧虚拟环境已重命名为: {name}",
     "[ERROR] Unable to clean up invalid virtual environment:\n  Path: {path}\n  Error: {error}\n\nPlease manually delete the directory or uncheck 'Keep Local Venv' and retry.": "[ERROR] 无法清理失效的虚拟环境:\n  路径: {path}\n  错误: {error}\n\n请手动删除该目录，或取消勾选'保留本地虚拟环境'后重试。",
+    "Shared environment name (optional, leave empty for isolated)": "共享环境名 (可选, 留空则独立)",
+    "Isolated Environment": "独立环境",
+    "Shared Environment": "共享环境",
+    "Select shared directory...": "请选择共享目录...",
+    "[WARN] Shared directory invalid, falling back to isolated environment mode.": "[WARN] 共享目录无效，降级为独立环境模式。",
+    "[WARN] Shared directory lacks write permissions, falling back to isolated mode.": "[WARN] 共享目录缺少写入权限，降级为独立环境模式。",
+    "[WARN] Low disk space detected: {free:.1f} GB available": "[WARN] 磁盘空间不足，当前可用: {free:.1f} GB。",
+    "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "磁盘空间严重不足: {free:.1f}GB < {min:.1f}GB",
+    "RAM critically low: {free:.1f}GB < 1GB": "内存严重不足: {free:.1f}GB < 1GB",
+    "Python interpreter not found: {path}": "Python 解释器未找到: {path}",
+    "[ERROR] Pre-flight check failed:": "[ERROR] 预检查失败:",
     "Unknown": "未知"
 }
 
@@ -799,6 +823,8 @@ def load_config(retry=True):
             'custom_python_path': '',
             'pyi_version': '6.21.0',
             'nuitka_version': '4.1.3',
+            'venv_mode': 'isolated',
+            'shared_venv_dir': '',
             'lite_mode': 'False'
         }
         for k, v in default_updates.items():
@@ -1451,15 +1477,27 @@ def remove_readonly(func, path, exc_info=None):
     except Exception: pass
 
 def robust_rmtree(path: Path, retries=15, delay=0.8):
-    if not path.exists(): return True
-    for _ in range(retries):
+    if not path.exists(): 
+        return True
+        
+    for attempt in range(retries):
         try:
             if sys.version_info >= (3, 12):
                 shutil.rmtree(path, onexc=lambda func, p, exc: remove_readonly(func, p))
             else:
                 shutil.rmtree(path, onerror=remove_readonly)
-            if not path.exists(): return True
-        except Exception: time.sleep(delay)
+            if not path.exists(): 
+                return True
+        except PermissionError as e:
+            if attempt == retries - 1:
+                logger.warning(f"Failed to remove {path} after {retries} attempts: {e}")
+            time.sleep(delay)
+        except Exception as e:
+            logger.warning(f"Unexpected error removing {path}: {e}")
+            if attempt == retries - 1:
+                return False
+            time.sleep(delay)
+    
     return False
 
 def convert_image_to_format(src_path, dest_path, dest_format):
@@ -2541,7 +2579,6 @@ class SettingsPanel(QWidget):
         self.btn_reqs = QPushButton(_("Browse"))
         self.btn_reqs.setProperty("class", "ToolBtn")
         self.btn_reqs.clicked.connect(self.select_reqs_file)
-        
         reqs_cont = QWidget()
         h_reqs = QHBoxLayout(reqs_cont)
         h_reqs.setContentsMargins(0,0,0,0)
@@ -2579,15 +2616,45 @@ class SettingsPanel(QWidget):
         c_lay_deps.addSpacing(5)
         g_dep = QGridLayout()
         g_dep.setSpacing(10)
-        
         self.venv_check = QCheckBox(_("Use Virtual Environment"))
         self.keep_venv_check = QCheckBox(_("Keep Local Venv"))
         self.venv_check.toggled.connect(self.keep_venv_check.setEnabled)
-        
+
+        self.venv_mode_container = QWidget()
+        self.venv_mode_container.setVisible(False)
+        h_venv_mode = QHBoxLayout(self.venv_mode_container)
+        h_venv_mode.setContentsMargins(0, 0, 0, 0)
+        h_venv_mode.setSpacing(8)
+
+        self.rb_venv_isolated = QRadioButton(_("Isolated Environment"))
+        self.rb_venv_shared = QRadioButton(_("Shared Environment"))
+
+        self.rb_venv_isolated.setChecked(True)
+
+        self.shared_venv_dir_edit = QLineEdit()
+        self.shared_venv_dir_edit.setPlaceholderText(_("Select shared directory..."))
+        self.shared_venv_dir_edit.setEnabled(False)
+        self.shared_venv_dir_edit.setReadOnly(True)
+
+        self.btn_browse_venv_dir = QPushButton(_("Browse"))
+        self.btn_browse_venv_dir.setProperty("class", "ToolBtn")
+        self.btn_browse_venv_dir.setEnabled(False)
+        self.btn_browse_venv_dir.clicked.connect(self.select_shared_venv_dir)
+
+        self.rb_venv_shared.toggled.connect(self.shared_venv_dir_edit.setEnabled)
+        self.rb_venv_shared.toggled.connect(self.btn_browse_venv_dir.setEnabled)
+        self.rb_venv_shared.clicked.connect(self._on_shared_venv_radio_clicked)
+        self.keep_venv_check.toggled.connect(self.venv_mode_container.setVisible)
+
+        h_venv_mode.addWidget(self.rb_venv_isolated)
+        h_venv_mode.addWidget(self.rb_venv_shared)
+        h_venv_mode.addWidget(self.shared_venv_dir_edit, 1)
+        h_venv_mode.addWidget(self.btn_browse_venv_dir)
+
         self.reqs_check = QCheckBox(_("Install requirements.txt"))
         self.pipreqs_check = QCheckBox(_("Analyze Dependencies (AST)"))
         self.pipreqs_dir_check = QCheckBox(_("Scan Entire Folder"))
-        
+
         self.btn_clean_venvs = QPushButton(_("Clear Local Venvs"))
         self.btn_clean_venvs.setProperty("class", "ToolBtn")
         self.btn_clean_venvs.clicked.connect(self.clean_local_venvs)
@@ -2595,9 +2662,10 @@ class SettingsPanel(QWidget):
         g_dep.addWidget(self.venv_check, 0, 0)
         g_dep.addWidget(self.keep_venv_check, 0, 1)
         g_dep.addWidget(self.btn_clean_venvs, 0, 2)
-        g_dep.addWidget(self.reqs_check, 1, 0)
-        g_dep.addWidget(self.pipreqs_check, 1, 1)
-        g_dep.addWidget(self.pipreqs_dir_check, 2, 0)
+        g_dep.addWidget(self.venv_mode_container, 1, 0, 1, 3)
+        g_dep.addWidget(self.reqs_check, 2, 0)
+        g_dep.addWidget(self.pipreqs_check, 2, 1)
+        g_dep.addWidget(self.pipreqs_dir_check, 3, 0)
         c_lay_deps.addLayout(g_dep)
 
         self.card_env, c_lay_env = self._create_card(_("Environment Analysis"))
@@ -2616,7 +2684,6 @@ class SettingsPanel(QWidget):
         btn_env_lay.addWidget(self.btn_remediate_env)
         btn_env_lay.addStretch()
         c_lay_env.addLayout(btn_env_lay)
-
         self.lbl_env_status = QLabel(_("Status: Environment inspection ready."))
         self.lbl_env_status.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 4px;")
         c_lay_env.addWidget(self.lbl_env_status)
@@ -3219,7 +3286,10 @@ class SettingsPanel(QWidget):
         self.out_mode_combo.setItemText(0, _("Source File Directory"))
         self.out_mode_combo.setItemText(1, _("Custom Directory"))
         self.mapping_table.setHorizontalHeaderLabels([_("Import Name"), _("PyPI Package Name")])
-        
+        self.rb_venv_isolated.setText(_("Isolated Environment"))
+        self.rb_venv_shared.setText(_("Shared Environment"))
+        self.shared_venv_dir_edit.setPlaceholderText(_("Select shared directory..."))
+
         if hasattr(self, 'sponsor_desc_p1'):
             self.sponsor_desc_p1.setText(_("QPyPack is a free and open-source tool. If it has improved your efficiency or solved packaging problems, consider buying the author a coffee!"))
             self.sponsor_desc_p2.setText(_("* Sponsorship is completely voluntary, serves as an unconditional encouragement to the open-source community, and involves no commercial commitments. Thank you for your support!"))
@@ -3618,6 +3688,13 @@ class SettingsPanel(QWidget):
             self.keep_venv_check.setChecked(s.getboolean('keep_venv', False))
             self.keep_venv_check.setEnabled(self.venv_check.isChecked())
             
+            venv_mode = s.get('venv_mode', 'isolated')
+            if venv_mode == 'shared':
+                self.rb_venv_shared.setChecked(True)
+            else:
+                self.rb_venv_isolated.setChecked(True)
+            self.shared_venv_dir_edit.setText(s.get('shared_venv_dir', ''))
+            
             self.reqs_check.setChecked(s.getboolean('use_reqs', True))
             self.pipreqs_check.setChecked(s.getboolean('use_pipreqs', True))
             self.pipreqs_dir_check.setChecked(s.getboolean('use_pipreqs_dir', False))
@@ -3683,6 +3760,8 @@ class SettingsPanel(QWidget):
 
         s['use_venv'] = str(self.venv_check.isChecked())
         s['keep_venv'] = str(self.keep_venv_check.isChecked())
+        s['venv_mode'] = 'shared' if self.rb_venv_shared.isChecked() else 'isolated'
+        s['shared_venv_dir'] = self.shared_venv_dir_edit.text().strip()
         s['use_reqs'] = str(self.reqs_check.isChecked())
         s['use_pipreqs'] = str(self.pipreqs_check.isChecked())
         s['use_pipreqs_dir'] = str(self.pipreqs_dir_check.isChecked())
@@ -3835,6 +3914,17 @@ class SettingsPanel(QWidget):
     def select_reqs_file(self):
         f, _filter = QFileDialog.getOpenFileName(self, _("Requirements File:"), "", "Requirements Files (*.txt);;All Files (*)", options=QFileDialog.Option.DontUseNativeDialog)
         if f: self.reqs_file_edit.setText(Path(f).resolve().as_posix())
+
+    def select_shared_venv_dir(self):
+        d = QFileDialog.getExistingDirectory(self, _("Select shared directory..."), options=QFileDialog.Option.DontUseNativeDialog)
+        if d:
+            self.shared_venv_dir_edit.setText(Path(d).resolve().as_posix())
+
+    def _on_shared_venv_radio_clicked(self):
+        if not self.shared_venv_dir_edit.text().strip():
+            self.select_shared_venv_dir()
+            if not self.shared_venv_dir_edit.text().strip():
+                self.rb_venv_isolated.setChecked(True)
 
     def clean_local_venvs(self):
         script_path = getattr(self.parent_win, 'script_path', '')
@@ -4138,19 +4228,38 @@ class PackingThread(QThread):
 
     def cancel(self):
         self._is_cancelled = True
-        if self.process:
+        if not self.process:
+            return
+        
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(self.process.pid)], 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.PIPE, 
+                    timeout=3,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                )
+            else:
+                import signal
+                try:
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                
             try:
-                if os.name == "nt": 
-                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
-                else: 
-                    import signal
-                    os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
-            except: pass
-            
-            try:
-                self.process.terminate()
-                self.process.kill()
-            except Exception: pass
+                self.process.wait(timeout=PROCESS_KILL_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                try:
+                    self.process.kill()
+                    self.process.wait(timeout=2)
+                except Exception as e:
+                    logger.warning(f"Force kill failed: {e}")
+                
+        except Exception as e:
+            logger.error(f"Process cancel failed: {e}\n{traceback.format_exc()}")
+        finally:
+            self._is_cancelled = True
 
     def run_cmd(self, cmd, cwd=None, timeout=None, silent_error=False, extra_env=None):
         if self._is_cancelled: return False
@@ -4237,10 +4346,18 @@ class PackingThread(QThread):
             
             return self.process.returncode == 0
         except FileNotFoundError as e:
-            self.progress.emit(_("[ERROR] Process error: command or binary missing ({error})", error=str(e)))
+            error_msg = _("[ERROR] Process error: command or binary missing ({error})", error=str(e))
+            self.progress.emit(error_msg)
+            logger.error(f"Command not found: {cmd[0] if cmd else 'unknown'}, Error: {e}")
+            return False
+        except subprocess.TimeoutExpired as e:
+            self.progress.emit(_("[WARN] Command timeout (>{timeout}s)", timeout=timeout))
+            logger.warning(f"Command timeout: {' '.join(cmd[:3])}, Timeout: {timeout}s")
             return False
         except Exception as e:
-            self.progress.emit(_("[ERROR] System execution exception: {error}", error=str(e)))
+            error_msg = _("[ERROR] System execution exception: {error}", error=str(e))
+            self.progress.emit(error_msg)
+            logger.error(f"Unexpected error in run_cmd: {e}\n{traceback.format_exc()}")
             return False
         finally:
             if timer: timer.cancel()
@@ -4248,12 +4365,12 @@ class PackingThread(QThread):
                 if self.process.stdout:
                     try:
                         self.process.stdout.close()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to close stdout: {e}")
                 try:
                     self.process.wait(timeout=5)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Process wait failed: {e}")
 
     def run_pip_install(self, python_exe, pkgs_or_args):
         primary_idx = self.params.get('pip_index_url', '').strip()
@@ -4624,6 +4741,27 @@ class PackingThread(QThread):
 
             self.progress.emit(_("[INFO] Performing pre-flight environment checks..."))
             
+            system_python_exe = self.params.get('python_exe')
+
+            health_issues = []
+
+            free_disk = get_free_disk_gb(script_dir.as_posix())
+            if free_disk < DISK_SPACE_MIN_GB:
+                health_issues.append(_("Disk space critically low: {free:.1f}GB < {min:.1f}GB", free=free_disk, min=DISK_SPACE_MIN_GB))
+            elif free_disk < DISK_SPACE_LOW_GB:
+                self.progress.emit(_("[WARN] Low disk space detected: {free:.1f} GB available", free=free_disk))
+
+            free_ram = get_free_ram_gb()
+            if free_ram < 1.0:
+                health_issues.append(_("RAM critically low: {free:.1f}GB < 1GB", free=free_ram))
+
+            if not system_python_exe or not os.path.exists(system_python_exe):
+                health_issues.append(_("Python interpreter not found: {path}", path=system_python_exe or "None"))
+
+            if health_issues:
+                error_msg = _("[ERROR] Pre-flight check failed:") + "\n" + "\n".join(f"  • {issue}" for issue in health_issues)
+                return self.build_finished.emit(False, error_msg, [])
+
             out_mode = int(self.params.get('out_mode', 0) or 0)
             custom_out = (self.params.get('custom_out_dir') or '').strip()
             target_out_dir = Path(custom_out) if (out_mode == 1 and custom_out) else script_dir
@@ -4643,14 +4781,6 @@ class PackingThread(QThread):
             for r_type, src, dst in (self.params.get('add_data_list') or []):
                 if not Path(src).exists():
                     return self.build_finished.emit(False, _("[ERROR] Additional resource file/directory not found: {path}", path=src), [])
-
-            free_disk = get_free_disk_gb(script_dir.as_posix())
-            if free_disk < 0.5:
-                return self.build_finished.emit(False, _("[ERROR] Insufficient disk space (Available: {free:.1f} GB). At least 0.5 GB is required to safely initialize the build environment.", free=free_disk), [])
-
-            system_python_exe = self.params.get('python_exe')
-            if not system_python_exe:
-                return self.build_finished.emit(False, _("[ERROR] Python interpreter is invalid or not found: {path}", path="None"), [])
 
             if is_cloud_sync_path(script_dir):
                 self.progress.emit(_("[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files."))
@@ -4770,7 +4900,23 @@ class PackingThread(QThread):
                 safe_venv_name = f".qpypack_venv_{short_stem}_{path_hash}_py{target_py_ver}_{target_py_arch}"
 
                 if self.params.get('keep_venv'):
-                    self.venv_dir = (script_dir / safe_venv_name).resolve()
+                    if self.params.get('venv_mode') == 'shared':
+                        shared_dir = self.params.get('shared_venv_dir', '').strip()
+                        if shared_dir and Path(shared_dir).exists():
+                            try:
+                                test_file = Path(shared_dir) / ".qpypack_write_test"
+                                test_file.touch()
+                                test_file.unlink()
+                                shared_venv_name = f".qpypack_shared_venv_py{target_py_ver}_{target_py_arch}"
+                                self.venv_dir = (Path(shared_dir) / shared_venv_name).resolve()
+                            except Exception:
+                                self.progress.emit(_("[WARN] Shared directory lacks write permissions, falling back to isolated mode."))
+                                self.venv_dir = (script_dir / safe_venv_name).resolve()
+                        else:
+                            self.progress.emit(_("[WARN] Shared directory invalid, falling back to isolated environment mode."))
+                            self.venv_dir = (script_dir / safe_venv_name).resolve()
+                    else:
+                        self.venv_dir = (script_dir / safe_venv_name).resolve()
                 else:
                     self.venv_dir = Path(tempfile.mkdtemp(prefix=f"qpypack_env_{short_stem}_", dir=temp_dir_arg)).resolve()
 
@@ -5478,56 +5624,81 @@ class PackingThread(QThread):
             self.progress.emit(f"[DETAILED_ONLY]\n[FATAL ERROR TRACE]\n{err_trace}\n")
             self.build_finished.emit(False, f"[ERROR] {str(e)}\n\n(See Detailed Log for complete trace)", failed_packages)
         finally:
+            cleanup_errors = []
+            
             if "PYTHONPATH" in os.environ and "_qpypack_temp_" in os.environ.get("PYTHONPATH", ""):
-                parts = os.environ["PYTHONPATH"].split(os.pathsep)
-                os.environ["PYTHONPATH"] = os.pathsep.join(p for p in parts if "_qpypack_temp_" not in p)
-                if not os.environ["PYTHONPATH"]:
-                    os.environ.pop("PYTHONPATH", None)
+                try:
+                    parts = os.environ["PYTHONPATH"].split(os.pathsep)
+                    os.environ["PYTHONPATH"] = os.pathsep.join(p for p in parts if "_qpypack_temp_" not in p)
+                    if not os.environ["PYTHONPATH"]:
+                        os.environ.pop("PYTHONPATH", None)
+                except Exception as e:
+                    logger.debug(f"Failed to clean PYTHONPATH: {e}")
     
             if is_temp and build_script_path and build_script_path.exists():
                 try: 
                     build_script_path.unlink()
                     pycache_dir = script_dir / "__pycache__"
-                    if pycache_dir.exists(): robust_rmtree(pycache_dir)
-                except: pass
-                
+                    if pycache_dir.exists(): 
+                        if not robust_rmtree(pycache_dir):
+                            cleanup_errors.append(f"__pycache__: {pycache_dir}")
+                except Exception as e:
+                    logger.debug(f"Failed to remove temp script: {e}")
+                    cleanup_errors.append(f"temp script: {build_script_path}")
+                    
             if self.params.get('version_file'):
                 try:
                     p = Path(self.params['version_file'])
                     if p.exists(): p.unlink()
-                except: pass
-                
+                except Exception as e:
+                    logger.debug(f"Failed to remove version file: {e}")
+                    
             if self.params.get('temp_icon_file'):
                 try:
                     p = Path(self.params['temp_icon_file'])
                     if p.exists(): p.unlink()
-                except: pass
-                
+                except Exception as e:
+                    logger.debug(f"Failed to remove temp icon: {e}")
+                    
             if self.params['clean_all']:
                 self.progress.emit(_("[INFO] Freeing up space, cleaning temporary build environment..."))
-                cleanup_dirs = [self.temp_workpath, self.temp_out_dir, self.temp_dist_dir]
+                cleanup_dirs = [
+                    (self.temp_workpath, "workpath"),
+                    (self.temp_out_dir, "output"),
+                    (self.temp_dist_dir, "dist")
+                ]
                 
                 if not self.params.get('keep_venv'):
-                    cleanup_dirs.append(self.venv_dir)
+                    cleanup_dirs.append((self.venv_dir, "venv"))
                     
-                for p in cleanup_dirs:
-                    if p and p.exists(): robust_rmtree(p)
+                for dir_path, dir_name in cleanup_dirs:
+                    if dir_path and dir_path.exists():
+                        if not robust_rmtree(dir_path):
+                            cleanup_errors.append(f"{dir_name}: {dir_path}")
                     
                 app_name = self.params.get('app_name', 'app')
                 for p in ["__pycache__", f"{app_name}.build", f"{app_name}.onefile-build"]:
-                    robust_rmtree(script_dir / p)
+                    dir_to_remove = script_dir / p
+                    if dir_to_remove.exists():
+                        if not robust_rmtree(dir_to_remove):
+                            cleanup_errors.append(f"build dir: {dir_to_remove}")
                 
                 spec_file = script_dir / f"{app_name}.spec"
                 if spec_file.exists():
-                    try: spec_file.unlink()
-                    except: pass
+                    try: 
+                        spec_file.unlink()
+                    except Exception as e:
+                        logger.debug(f"Failed to remove spec file: {e}")
                     
                 if sandbox_mode == 0 and custom_temp_base and custom_temp_base.exists():
                     try:
                         if not any(custom_temp_base.iterdir()):
                             custom_temp_base.rmdir()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Failed to remove temp base: {e}")
+            
+            if cleanup_errors:
+                logger.warning(f"Failed to cleanup: {', '.join(cleanup_errors)}")
 
 class PythonInstallMonitorThread(QThread):
     finished_signal = Signal(bool)
@@ -6475,6 +6646,40 @@ class MainWindow(QMainWindow):
                     __import__('webbrowser').open("https://www.python.org/downloads/")
             return
 
+        validation_errors = []
+
+        if is_cloud_locked(self.script_path):
+            validation_errors.append(_("Script file is locked by cloud sync"))
+            
+        icon_path_str = sp.icon_edit.text().strip()
+        if icon_path_str and not Path(icon_path_str).exists():
+            validation_errors.append(_("Icon file not found: {path}", path=icon_path_str))
+            
+        for i in range(sp.add_data_list.count()):
+            item_data = sp.add_data_list.item(i).data(Qt.ItemDataRole.UserRole) if sp.add_data_list.item(i) else None
+            if not item_data or len(item_data) != 3:
+                continue
+            r_type, src, dst = item_data
+            if not Path(src).exists():
+                validation_errors.append(_("Resource not found: {path}", path=src))
+                
+        if sp.out_mode_combo.currentIndex() == 1:
+            custom_out = sp.out_dir_edit.text().strip()
+            if custom_out:
+                try:
+                    out_dir = Path(custom_out)
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    test_file = out_dir / ".qpypack_write_test"
+                    test_file.touch()
+                    test_file.unlink()
+                except Exception as e:
+                    validation_errors.append(_("Output directory not writable: {error}", error=str(e)))
+        
+        if validation_errors:
+            error_msg = "[ERROR] Configuration validation failed:\n" + "\n".join(f"  • {err}" for err in validation_errors)
+            self.show_error_log(error_msg)
+            return
+
         app_name = sp.name_edit.text().strip() or Path(self.script_path).stem
         engine = sp.engine_combo.currentText()
 
@@ -6581,6 +6786,8 @@ class MainWindow(QMainWindow):
             'temp_sandbox_mode': sp.sandbox_mode_combo.currentIndex(), 
             'use_venv': sp.venv_check.isChecked(),
             'keep_venv': sp.keep_venv_check.isChecked(),
+            'venv_mode': 'shared' if sp.rb_venv_shared.isChecked() else 'isolated',
+            'shared_venv_dir': sp.shared_venv_dir_edit.text().strip(),
             'clean_all': sp.clean_all_check.isChecked(),
             'version_file': version_file.as_posix() if version_file else None,
             'temp_icon_file': temp_icon_file,
@@ -6697,6 +6904,15 @@ class MainWindow(QMainWindow):
         self.log_stack.setCurrentWidget(self.log_concise if is_concise else self.log_detailed)
 
     def append_log(self, msg, is_error=False):
+        if is_error:
+            logger.error(msg)
+        elif "[WARN]" in msg:
+            logger.warning(msg)
+        elif "[INFO]" in msg:
+            logger.info(msg)
+        else:
+            logger.debug(msg)
+    
         if msg.startswith("[DETAILED_ONLY]"):
             clean_msg = msg.replace("[DETAILED_ONLY]", "", 1).lstrip('\r\n')
             self._render_text_edit(self.log_detailed, clean_msg, is_error)

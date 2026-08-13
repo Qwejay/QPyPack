@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+# Changelog
+
+---
+## [2.7.10] - 2026-08-13
+
+### Added
+- **Shared Virtual Environment Mode**: Introduced an Isolated/Shared toggle for virtual environments. Shared mode allows specifying a unified directory, enabling dependency reuse across different scripts and saving disk space.
+- **Pre-flight Health Checks**: Added automatic validation of available RAM, disk space, and Python interpreter status before the build process starts, blocking inadequate environments early with clear warnings.
+- **Pre-build Configuration Validation**: The packager now verifies the validity of script paths, icon paths, additional resources, and output directory write permissions upfront, preventing mid-build failures caused by invalid configurations.
+- **System Constants Extraction**: Moved hardcoded thresholds (e.g., timeouts, memory/disk limits, retry limits) into global constants for better project maintainability.
+
+### Changed
+- **Enhanced Build Interruption**: Improved the "Stop Build" logic to gracefully terminate background compilation processes first, falling back to a force-kill only on timeout. This prevents orphaned background processes.
+- **Optimized Cache Cleanup**: Strengthened the temporary file cleanup process after builds. It now retries when files are locked by the system or antivirus, and summarizes any uncleared residual files in the log.
+- **Improved Execution Stability**: Refined the error handling for background command execution. Added strict timeout controls and better detection for missing commands, preventing silent failures and UI freezes.
+- **Refined Log Leveling**: The internal logging system now more accurately categorizes message levels (info, warning, error), providing better structure for troubleshooting.
+
+### Fixed
+- **Health Check Crash**: Fixed an issue where the pre-flight health check would crash the application due to an uninitialized variable.
+- **Resource Validation Error**: Fixed a crash caused by attempting to process invalid or empty data in the additional resources list during configuration validation.
+- **Redundant Validation Logic**: Removed dead code that performed duplicate checks on the script path during the build startup phase.
+- **Duplicate Permission Testing**: Fixed a redundant double write-permission test when setting up a shared virtual environment directory.
+- **Missing Translations**: Added missing Chinese/English translations for shared directory warnings, disk space alerts, and health check error messages.
+
+---
+
 ## [2.7.9] - 2026-08-12
 
 #### Added
