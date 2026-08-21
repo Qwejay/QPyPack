@@ -24,17 +24,29 @@ from PySide6.QtWidgets import (
     QFormLayout, QMessageBox, QMenu, QSpinBox
 )
 from PySide6.QtCore import Qt, QThread, Signal, QSettings
-from PySide6.QtGui import QColor, QKeySequence, QShortcut, QCloseEvent, QFont
+from PySide6.QtGui import QColor, QKeySequence, QShortcut, QCloseEvent, QFont, QGuiApplication
 
 BASE_DIR = Path(__file__).parent.resolve()
 MAIN_PY = BASE_DIR / "main.py"
 LOCALES_DIR = BASE_DIR / "locales"
 
 ALL_LANGS = {
-    "zh_CN": "简体中文", "zh_TW": "繁體中文", "ja_JP": "日本語", "ko_KR": "한국어",
-    "de_DE": "Deutsch", "fr_FR": "Français", "es_ES": "Español", "ru_RU": "Русский",
-    "pt_BR": "Português (Brasil)", "it_IT": "Italiano", "nl_NL": "Nederlands",
-    "pl_PL": "Polski", "tr_TR": "Türkçe", "vi_VN": "Tiếng Việt", "th_TH": "ไทย", "ar_SA": "阿拉伯语"
+    "zh_CN": "简体中文",
+    "zh_TW": "繁體中文",
+    "ja_JP": "日本語",
+    "ko_KR": "한국어",
+    "de_DE": "Deutsch",
+    "fr_FR": "Français",
+    "es_ES": "Español",
+    "ru_RU": "Русский",
+    "pt_BR": "Português (Brasil)",
+    "it_IT": "Italiano",
+    "nl_NL": "Nederlands",
+    "pl_PL": "Polski",
+    "tr_TR": "Türkçe",
+    "vi_VN": "Tiếng Việt",
+    "th_TH": "ไทย",
+    "ar_SA": "العربية (Arabic)"
 }
 
 LANG_TARGET_NAMES = {
@@ -51,8 +63,57 @@ SIMPLIFIED_ONLY = set(
     "设门见东长时电话语说读书图网页击关闭应变换转载输编辑码软复选择确认继续结构"
     "权环约风险级类项组键库释译验证签线缓进赖败强议拟统检测单显优层该络驱动盘备"
     "贴终圆锁连执务请带过还这为们么样对题问试华钱银铁简觉卖买贝员观计让记论访详"
-    "间闻济脑际专业临节钟钥纸录归荐灵鲜齐团�区医压厂历县双发变叠"
+    "间闻济脑际专业临节钟钥纸录归荐灵鲜齐团区医压厂历县双发变叠"
 )
+
+PRESETS = {
+    "DeepSeek (官方)": {
+        "base_url": "https://api.deepseek.com",
+        "model": "deepseek-chat"
+    },
+    "OpenAI (官方)": {
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini"
+    },
+    "硅基流动 (SiliconFlow)": {
+        "base_url": "https://api.siliconflow.cn/v1",
+        "model": "deepseek-ai/DeepSeek-V3"
+    },
+    "通义千问 (DashScope)": {
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-plus"
+    },
+    "Moonshot (Kimi)": {
+        "base_url": "https://api.moonshot.cn/v1",
+        "model": "moonshot-v1-8k"
+    },
+    "Ollama (本地)": {
+        "base_url": "http://localhost:11434/v1",
+        "model": "qwen2.5:latest"
+    },
+    "自定义 (Custom)": {
+        "base_url": "",
+        "model": ""
+    }
+}
+
+def safe_get_password(service: str, username: str) -> str:
+    try:
+        return keyring.get_password(service, username) or ""
+    except Exception:
+        s = QSettings("QPyPack", "i18nFast")
+        return s.value("fallback_api_key", "")
+
+def safe_set_password(service: str, username: str, password: str):
+    try:
+        if password:
+            keyring.set_password(service, username, password)
+        else:
+            try: keyring.delete_password(service, username)
+            except Exception: pass
+    except Exception:
+        s = QSettings("QPyPack", "i18nFast")
+        s.setValue("fallback_api_key", password)
 
 def _has_han(text: str) -> bool:
     return bool(re.search(r'[\u4e00-\u9fff]', text))
@@ -61,12 +122,6 @@ def _has_kana(text: str) -> bool:
     return bool(re.search(r'[\u3040-\u30ff]', text))
 
 def is_wrong_language(key: str, val: str, lang_code: str, zh_cn_dict: dict) -> bool:
-    """
-    判断一条译文是否是错误语言(混入了中文)。
-    - 非中日繁语言(阿拉伯/法/西/俄/韩...): 出现任何汉字即判错。
-    - 日文/繁体: 仅当命中简体专属字符, 或与简体原文完全相同时判错。
-      合法的日文汉字词(出力先/保存/環境変数等)永不误杀。
-    """
     if not val or lang_code == "zh_CN":
         return False
 
@@ -102,7 +157,7 @@ def is_technical(text: str) -> bool:
 def enforce_format(original: str, translated: str) -> str:
     if not translated: return ""
     s = str(translated).strip()
-    tag = re.match(r'^(\[[A-Za-z\s]+\])', original)
+    tag = re.match(r'^(\[[A-Za-z0-9_\-\s]+\])', original)
     if tag:
         s = re.sub(r'^\[.*?\]\s*', '', s).strip()
         s = f"{tag.group(1)} {s}"
@@ -126,7 +181,7 @@ def clean_llm_json(raw: str) -> dict:
 def extract_value(v) -> str:
     if isinstance(v, str): return v.strip()
     if isinstance(v, dict):
-        for k in ("translation", "translated", "target", "text"):
+        for k in ("translation", "translated", "target", "text", "val", "value"):
             if k in v and isinstance(v[k], str): return v[k].strip()
         for x in v.values():
             if isinstance(x, str): return x.strip()
@@ -198,25 +253,40 @@ class BaseWorker(QThread):
         super().__init__()
         self.cfg = cfg
         self.cancel = False
-        self.client = openai.OpenAI(api_key=cfg["api_key"], base_url=cfg.get("base_url") or None)
+        base_url = (cfg.get("base_url") or "https://api.deepseek.com").rstrip('/')
+        self.client = openai.OpenAI(api_key=cfg["api_key"], base_url=base_url)
 
     def _call(self, sys_prompt: str, payload: dict) -> dict:
         for i in range(3):
             if self.cancel: return {}
             try:
-                r = self.client.chat.completions.create(
-                    model=self.cfg["model"],
-                    messages=[{"role": "system", "content": sys_prompt},
-                              {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-                    temperature=0.1, response_format={"type": "json_object"}, timeout=60)
+                # 优先尝试 JSON 模式
+                kwargs = {
+                    "model": self.cfg["model"] or "deepseek-chat",
+                    "messages": [
+                        {"role": "system", "content": sys_prompt},
+                        {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}
+                    ],
+                    "temperature": 0.1,
+                    "timeout": 60
+                }
+                try:
+                    r = self.client.chat.completions.create(
+                        response_format={"type": "json_object"},
+                        **kwargs
+                    )
+                except Exception:
+                    # 降级：部分模型不支持 response_format，使用普通模式请求
+                    r = self.client.chat.completions.create(**kwargs)
+
                 if self.cancel: return {}
                 p = clean_llm_json(r.choices[0].message.content)
                 if len(p) == 1 and isinstance(list(p.values())[0], dict):
                     p = list(p.values())[0]
-                return p
-            except Exception:
+                if p: return p
+            except Exception as e:
                 if self.cancel: return {}
-                time.sleep(2 ** i)
+                time.sleep(1.5 ** i)
         return {}
 
     @staticmethod
@@ -226,7 +296,7 @@ class BaseWorker(QThread):
             "You are a professional software localization expert.",
             f"Translate the given English UI strings into {target}.",
             "Output ONLY a flat JSON object mapping the exact input IDs to translated strings.",
-            "Keep placeholders like {count}, {pkgs}, {path} EXACTLY unchanged.",
+            "Keep HTML tags (like <b>, <span>) and placeholders like {count}, {pkgs}, {path}, {v} EXACTLY unchanged.",
         ]
         if code == "zh_TW":
             lines.append("Output Traditional Chinese (繁體中文) ONLY. NEVER output Simplified Chinese characters.")
@@ -239,7 +309,6 @@ class BaseWorker(QThread):
         return "\n".join(lines)
 
     def translate_batch(self, keys: list, code: str, zh: dict) -> dict:
-        """请求 -> 质检 -> 重试 -> 丢弃 的闭环。只有通过质检的译文才返回。"""
         pending = list(keys)
         out = {}
         target = LANG_TARGET_NAMES.get(code, code)
@@ -269,10 +338,7 @@ class BaseWorker(QThread):
                     rest.append(key)
             pending = rest
 
-        if pending:
-            print(f"[{code}] {len(pending)} 条译文质检失败, 已丢弃保持空缺(绝不写入错误内容)。")
         return out
-
 
 class SingleWorker(BaseWorker):
     progress = Signal(int, int)
@@ -284,7 +350,7 @@ class SingleWorker(BaseWorker):
         self.code, self.keys, self.zh = code, keys, zh
 
     def run(self):
-        bs = self.cfg["batch_size"]
+        bs = max(5, self.cfg.get("batch_size", 20))
         for i in range(0, len(self.keys), bs):
             if self.cancel: break
             res = self.translate_batch(self.keys[i:i + bs], self.code, self.zh)
@@ -292,7 +358,6 @@ class SingleWorker(BaseWorker):
             self.batch_done.emit(res)
             self.progress.emit(min(i + bs, len(self.keys)), len(self.keys))
         self.done.emit()
-
 
 class AllWorker(BaseWorker):
     progress = Signal(int, int, str)
@@ -303,13 +368,13 @@ class AllWorker(BaseWorker):
         self.all_keys, self.zh = all_keys, zh
 
     def run(self):
-        bs = self.cfg["batch_size"]
+        bs = max(5, self.cfg.get("batch_size", 20))
         targets = [c for c in ALL_LANGS if c != "zh_CN"]
         for idx, code in enumerate(targets):
             if self.cancel: break
-            self.progress.emit(idx, len(targets), f"处理: {ALL_LANGS[code]} ({code})")
+            self.progress.emit(idx, len(targets), f"正在处理: {ALL_LANGS[code]} ({code})")
             data = load_lang(code)
-            missing = [k for k in self.all_keys if not is_technical(k) and not data.get(k)]
+            missing = [k for k in self.all_keys if not is_technical(k) and (not data.get(k) or is_wrong_language(k, data.get(k, ""), code, self.zh))]
             for i in range(0, len(missing), bs):
                 if self.cancel: break
                 data.update(self.translate_batch(missing[i:i + bs], code, self.zh))
@@ -321,7 +386,6 @@ class AllWorker(BaseWorker):
         self.progress.emit(len(targets), len(targets), "全库补全完成！")
         self.done.emit()
 
-
 class ZhWorker(BaseWorker):
     finished_sig = Signal(bool, int, str)
 
@@ -330,10 +394,10 @@ class ZhWorker(BaseWorker):
         self.keys = keys
 
     def run(self):
-        bs = self.cfg["batch_size"]
+        bs = max(5, self.cfg.get("batch_size", 20))
         pairs = {}
         prompt = ("Translate the English UI strings to Simplified Chinese (简体中文). "
-                  "Keep placeholders like {count} unchanged. Output ONLY a flat JSON object.")
+                  "Keep HTML tags and placeholders like {count}, {path} unchanged. Output ONLY a flat JSON object.")
         for i in range(0, len(self.keys), bs):
             if self.cancel: break
             batch = self.keys[i:i + bs]
@@ -412,37 +476,64 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("API 设置")
-        self.setMinimumWidth(460)
+        self.setMinimumWidth(480)
         self.setStyleSheet(QSS + "QDialog{background:#fff;} QLabel{font-size:13px;color:#334155;font-weight:600;}")
         self.s = QSettings("QPyPack", "i18nFast")
+        
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 24, 24, 24); root.setSpacing(16)
+        
         t = QLabel("⚙  翻译服务配置")
         t.setStyleSheet("font-size:16px;font-weight:800;color:#0f172a;")
         root.addWidget(t)
+        
         form = QFormLayout(); form.setSpacing(12)
-        self.key = QLineEdit(keyring.get_password("QPyPack_i18n", "api_key") or "")
-        self.key.setEchoMode(QLineEdit.EchoMode.Password); self.key.setPlaceholderText("sk-...")
-        self.url = QLineEdit(self.s.value("base_url", "https://api.deepseek.com"))
+        
+        self.preset_combo = QComboBox()
+        for name in PRESETS: self.preset_combo.addItem(name)
+        self.preset_combo.currentIndexChanged.connect(self._on_preset_changed)
+        
+        self.key = QLineEdit(safe_get_password("QPyPack_i18n", "api_key"))
+        self.key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.key.setPlaceholderText("sk-...")
+        
+        saved_url = self.s.value("base_url", "https://api.deepseek.com")
+        self.url = QLineEdit(saved_url)
         self.mod = QLineEdit(self.s.value("model", "deepseek-chat"))
+        
         self.bs = QSpinBox(); self.bs.setRange(5, 100)
         self.bs.setValue(int(self.s.value("batch_size", 20)))
         self.bs.setStyleSheet("QSpinBox{border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:13px;}")
-        form.addRow("API Key", self.key); form.addRow("Base URL", self.url)
-        form.addRow("Model", self.mod); form.addRow("批次大小", self.bs)
+        
+        form.addRow("服务商预设", self.preset_combo)
+        form.addRow("API Key", self.key)
+        form.addRow("Base URL", self.url)
+        form.addRow("Model", self.mod)
+        form.addRow("批次大小", self.bs)
         root.addLayout(form)
+        
+        # 智能匹配当前选择的预设
+        for idx, (p_name, p_data) in enumerate(PRESETS.items()):
+            if p_data["base_url"] and p_data["base_url"] == saved_url:
+                self.preset_combo.setCurrentIndex(idx)
+                break
+        
         row = QHBoxLayout(); row.addStretch()
         c = QPushButton("取消"); c.clicked.connect(self.reject)
         sv = QPushButton("保存"); sv.setObjectName("Primary"); sv.clicked.connect(self.save)
         row.addWidget(c); row.addWidget(sv)
         root.addLayout(row)
 
+    def _on_preset_changed(self, idx):
+        name = self.preset_combo.currentText()
+        data = PRESETS.get(name)
+        if data and data["base_url"]:
+            self.url.setText(data["base_url"])
+            self.mod.setText(data["model"])
+
     def save(self):
         k = self.key.text().strip()
-        if k: keyring.set_password("QPyPack_i18n", "api_key", k)
-        else:
-            try: keyring.delete_password("QPyPack_i18n", "api_key")
-            except: pass
+        safe_set_password("QPyPack_i18n", "api_key", k)
         self.s.setValue("base_url", self.url.text().strip())
         self.s.setValue("model", self.mod.text().strip())
         self.s.setValue("batch_size", self.bs.value())
@@ -451,10 +542,13 @@ class SettingsDialog(QDialog):
     @staticmethod
     def cfg():
         s = QSettings("QPyPack", "i18nFast")
-        return {"api_key": keyring.get_password("QPyPack_i18n", "api_key") or "",
-                "base_url": s.value("base_url", ""),
-                "model": s.value("model", "deepseek-chat"),
-                "batch_size": int(s.value("batch_size", 20))}
+        base_url = s.value("base_url", "https://api.deepseek.com")
+        return {
+            "api_key": safe_get_password("QPyPack_i18n", "api_key"),
+            "base_url": base_url,
+            "model": s.value("model", "deepseek-chat"),
+            "batch_size": int(s.value("batch_size", 20))
+        }
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -466,7 +560,12 @@ class MainWindow(QMainWindow):
         self.worker = None
         self.zh_worker = None
         self._ui()
+        
+        # 快捷键绑定
         QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self._save)
+        QShortcut(QKeySequence("F5"), self).activated.connect(self._load)
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(lambda: self.search.setFocus())
+        
         self._load()
 
     def _btn(self, text, slot, obj="", tip=""):
@@ -501,9 +600,10 @@ class MainWindow(QMainWindow):
         self.lang.currentIndexChanged.connect(self._switch)
         h.addWidget(self.lang); h.addStretch()
         self.bg_total = self._badge("总计 0", "#475569", "#f1f5f9")
+        self.bg_done = self._badge("已翻译 0", "#047857", "#d1fae5")
         self.bg_miss = self._badge("缺失 0", "#b45309", "#fef3c7")
         self.bg_leak = self._badge("残留 0", DANGER_D, "#fee2e2")
-        h.addWidget(self.bg_total); h.addWidget(self.bg_miss); h.addWidget(self.bg_leak)
+        h.addWidget(self.bg_total); h.addWidget(self.bg_done); h.addWidget(self.bg_miss); h.addWidget(self.bg_leak)
         h.addSpacing(6)
         self.b_cfg = self._btn("⚙  设置", lambda: SettingsDialog(self).exec())
         h.addWidget(self.b_cfg)
@@ -522,8 +622,8 @@ class MainWindow(QMainWindow):
                                  "字符级精准清除混入的简体中文，绝不误杀日文汉字")
         self.b_patch = self._btn("✨  补全主程序中文", self._patch, "Success")
         b.addWidget(self.b_clean); b.addWidget(self.b_patch); b.addStretch()
-        self.b_scan = self._btn("🔄  刷新源码", self._load)
-        self.b_save = self._btn("💾  保存当前", self._save)
+        self.b_scan = self._btn("🔄  刷新源码 (F5)", self._load)
+        self.b_save = self._btn("💾  保存当前 (Ctrl+S)", self._save)
         self.b_saveall = self._btn("📦  批量清理保存", self._save_all)
         self.b_fix = self._btn("🧹  规范化标签", self._fix_tags)
         for x in (self.b_scan, self.b_save, self.b_saveall, self.b_fix): b.addWidget(x)
@@ -533,7 +633,7 @@ class MainWindow(QMainWindow):
         bl.setContentsMargins(24, 18, 24, 12); bl.setSpacing(14)
         filt = QFrame(); filt.setObjectName("Card")
         fl = QHBoxLayout(filt); fl.setContentsMargins(14, 10, 14, 10); fl.setSpacing(10)
-        self.search = QLineEdit(); self.search.setPlaceholderText("🔍  搜索英文 Key / 中文参考 / 译文…")
+        self.search = QLineEdit(); self.search.setPlaceholderText("🔍  搜索英文 Key / 中文参考 / 译文 (Ctrl+F)…")
         self.search.textChanged.connect(self._filter)
         self.fmode = QComboBox(); self.fmode.addItems(["全部条目", "仅缺失", "仅未映射中文", "⚠️ 仅错误语言残留"])
         self.fmode.setFixedWidth(180); self.fmode.currentIndexChanged.connect(self._filter)
@@ -545,7 +645,7 @@ class MainWindow(QMainWindow):
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.table.setColumnWidth(0, 380); self.table.setColumnWidth(1, 300)
+        self.table.setColumnWidth(0, 420); self.table.setColumnWidth(1, 320)
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setDefaultSectionSize(38)
         self.table.setShowGrid(False)
@@ -553,6 +653,7 @@ class MainWindow(QMainWindow):
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._menu)
         bl.addWidget(self.table, 1)
+        
         self.progress = QProgressBar(); self.progress.hide()
         bl.addWidget(self.progress)
         outer.addWidget(body, 1)
@@ -588,6 +689,7 @@ class MainWindow(QMainWindow):
         self.all_keys, self.zh_dict = extract_keys(MAIN_PY)
         self.unmapped = [k for k in self.all_keys if k not in self.zh_dict and not is_technical(k)]
         if self.lang.count() > 0: self._switch()
+        self.status.showMessage(f"🔄 源码已加载: 发现 {len(self.all_keys)} 个词条", 3000)
 
     def _switch(self):
         self._stop()
@@ -628,8 +730,21 @@ class MainWindow(QMainWindow):
         val = enforce_format(key, item.text().strip())
         if val: self.data[key] = val
         else: self.data.pop(key, None)
-        self.table.blockSignals(True); item.setText(val); self.table.blockSignals(False)
-        self._mark(r, key, val); self._stats()
+        
+        self.table.blockSignals(True)
+        item.setText(val)
+        self.table.blockSignals(False)
+        
+        self._mark(r, key, val)
+        self._stats()
+        
+        # 自动写盘，防止手动编辑丢失
+        code = self.lang.currentData()
+        out = {}
+        for k in self.all_keys:
+            if is_technical(k): out[k] = k
+            elif k in self.data: out[k] = enforce_format(k, self.data[k])
+        write_json(LOCALES_DIR / f"{code}.json", out)
 
     def _mark(self, r, key, val):
         it = self.table.item(r, 2)
@@ -664,18 +779,31 @@ class MainWindow(QMainWindow):
             for k in self.all_keys:
                 if not d.get(k) and k in self.zh_dict:
                     d[k] = self.zh_dict[k]
-        miss = sum(1 for k in self.all_keys if not is_technical(k) and not d.get(k))
-        leak = sum(1 for k, v in d.items() if is_wrong_language(k, v, code, self.zh_dict))
+        
+        done_cnt = sum(1 for k in self.all_keys if d.get(k))
+        miss_cnt = sum(1 for k in self.all_keys if not is_technical(k) and not d.get(k))
+        leak_cnt = sum(1 for k, v in d.items() if is_wrong_language(k, v, code, self.zh_dict))
+        
         self.bg_total.setText(f"总计 {len(self.all_keys)}")
-        self.bg_miss.setText(f"缺失 {miss}")
-        self.bg_leak.setText(f"残留 {leak}")
+        self.bg_done.setText(f"已翻译 {done_cnt}")
+        self.bg_miss.setText(f"缺失 {miss_cnt}")
+        self.bg_leak.setText(f"残留 {leak_cnt}")
 
     def _menu(self, pos):
-        if not self.table.itemAt(pos): return
-        r = self.table.itemAt(pos).row()
+        item = self.table.itemAt(pos)
+        if not item: return
+        r = item.row()
         key = self.table.item(r, 0).text()
+        zh_val = self.table.item(r, 1).text()
+        
         m = QMenu()
         m.addAction("🤖  AI 翻译此词条").triggered.connect(lambda: self._start([key]))
+        m.addSeparator()
+        m.addAction("📋  复制英文 Key").triggered.connect(lambda: QGuiApplication.clipboard().setText(key))
+        if zh_val:
+            m.addAction("📝  复制中文参考").triggered.connect(lambda: QGuiApplication.clipboard().setText(zh_val))
+        m.addAction("🔡  填入英文原文").triggered.connect(lambda: self.table.item(r, 2).setText(key))
+        m.addSeparator()
         m.addAction("🗑️  清空此词条").triggered.connect(lambda: self.table.item(r, 2).setText(""))
         m.exec(self.table.viewport().mapToGlobal(pos))
 
@@ -726,7 +854,12 @@ class MainWindow(QMainWindow):
 
     def _start(self, keys):
         cfg = SettingsDialog.cfg()
-        if not cfg["api_key"]: return SettingsDialog(self).exec()
+        if not cfg["api_key"]:
+            dlg = SettingsDialog(self)
+            if dlg.exec() != QDialog.DialogCode.Accepted: return
+            cfg = SettingsDialog.cfg()
+            if not cfg["api_key"]: return
+
         self._stop(); self.progress.show()
         self.progress.setMaximum(len(keys)); self.progress.setValue(0)
         self._lock(True); self.status.showMessage("🤖 正在翻译…")
@@ -754,7 +887,12 @@ class MainWindow(QMainWindow):
 
     def _trans_all(self):
         cfg = SettingsDialog.cfg()
-        if not cfg["api_key"]: return SettingsDialog(self).exec()
+        if not cfg["api_key"]:
+            dlg = SettingsDialog(self)
+            if dlg.exec() != QDialog.DialogCode.Accepted: return
+            cfg = SettingsDialog.cfg()
+            if not cfg["api_key"]: return
+
         if QMessageBox.question(self, "确认", "并发补全全部 15 种语言的缺失词条？\n\n写入前逐条语言质检，任何简体中文都会被拒绝并保持空缺。") != QMessageBox.StandardButton.Yes:
             return
         self._stop(); self.progress.show(); self.progress.setValue(0); self._lock(True)
@@ -771,7 +909,12 @@ class MainWindow(QMainWindow):
     def _patch(self):
         if not self.unmapped: return QMessageBox.information(self, "完美", "所有词条均已有中文映射！")
         cfg = SettingsDialog.cfg()
-        if not cfg["api_key"]: return SettingsDialog(self).exec()
+        if not cfg["api_key"]:
+            dlg = SettingsDialog(self)
+            if dlg.exec() != QDialog.DialogCode.Accepted: return
+            cfg = SettingsDialog.cfg()
+            if not cfg["api_key"]: return
+
         if QMessageBox.question(self, "确认", f"将 {len(self.unmapped)} 条缺失英文翻译为中文并写入 main.py？") != QMessageBox.StandardButton.Yes:
             return
         self._stop(); self.progress.show(); self.progress.setRange(0, 0); self._lock(True)
@@ -830,11 +973,12 @@ class MainWindow(QMainWindow):
         self.status.showMessage("🧹 规范化了所有文件的日志标签和标点", 5000)
         self._switch()
 
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    f = QFont(); f.setFamilies(["Segoe UI", "Microsoft YaHei", "PingFang SC", "sans-serif"]); f.setPointSize(9)
+    f = QFont()
+    f.setFamilies(["Segoe UI", "Microsoft YaHei", "PingFang SC", "sans-serif"])
+    f.setPointSize(9)
     app.setFont(f)
     w = MainWindow()
     w.show()

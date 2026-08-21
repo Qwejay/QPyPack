@@ -12,6 +12,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 # Changelog
 
 ---
+
+## [2.7.11] - 2026-08-21
+
+### Added
+- **Python 3.13+ Compiler Adaptation**: Added intelligent scheduling support for the Zig compilation backend targeting Python 3.13+, completely avoiding packaging failures caused by the deprecation of MinGW64 in newer Python versions.
+- **Smart Environment Conflict Diagnostics & Guidance**: Automatically identifies environment conflict indicators (such as outdated compiler versions or missing Windows SDKs) upon build interruptions, providing targeted solutions and engine-switching suggestions.
+- **Expanded Deprecated Compatibility Package Isolation Rules**: Added dynamic masking and isolation support for built-in modules (in Python 3.11+) within core dependency management rules to prevent legacy dependency conflicts.
+
+### Changed
+- **Refactored Nuitka Compiler Decision Matrix**: Refactored the compiler routing strategies across all supported versions (Python 3.8–3.14) and 32/64-bit architectures, accurately matching compatibility requirements for MSVC, Zig, and MinGW64.
+- **Decoupled Source Syntax Pre-check Mechanism**: Shifted the source syntax pre-check to be executed by the user-selected target Python interpreter, eliminating false positives and misjudgments on modern Python syntax features caused by version discrepancies between the host and target environments.
+- **Enhanced UPX Dynamic-Link Library Protection**: Expanded the UPX exclusion list to automatically protect low-level core libraries, preventing runtime `0xc000007b` crashes caused by packing corruption.
+
+### Fixed
+- **Fixed MSVC Version Mismatch Crash**: Fixed an issue where targeting an older MSVC version (e.g., VS 2019) under Python 3.11+ caused Nuitka SCons crashes, now automatically falling back to MinGW64 when requirements are not met.
+- **Fixed Windows SDK Path Misdetection**: Fixed a defect where searching only within the Visual Studio directory falsely marked standalone Windows SDK installations as missing, incorrectly skipping available VS 2022 environments.
+- **Fixed Artifact Overwrite & Directory Nesting Issues**: Fixed an issue in folder/standalone mode where forcibly moving files while old files were in use caused target directories to self-nest or output artifacts to be corrupted.
+- **Completed Compiler-Related i18n Translations**: Added missing bilingual (Chinese/English) localization translations for compiler detection routing, SDK path warnings, and environment conflict diagnostic prompts.
+
+---
+
 ## [2.7.10] - 2026-08-13
 
 ### Added

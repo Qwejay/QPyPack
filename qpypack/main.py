@@ -61,7 +61,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.10"
+__version__ = "2.7.11"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -106,7 +106,7 @@ ZH_CN_DICT = {
     "Dependencies": "依赖管理",
     "Resources": "附加资源",
     "Optimization & Security": "优化与安全",
-    "Package Map": "包名与依赖治理",
+    "Package Map": "包名与依赖",
     "Execution Log": "执行日志",
 
     "Loaded: {filename}": "已载入: {filename}",
@@ -462,8 +462,8 @@ ZH_CN_DICT = {
     "Scanning...": "正在扫描...",
     "[INFO] Auto-detected existing virtual environment '{venv}'. 'Keep Local Venv' is checked.": "[INFO] 自动检测到现有虚拟环境'{venv}'。已勾选'保留本地虚拟环境'。",
     "[INFO] Using MinGW64 compiler.": "[INFO] 使用MinGW64编译器。",
-    "Package Map": "包名与依赖治理",
-    "Package Mapping & Remediation": "包名与依赖治理",
+    "Package Map": "包名映射与规则",
+    "Package Mapping & Remediation": "包名与规则",
     "Obsolete Backport Exclusion Rules": "废弃兼容包拦截规则",
     "Min Python Ver": "最低内置版本",
     "Add Backport Rule": "添加拦截规则",
@@ -476,7 +476,7 @@ ZH_CN_DICT = {
     "Environment Analysis & Remediation": "运行环境分析",
     "Enable Automatic Backport Isolation": "开启废弃兼容包动态隔离",
     "Inspect Interpreter Environment": "校验解释器环境",
-    "Remediate Detected Conflicts": "治理环境冲突模块",
+    "Remediate Detected Conflicts": "清理环境冲突依赖",
     "Package Name (e.g. pathlib):": "包名 (如 pathlib):",
     "Minimum Built-in Python Version (e.g. 3.4):": "最低内置 Python 版本 (如 3.4):",
     "Status: Environment inspection ready.": "状态: 等待环境校验。",
@@ -505,6 +505,21 @@ ZH_CN_DICT = {
     "RAM critically low: {free:.1f}GB < 1GB": "内存严重不足: {free:.1f}GB < 1GB",
     "Python interpreter not found: {path}": "Python 解释器未找到: {path}",
     "[ERROR] Pre-flight check failed:": "[ERROR] 预检查失败:",
+    "[INFO] Found compatible MSVC + Windows SDK environment, using native compiler.": "[INFO] 检测到兼容的 MSVC 及 Windows SDK 环境，使用原生编译器。",
+    "[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as native backend.": "[INFO] 检测到 Python 3.13+：使用 Zig 编译器 (--zig) 作为编译后端。",
+    "[INFO] MSVC 14.3+ not detected. Nuitka will use/download MinGW64 toolchain (Python {v}).": "[INFO] 未检测到 MSVC 14.3+，Nuitka 将自动下载/使用 MinGW64 工具链 (Python {v})。",
+    "[WARN] Python 3.13+ (32-bit) requires Visual Studio 2022 with Windows SDK. Build will attempt with current environment.": "[WARN] Python 3.13+ (32位) 强制需要包含 Windows SDK 的 VS2022，正在尝试当前环境...",
+    "[Environment Error] Build failed: C++ compiler version is incompatible.": "[环境错误] 编译失败：C++ 编译器或 Windows SDK 版本不兼容。",
+    "[Environment Error] Python 3.13+ Compiler Requirement.": "[环境错误] Python 3.13+ 编译器兼容性限制。",
+    "Reason: Python 3.11+ requires Visual Studio 2022 (MSVC 14.3) with Windows SDK.": "原因：Python 3.11+ 使用 MSVC 时必须安装 Visual Studio 2022 (MSVC 14.3) 且勾选 Windows SDK。",
+    "Reason: MinGW64 is no longer supported on Python 3.13+. Please ensure Zig or VS 2022 is installed.": "原因：Python 3.13+ 已不再支持 MinGW64 编译器，需要 Zig (x64) 或 Visual Studio 2022。",
+    "Solution:\n1. Install Visual Studio 2022 (Check 'Desktop development with C++' and 'Windows SDK').\n2. Or switch the engine to [PyInstaller] in Build Settings.": "解决方法：\n1. 安装/更新 Visual Studio 2022（勾选“使用 C++ 的桌面开发”及 Windows SDK）。\n2. 或前往【构建设置】切换为 [PyInstaller] 引擎打包。",
+    "Solution:\n1. In Build Settings, switch to [PyInstaller] engine (Recommended).\n2. Or install Visual Studio 2022 with C++ support.": "解决方法：\n1. 前往【构建设置】切换为 [PyInstaller] 引擎（推荐）。\n2. 或安装 Visual Studio 2022 C++ 编译套件。",
+    "Icon file not found: {path}": "图标文件未找到：{path}",
+    "Output directory not writable: {error}": "输出目录不可写：{error}",
+    "Resource not found: {path}": "资源未找到：{path}",
+    "Script file is locked by cloud sync": "脚本文件被云同步锁定",
+    "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] 源代码语法解析失败，构建中止：\n  - 文件：{file}\n  - 详情：{desc}\n\n提示：这通常不是打包工具的故障。\n请确保您选择的 [构建 Python 版本] 与您用于 [编写/测试代码] 的版本匹配。\n在较旧的 Python 环境中使用较新的语法（例如海象运算符 :=、类型联合 |、match-case）将触发此错误。\n我们建议您前往 [构建设置] -> [引擎] 切换到正确的 Python 版本。",
     "Unknown": "未知"
 }
 
@@ -716,7 +731,8 @@ DEFAULT_BACKPORT_RULES = {
     "importlib-metadata": "3.8",
     "importlib-resources": "3.9",
     "zoneinfo": "3.9",
-    "tomllib": "3.11"
+    "tomllib": "3.11",
+    "exceptiongroup": "3.11"
 }
 
 MATERIAL_ICONS = {
@@ -1877,7 +1893,9 @@ class DropArea(QFrame):
         self.retranslate_ui()
 
     def retranslate_ui(self):
-        pass
+        if not self.current_filename:
+            self.label.setText(_("Python Packaging, Reimagined."))
+            self.sub_label.setText(_("Drop Python source code to start"))
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -3059,7 +3077,7 @@ class SettingsPanel(QWidget):
         text_vlay.addSpacing(6)
         
         current_year = time.localtime().tm_year
-        year_str = f"2024-{current_year}" if current_year > 2024 else "2024"
+        year_str = f"2026-{current_year}" if current_year > 2026 else "2026"
         ver_lbl = QLabel(f"Version {__version__}  ·  GPL-3.0  ·  Copyright © {year_str} {__author__}")
         ver_lbl.setStyleSheet("font-size: 12px; color: #8b929a; font-weight: bold;")
         ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -3580,6 +3598,7 @@ class SettingsPanel(QWidget):
                     "engine": self.engine_combo.currentText(),
                     "lite_mode": self.rb_lite_mode.isChecked(),
                     "onefile": self.rb_onefile.isChecked(),
+                    "noconsole": self.noconsole_check.isChecked(),
                     "contents_dir": self.contents_dir_edit.text().strip(),
                     "icon": self.icon_edit.text(),
                     "app_name": self.name_edit.text(),
@@ -4032,9 +4051,12 @@ class SettingsPanel(QWidget):
             return self.parent_win.show_error_log(_("[ERROR] Target file is locked or encrypted by cloud drive. Please decrypt and try again."))
             
         try:
-            hidden = extract_project_imports_via_ast(Path(script_path), False)
+            # 联动界面勾选的“扫描整个文件夹”状态
+            scan_dir = self.pipreqs_dir_check.isChecked()
+            target = Path(script_path).parent if scan_dir else Path(script_path)
+            hidden = extract_project_imports_via_ast(target, scan_dir=scan_dir)
             hidden = [m for m in hidden if m not in STD_LIBS]
-            self.hidden_edit.setText(','.join(hidden))
+            self.hidden_edit.setText(','.join(sorted(hidden)))
             self.parent_win.show_notification(_("AST scan completed, found {count} dependencies.", count=len(hidden)))
         except Exception as e: 
             self.parent_win.show_error_log(_("[ERROR] Exception occurred during AST parsing: {error}", error=str(e)))
@@ -4716,32 +4738,35 @@ class PackingThread(QThread):
 
             self.progress.emit(_("[INFO] Analyzing source code and project dependencies..."))
             script_path = Path(self.params['script_path']).resolve()
-
             script_dir = script_path.parent
+            system_python_exe = self.params.get('python_exe')
 
-            try:
-                compile(script_path.read_bytes(), script_path.name, 'exec')
-            except SyntaxError as e:
-                err_type = type(e).__name__
-                msg = _(
-                    "[Syntax Error] Source code syntax parsing failed, build aborted:\n"
-                    "  - File: {file}\n"
-                    "  - Line: Line {line}\n"
-                    "  - Detail: {desc}\n\n"
-                    "Tip: This is usually NOT a fault of the packaging tool.\n"
-                    "Please ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\n"
-                    "Using newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\n"
-                    "We recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.", 
-                    file=script_path.name, type=err_type, line=e.lineno or _("Unknown"), desc=e.msg or _("Invalid syntax")
-                )
-                return self.build_finished.emit(False, msg, [])
+            # 使用选定的目标 Python 进行语法预检，避免高低版本语法特性误杀
+            if system_python_exe and os.path.exists(system_python_exe):
+                try:
+                    kw_chk = {"capture_output": True, "text": True, "timeout": 5, "errors": "ignore"}
+                    if os.name == 'nt': kw_chk["creationflags"] = subprocess.CREATE_NO_WINDOW
+                    chk_syntax = subprocess.run([system_python_exe, "-m", "py_compile", script_path.as_posix()], **kw_chk)
+                    if chk_syntax.returncode != 0:
+                        err_desc = chk_syntax.stderr.strip() or _("Invalid syntax")
+                        msg = _(
+                            "[Syntax Error] Source code syntax parsing failed, build aborted:\n"
+                            "  - File: {file}\n"
+                            "  - Detail: {desc}\n\n"
+                            "Tip: This is usually NOT a fault of the packaging tool.\n"
+                            "Please ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\n"
+                            "Using newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\n"
+                            "We recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.",
+                            file=script_path.name, desc=err_desc
+                        )
+                        return self.build_finished.emit(False, msg, [])
+                except Exception:
+                    pass
 
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
 
             self.progress.emit(_("[INFO] Performing pre-flight environment checks..."))
-            
-            system_python_exe = self.params.get('python_exe')
 
             health_issues = []
 
@@ -5227,6 +5252,13 @@ class PackingThread(QThread):
                             "--upx-exclude=python3.dll",
                             "--upx-exclude=vcruntime140.dll",
                             "--upx-exclude=vcruntime140_1.dll",
+                            "--upx-exclude=ucrtbase.dll",
+                            "--upx-exclude=msvcp140.dll",
+                            "--upx-exclude=msvcp140_1.dll",
+                            "--upx-exclude=Qt6Core.dll",
+                            "--upx-exclude=Qt6Gui.dll",
+                            "--upx-exclude=Qt6Widgets.dll",
+                            "--upx-exclude=qwindows.dll"
                         ])
                         try:
                             kw = {"capture_output": True, "text": True, "timeout": 3, "errors": "ignore"}
@@ -5279,54 +5311,75 @@ class PackingThread(QThread):
                     f"--output-filename={app_name}{ext}"
                 ]
 
-                if self.params.get('auto_save_log'):
-                    report_file = self.temp_out_dir / f"{app_name}_nuitka_report.xml"
-                    cmd.append(f"--report={report_file.as_posix()}")
-                
                 if os.name == "nt":
-                    has_msvc = shutil.which('cl.exe') is not None
-                    if not has_msvc:
-                        vswhere = Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
-                        if vswhere.exists():
-                            try:
-                                res = subprocess.run([vswhere.as_posix(), "-latest", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"], capture_output=True, text=True, errors="ignore", creationflags=subprocess.CREATE_NO_WINDOW)
-                                if res.stdout.strip(): has_msvc = True
-                            except: pass
-
-                    has_clang = (shutil.which('clang.exe') is not None) or (shutil.which('clang-cl.exe') is not None)
-                    if not has_clang:
-                        llvm_paths = [
-                            Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "LLVM/bin/clang.exe",
-                            Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "LLVM/bin/clang.exe"
-                        ]
-                        if any(p.exists() for p in llvm_paths):
-                            has_clang = True
-
-                    py_ver_num = (3, 12)
+                    # 1. 精确获取打包 Python 的版本与架构位数
+                    py_ver_num = (3, 8)
+                    is_64bit = True
                     try:
-                        kw = {"capture_output": True, "text": True, "timeout": 2, "errors": "ignore"}
-                        if os.name == 'nt': kw["creationflags"] = subprocess.CREATE_NO_WINDOW
-                        check_ver = subprocess.run([python_exe, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], **kw)
+                        kw_v = {"capture_output": True, "text": True, "timeout": 2, "errors": "ignore"}
+                        if os.name == 'nt': kw_v["creationflags"] = subprocess.CREATE_NO_WINDOW
+                        check_ver = subprocess.run([python_exe, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}|{sys.maxsize > 2**32}')"], **kw_v)
                         ver_str = check_ver.stdout.strip()
-                        if ver_str:
-                            parts = ver_str.split('.')
+                        if ver_str and "|" in ver_str:
+                            v_part, arch_part = ver_str.split('|')
+                            parts = v_part.split('.')
                             py_ver_num = (int(parts[0]), int(parts[1]))
-                    except: pass
+                            is_64bit = (arch_part.lower() == 'true')
+                    except Exception: pass
 
-                    if has_msvc:
+                    # 2. 精确检测 MSVC 以及是否安装了 Windows SDK
+                    has_suitable_msvc = False
+                    has_win_sdk = False
+                    vswhere = Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
+                    
+                    if vswhere.exists():
+                        try:
+                            # Python 3.11+ 必须 VS 2022 (v17.0+ / MSVC 14.3+)；3.8-3.10 支持 VS 2017/2019/2022
+                            min_vs_ver = "17.0" if py_ver_num >= (3, 11) else "15.0"
+                            res_vc = subprocess.run([
+                                vswhere.as_posix(), "-latest", "-version", min_vs_ver, 
+                                "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+                            ], capture_output=True, text=True, errors="ignore", creationflags=subprocess.CREATE_NO_WINDOW)
+                            if res_vc.stdout.strip():
+                                has_suitable_msvc = True
+                        except Exception: pass
+
+                    # 修复：直接扫描标准系统 SDK 路径（防止 vswhere 检索范围局限在 VS 目录导致误判）
+                    sdk_paths = [
+                        Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Windows Kits" / "10" / "Lib",
+                        Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Windows Kits" / "11" / "Lib",
+                        Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Windows Kits" / "10" / "Lib",
+                        Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Windows Kits" / "11" / "Lib",
+                    ]
+                    for p in sdk_paths:
+                        if p.exists() and any(p.iterdir()):
+                            has_win_sdk = True
+                            break
+
+                    # 3. 全版本编译器分流矩阵
+                    # 规则 A: 拥有合规 MSVC 且包含 SDK -> 优先使用 MSVC
+                    if has_suitable_msvc and has_win_sdk:
                         cmd.append("--msvc=latest")
-                        self.progress.emit(_("[INFO] Found local MSVC environment, prioritizing native C++ compiler."))
-                    elif has_clang:
-                        cmd.append("--clang")
-                        self.progress.emit(_("[INFO] Found local Clang environment, prioritizing LLVM Clang compiler."))
-                    elif py_ver_num >= (3, 13):
+                        self.progress.emit(_("[INFO] Found compatible MSVC + Windows SDK environment, using native compiler."))
+                    
+                    # 规则 B: Python 3.13+ 并且是 64 位环境 -> 优先使用 Zig 编译器 (MinGW64 在 3.13+ 已废弃)
+                    elif py_ver_num >= (3, 13) and is_64bit:
                         cmd.append("--zig")
-                        self.progress.emit(_("[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as C backend."))
-                    else:
+                        self.progress.emit(_("[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as native backend."))
+                    
+                    # 规则 C: Python 3.8 ~ 3.12 -> 使用/自动下载 MinGW64 (winlibs)
+                    elif py_ver_num <= (3, 12):
                         cmd.append("--mingw64")
-                        self.progress.emit(_("[INFO] Using MinGW64 compiler."))
+                        if not has_suitable_msvc and py_ver_num >= (3, 11):
+                            self.progress.emit(_("[INFO] MSVC 14.3+ not detected. Nuitka will use/download MinGW64 toolchain (Python {v}).", v=f"{py_ver_num[0]}.{py_ver_num[1]}"))
+                        else:
+                            self.progress.emit(_("[INFO] Using MinGW64 compiler."))
+                    
+                    # 规则 D: Python 3.13+ 且为 32位系统，但缺失 VS2022
+                    else:
+                        cmd.append("--msvc=latest")
+                        self.progress.emit(_("[WARN] Python 3.13+ (32-bit) requires Visual Studio 2022 with Windows SDK. Build will attempt with current environment."))
 
-                free_disk = get_free_disk_gb(script_dir.as_posix())
                 if free_disk < 3.0:
                     self.progress.emit(_("[WARN] Low disk space detected on build target drive (Available: {free:.1f} GB, >= 5.0 GB recommended). Build process may interrupt due to disk exhaustion.", free=free_disk))
 
@@ -5553,16 +5606,19 @@ class PackingThread(QThread):
                 self.progress.emit(_("[INFO] Compilation completed, archiving built files..."))
                 try:
                     if src_out.resolve() != final_out.resolve():
+                        # 若目标路径已存在旧文件/文件夹，先安全彻底删除
                         if final_out.exists():
-                            if final_out.is_dir(): 
-                                robust_rmtree(final_out)
-                            else: 
+                            if final_out.is_dir():
+                                if not robust_rmtree(final_out):
+                                    raise PermissionError("Target folder locked and cannot be removed.")
+                            else:
                                 try:
                                     final_out.unlink()
                                 except PermissionError:
                                     time.sleep(1)
                                     final_out.unlink(missing_ok=True)
                         
+                        # 确保旧产物已彻底不存在后再移动，避免 onedir 模式下将目录移入自身产生嵌套
                         for _retry in range(15):
                             try:
                                 shutil.move(src_out.as_posix(), final_out.as_posix())
@@ -5572,7 +5628,6 @@ class PackingThread(QThread):
                         else:
                             raise PermissionError("File locked by Antivirus or other process.")
                 except PermissionError:
-
                     success = False
                     self.progress.emit(_("[ERROR] Target file is running or occupied. Please close the existing application and try again."))
                 except Exception as e: 
@@ -6820,6 +6875,22 @@ class MainWindow(QMainWindow):
         self.drop_area.start_build_anim()
 
     def on_pack_finished(self, success, msg, failed_pkgs=None):
+        if not success and not (self.thread and getattr(self.thread, '_is_cancelled', False)):
+            log_content = self.log_detailed.toPlainText()
+            
+            if "MSVC 14.3 or later is required" in log_content or "scons environment variable 'CC' is not set" in log_content:
+                msg = (
+                    _("[Environment Error] Build failed: C++ compiler version is incompatible.") + "\n\n" +
+                    _("Reason: Python 3.11+ requires Visual Studio 2022 (MSVC 14.3) with Windows SDK.") + "\n" +
+                    _("Solution:\n1. Install Visual Studio 2022 (Check 'Desktop development with C++' and 'Windows SDK').\n2. Or switch the engine to [PyInstaller] in Build Settings.")
+                )
+            elif "MinGW64 does not work with Python 3.13" in log_content or "ziglang" in log_content:
+                msg = (
+                    _("[Environment Error] Python 3.13+ Compiler Requirement.") + "\n\n" +
+                    _("Reason: MinGW64 is no longer supported on Python 3.13+. Please ensure Zig or VS 2022 is installed.") + "\n" +
+                    _("Solution:\n1. In Build Settings, switch to [PyInstaller] engine (Recommended).\n2. Or install Visual Studio 2022 with C++ support.")
+                )
+
         if not success and self.thread and self.thread.params.get('lite_mode') and not getattr(self.thread, '_is_cancelled', False):
             msg += "\n\n" + _("Tip: Build failed in Lite Mode. You can try switching to [Compatibility Mode] in Build Settings and rebuild.")
             
