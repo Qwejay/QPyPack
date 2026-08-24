@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-# Changelog
+## [2.7.12] - 2026-08-25
+
+### Added
+- **Expanded Package Mappings & Cloud Warnings**: Added mappings for `pkg_resources`, `protobuf`, `pydantic-core`, etc., in `DEFAULT_MAPPINGS` to prevent package resolution errors; added security warnings for Quark Cloud Sync directories.
+- **Enhanced GUI Framework Detection**: Added `qtpy`, `pyglet`, `toga`, and `pyqtgraph` to GUI auto-detection for accurate "Hide Console" flag toggling.
+- **Upgraded Python Installation Matrix**: Refactored the built-in installer catalog and support lifecycle for Python 3.14+ runtimes, optimizing version compatibility and recommendation strategies.
+
+### Changed
+- **Default Nuitka Anti-Bloat Strategy**: Enabled the `anti-bloat` plugin and baseline exclusions (`unittest`, `pytest`, `IPython`, etc.) by default to resolve abnormal binary size inflation in Compatibility Mode.
+- **Expanded Auto-Resource Collection**: Added automatic resource gathering rules for `pyecharts` and `pyppeteer` across both PyInstaller and Nuitka to prevent missing HTML assets and headless browser binaries.
+- **Hardened UPX Dynamic Library Whitelist**: Expanded UPX exclusion rules to cover `Qt5`, `sqlite3.dll`, and `libcrypto/libssl`, preventing crashes in database access and HTTPS networking.
+
+### Fixed
+- **Fixed Cloud Sync & Antivirus File Lock Failures**: Removed Nuitka's strict `--remove-output` flag and delegated cleanup to QPyPack's non-blocking cleanup routine, preventing `FATAL` build errors caused by OneDrive file locks or background security scans.
+- **Fixed False-Positive Standard Library Installation**: Added missing `traceback` and `warnings` modules to the fallback standard library manifest, preventing pip from attempting to download built-in modules on older Python versions like 3.9.
 
 ---
 

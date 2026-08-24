@@ -61,7 +61,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.11"
+__version__ = "2.7.12"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -520,6 +520,10 @@ ZH_CN_DICT = {
     "Resource not found: {path}": "资源未找到：{path}",
     "Script file is locked by cloud sync": "脚本文件被云同步锁定",
     "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] 源代码语法解析失败，构建中止：\n  - 文件：{file}\n  - 详情：{desc}\n\n提示：这通常不是打包工具的故障。\n请确保您选择的 [构建 Python 版本] 与您用于 [编写/测试代码] 的版本匹配。\n在较旧的 Python 环境中使用较新的语法（例如海象运算符 :=、类型联合 |、match-case）将触发此错误。\n我们建议您前往 [构建设置] -> [引擎] 切换到正确的 Python 版本。",
+    "Python 3.11.10 (Recommended)": "Python 3.11.10（推荐）",
+    "Python 3.12.9": "Python 3.12.9",
+    "Python 3.13.5 (Stable)": "Python 3.13.5（稳定版）",
+    "Python 3.14.3 (Newest)": "Python 3.14.3（最新版）",
     "Unknown": "未知"
 }
 
@@ -716,7 +720,15 @@ DEFAULT_MAPPINGS = {
     'OpenSSL': 'pyOpenSSL', 'ldap': 'python-ldap', 'magic': 'python-magic', 'slugify': 'python-slugify',
     'snappy': 'python-snappy',
     
-    'attr': 'attrs', 'psycopg2': 'psycopg2-binary'
+    'attr': 'attrs', 'psycopg2': 'psycopg2-binary',
+
+    'pkg_resources': 'setuptools',
+    'google.protobuf': 'protobuf',
+    'dotenv': 'python-dotenv',
+    'jwt': 'PyJWT',
+    'cx_Oracle': 'cx-Oracle',
+    'mysql': 'mysql-connector-python',
+    'pydantic_core': 'pydantic-core',
 }
 
 DEFAULT_BACKPORT_RULES = {
@@ -985,7 +997,8 @@ def is_cloud_sync_path(path_obj: Path) -> bool:
         'onedrive', 'dropbox', 'icloud', 'google drive', 'googledrive', 'gdrive',
         'box sync', 'box.com', 'pcloud', 'mega', 'megasync', 'nextcloud', 'owncloud',
         'synology', 'seafile', 'tresorit', 'yandex',
-        'nutstore', '坚果云', '百度云', '百度网盘', '阿里云盘', 'aliyun', '115', '微云'
+        'nutstore', '坚果云', '百度云', '百度网盘', '阿里云盘', 'aliyun', '115', '微云',
+        'quark', '夸克网盘', '夸克'
     ]
     return any(kw in path_str for kw in cloud_keywords)
 
@@ -1438,8 +1451,8 @@ def get_stdlib_names():
         'string', 'stringprep', 'struct', 'subprocess', 'sunau', 'symbol', 'symtable', 'sys',
         'sysconfig', 'syslog', 'tabnanny', 'tarfile', 'telnetlib', 'tempfile', 'termios', 'textwrap',
         'threading', 'time', 'timeit', 'tkinter', 'token', 'tokenize', 'tomllib', 'trace',
-        'tracemalloc', 'tty', 'turtle', 'turtledemo', 'types', 'typing', 'unicodedata', 'unittest',
-        'urllib', 'uu', 'uuid', 'venv', 'wave', 'weakref', 'webbrowser', 'winreg', 'winsound',
+        'traceback', 'tracemalloc', 'tty', 'turtle', 'turtledemo', 'types', 'typing', 'unicodedata', 'unittest',
+        'urllib', 'uu', 'uuid', 'venv', 'warnings', 'wave', 'weakref', 'webbrowser', 'winreg', 'winsound',
         'wsgiref', 'xdrlib', 'xml', 'xmlrpc', 'zipapp', 'zipfile', 'zipimport', 'zlib', 'zoneinfo',
         '__future__', '_thread', '_asyncio'
     }
@@ -4051,7 +4064,6 @@ class SettingsPanel(QWidget):
             return self.parent_win.show_error_log(_("[ERROR] Target file is locked or encrypted by cloud drive. Please decrypt and try again."))
             
         try:
-            # 联动界面勾选的“扫描整个文件夹”状态
             scan_dir = self.pipreqs_dir_check.isChecked()
             target = Path(script_path).parent if scan_dir else Path(script_path)
             hidden = extract_project_imports_via_ast(target, scan_dir=scan_dir)
@@ -4741,7 +4753,6 @@ class PackingThread(QThread):
             script_dir = script_path.parent
             system_python_exe = self.params.get('python_exe')
 
-            # 使用选定的目标 Python 进行语法预检，避免高低版本语法特性误杀
             if system_python_exe and os.path.exists(system_python_exe):
                 try:
                     kw_chk = {"capture_output": True, "text": True, "timeout": 5, "errors": "ignore"}
@@ -5250,15 +5261,19 @@ class PackingThread(QThread):
                     if os.name == "nt":
                         cmd.extend([
                             "--upx-exclude=python3.dll",
-                            "--upx-exclude=vcruntime140.dll",
-                            "--upx-exclude=vcruntime140_1.dll",
+                            "--upx-exclude=vcruntime*.dll",
                             "--upx-exclude=ucrtbase.dll",
-                            "--upx-exclude=msvcp140.dll",
-                            "--upx-exclude=msvcp140_1.dll",
+                            "--upx-exclude=msvcp*.dll",
                             "--upx-exclude=Qt6Core.dll",
                             "--upx-exclude=Qt6Gui.dll",
                             "--upx-exclude=Qt6Widgets.dll",
-                            "--upx-exclude=qwindows.dll"
+                            "--upx-exclude=Qt5Core.dll",
+                            "--upx-exclude=Qt5Gui.dll",
+                            "--upx-exclude=Qt5Widgets.dll",
+                            "--upx-exclude=qwindows.dll",
+                            "--upx-exclude=sqlite3.dll",
+                            "--upx-exclude=libcrypto*.dll",
+                            "--upx-exclude=libssl*.dll"
                         ])
                         try:
                             kw = {"capture_output": True, "text": True, "timeout": 3, "errors": "ignore"}
@@ -5299,20 +5314,24 @@ class PackingThread(QThread):
                     cmd.extend(["--collect-data", "certifi"])
                     self.progress.emit(_("[WARN] Detected 'requests' or 'httpx'. Auto-bundling 'certifi' certificates to prevent SSL errors."))
                 
-                for web_fw in ('fastapi', 'uvicorn', 'flask', 'streamlit', 'pywebio', 'dash'):
+                for web_fw in ('fastapi', 'uvicorn', 'flask', 'streamlit', 'pywebio', 'dash', 'pyecharts', 'pyppeteer'):
                     if web_fw in all_imports_lower:
                         cmd.extend(["--collect-all", web_fw])
 
             elif engine == "Nuitka":
                 self.temp_out_dir = Path(tempfile.mkdtemp(prefix="qpypack_nuitka_", dir=temp_dir_arg)).resolve()
                 cmd = [
-                    python_exe, "-m", "nuitka", "--remove-output", "--assume-yes-for-downloads",
+                    python_exe, "-m", "nuitka", "--assume-yes-for-downloads",
+                    "--enable-plugin=anti-bloat",
                     f"--output-dir={self.temp_out_dir.as_posix()}", 
                     f"--output-filename={app_name}{ext}"
                 ]
+                
+                base_nuitka_excludes = ['unittest', 'doctest', 'pdb', 'pydoc', 'test', 'pytest', 'IPython', 'setuptools']
+                for ex in base_nuitka_excludes:
+                    cmd.append(f"--nofollow-import-to={ex}")
 
                 if os.name == "nt":
-                    # 1. 精确获取打包 Python 的版本与架构位数
                     py_ver_num = (3, 8)
                     is_64bit = True
                     try:
@@ -5327,14 +5346,12 @@ class PackingThread(QThread):
                             is_64bit = (arch_part.lower() == 'true')
                     except Exception: pass
 
-                    # 2. 精确检测 MSVC 以及是否安装了 Windows SDK
                     has_suitable_msvc = False
                     has_win_sdk = False
                     vswhere = Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
                     
                     if vswhere.exists():
                         try:
-                            # Python 3.11+ 必须 VS 2022 (v17.0+ / MSVC 14.3+)；3.8-3.10 支持 VS 2017/2019/2022
                             min_vs_ver = "17.0" if py_ver_num >= (3, 11) else "15.0"
                             res_vc = subprocess.run([
                                 vswhere.as_posix(), "-latest", "-version", min_vs_ver, 
@@ -5344,7 +5361,6 @@ class PackingThread(QThread):
                                 has_suitable_msvc = True
                         except Exception: pass
 
-                    # 修复：直接扫描标准系统 SDK 路径（防止 vswhere 检索范围局限在 VS 目录导致误判）
                     sdk_paths = [
                         Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Windows Kits" / "10" / "Lib",
                         Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Windows Kits" / "11" / "Lib",
@@ -5356,18 +5372,14 @@ class PackingThread(QThread):
                             has_win_sdk = True
                             break
 
-                    # 3. 全版本编译器分流矩阵
-                    # 规则 A: 拥有合规 MSVC 且包含 SDK -> 优先使用 MSVC
                     if has_suitable_msvc and has_win_sdk:
                         cmd.append("--msvc=latest")
                         self.progress.emit(_("[INFO] Found compatible MSVC + Windows SDK environment, using native compiler."))
                     
-                    # 规则 B: Python 3.13+ 并且是 64 位环境 -> 优先使用 Zig 编译器 (MinGW64 在 3.13+ 已废弃)
                     elif py_ver_num >= (3, 13) and is_64bit:
                         cmd.append("--zig")
                         self.progress.emit(_("[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as native backend."))
                     
-                    # 规则 C: Python 3.8 ~ 3.12 -> 使用/自动下载 MinGW64 (winlibs)
                     elif py_ver_num <= (3, 12):
                         cmd.append("--mingw64")
                         if not has_suitable_msvc and py_ver_num >= (3, 11):
@@ -5375,7 +5387,6 @@ class PackingThread(QThread):
                         else:
                             self.progress.emit(_("[INFO] Using MinGW64 compiler."))
                     
-                    # 规则 D: Python 3.13+ 且为 32位系统，但缺失 VS2022
                     else:
                         cmd.append("--msvc=latest")
                         self.progress.emit(_("[WARN] Python 3.13+ (32-bit) requires Visual Studio 2022 with Windows SDK. Build will attempt with current environment."))
@@ -5478,7 +5489,7 @@ class PackingThread(QThread):
                     cmd.append("--include-package-data=certifi")
                     self.progress.emit(_("[WARN] Detected 'requests' or 'httpx'. Auto-bundling 'certifi' certificates to prevent SSL errors."))
                     
-                for web_fw in ('fastapi', 'uvicorn', 'flask', 'streamlit', 'pywebio', 'dash'):
+                for web_fw in ('fastapi', 'uvicorn', 'flask', 'streamlit', 'pywebio', 'dash', 'pyecharts', 'pyppeteer'):
                     if web_fw in imports_lower:
                         if not is_lite: cmd.append(f"--include-package={web_fw}")
                         cmd.append(f"--include-package-data={web_fw}")
@@ -5513,8 +5524,7 @@ class PackingThread(QThread):
                         cmd.append(f"--exclude-module={ex}")
                 elif engine == "Nuitka":
                     cmd.append("--python-flag=-OO")
-                    cmd.append("--enable-plugin=anti-bloat")
-                    nuitka_dev_excludes = ['unittest', 'doctest', 'pdb', 'pydoc', 'test', 'pytest', 'IPython', 'binder', 'tkinter.test', 'pip', 'setuptools', 'wheel']
+                    nuitka_dev_excludes = ['binder', 'tkinter.test', 'pip', 'wheel', 'distutils', 'pkg_resources', 'jupyter', 'notebook', 'IPython']
                     for ex in nuitka_dev_excludes:
                         cmd.append(f"--nofollow-import-to={ex}")
 
@@ -5606,7 +5616,6 @@ class PackingThread(QThread):
                 self.progress.emit(_("[INFO] Compilation completed, archiving built files..."))
                 try:
                     if src_out.resolve() != final_out.resolve():
-                        # 若目标路径已存在旧文件/文件夹，先安全彻底删除
                         if final_out.exists():
                             if final_out.is_dir():
                                 if not robust_rmtree(final_out):
@@ -5618,7 +5627,6 @@ class PackingThread(QThread):
                                     time.sleep(1)
                                     final_out.unlink(missing_ok=True)
                         
-                        # 确保旧产物已彻底不存在后再移动，避免 onedir 模式下将目录移入自身产生嵌套
                         for _retry in range(15):
                             try:
                                 shutil.move(src_out.as_posix(), final_out.as_posix())
@@ -5864,10 +5872,10 @@ class PythonInstallerDialog(QDialog):
         lay_dl.setSpacing(10)
 
         self.versions = [
-            ("3.14.6", _("Python 3.14.6 (Experimental)")),
-            ("3.13.0", _("Python 3.13.0")),
-            ("3.12.4", _("Python 3.12.4")),
-            ("3.11.9", _("Python 3.11.9 (Recommended)")),
+            ("3.14.3", _("Python 3.14.3 (Newest)")),
+            ("3.13.5", _("Python 3.13.5 (Stable)")),
+            ("3.12.9", _("Python 3.12.9")),
+            ("3.11.10", _("Python 3.11.10 (Recommended)")),
             ("3.10.11", _("Python 3.10.11")),
             ("3.9.13", _("Python 3.9.13")),
             ("3.8.10", _("Python 3.8.10 (Win7 Support)")),
@@ -6560,7 +6568,8 @@ class MainWindow(QMainWindow):
         gui_libs = {
             'pyqt5', 'pyqt6', 'pyside2', 'pyside6', 'tkinter', 'wx', 'kivy', 'libavg', 
             'pysimplegui', 'customtkinter', 'turtle', 'easygui', 'pygame', 'arcade', 
-            'dearpygui', 'flet', 'webview', 'remi'
+            'dearpygui', 'flet', 'webview', 'remi', 
+            'qtpy', 'pyglet', 'toga', 'pyqtgraph'
         }
 
         has_gui = any(lib in {m.lower() for m in script_imports} for lib in gui_libs)
