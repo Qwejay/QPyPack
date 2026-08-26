@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+### [2.7.13] - 2026-08-26
+
+#### Added
+- **Nuitka Compilation Optimization**: Enabled `--lto=yes` (Link-Time Optimization) by default in Lite Mode to eliminate unreferenced symbols and significantly reduce the compiled native binary size.
+
+#### Improved
+- **Code Security & Quality Upgrades**: Fully passed Ruff, Flake8, and Bandit security audits; upgraded internal hashing to SHA-256; added protocol whitelisting and explicit exception chaining for Python downloads.
+- **Log Output Refinements**: Optimized comparison logic between AST analysis and dependency manifests; eliminated redundant "Auto-patched" logs when no `requirements.txt` is present for cleaner, more intuitive logs.
+- **Legacy Python Compatibility**: Introduced `from __future__ import annotations` deferred evaluation, ensuring modern PEP 604 union type hints run reliably on Python 3.8 / 3.9 without runtime errors.
+
+#### Fixed
+- **Fix Lite Mode Bloat Issue**: Resolved an issue causing bloated package sizes in Lite Mode.
+- **Fix Fatal Version Comparison Crash**: Refactored version parsing in Backport exclusion rules, resolving a crash caused by comparing version tuples directly with rule strings (`TypeError`).
+- **Fix Missing UI Translation Refresh**: Fixed a dynamic translation refresh issue where the "Code Signing" card title failed to update on language switch, and removed duplicate translation keys.
+- **Eliminate Process Interception Risk**: Replaced all bare `except:` clauses to prevent swallowing system interrupt signals, ensuring worker threads terminate cleanly.
+
+---
+
 ## [2.7.12] - 2026-08-25
 
 ### Added
