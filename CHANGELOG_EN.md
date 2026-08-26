@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+### [2.7.14] - 2026-08-26
+
+#### Fixed
+- **Supplement Missing Translations**: Fixed missing Chinese localization strings for several UI labels, engine descriptions, and status hints in v2.7.13.
+
+---
+
 ### [2.7.13] - 2026-08-26
 
 #### Added

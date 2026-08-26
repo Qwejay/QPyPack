@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.13"
+__version__ = "2.7.14"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -582,6 +582,11 @@ ZH_CN_DICT = {
     "Python 3.12.9": "Python 3.12.9",
     "Python 3.13.5 (Stable)": "Python 3.13.5（稳定版）",
     "Python 3.14.3 (Newest)": "Python 3.14.3（最新版）",
+    "<b><span style='color:#16a34a;'> Detected locally:</span></b><br><span style='color:#475569; font-family:Consolas;'>{path}</span><br><span style='color:#16a34a; font-size:11px;'>Ready to switch directly without re-downloading.</span>": "<b><span style='color:#16a34a;'> 已在本地检测到：</span></b><br><span style='color:#475569; font-family:Consolas;'>{path}</span><br><span style='color:#16a34a; font-size:11px;'>可直接切换，无需重新下载。</span>",
+    "Hide Custom Cert Settings ": "隐藏自定义证书设置",
+    "Nuitka  Compiles source code into native C/C++ binary. Produces smaller package size, faster execution, and deep anti-decompilation protection (requires C compiler).": "Nuitka  将源代码编译为原生C/C++二进制文件。生成包体积更小，执行速度更快，并具有深度反反编译保护（需要C编译器）。",
+    "PyInstaller  Bundles Python interpreter and bytecode. Fast build speed, zero configuration (no C compiler needed), and excellent compatibility.": "PyInstaller  打包Python解释器和字节码。构建速度快，零配置（无需C编译器），兼容性极佳。",
+    "Use Custom Commercial Cert (Optional) ": "使用自定义商业证书（可选）",
     "Unknown": "未知"
 }
 
