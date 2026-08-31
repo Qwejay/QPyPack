@@ -87,6 +87,7 @@
   "Description:": "คำอธิบาย:",
   "Desktop Application": "แอปพลิเคชันเดสก์ท็อป",
   "Detailed Mode": "โหมดรายละเอียด",
+  "Detected multiple entry scripts in project. Please select one to build:": "ตรวจพบสคริปต์ entry หลายตัวในโปรเจกต์ โปรดเลือกหนึ่งรายการเพื่อสร้าง:",
   "Directory": "ไดเรกทอรี",
   "Discovered via scanner ({count}): {pkgs}": "ค้นพบผ่านสแกนเนอร์ ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "พื้นที่ดิสก์เหลือน้อยมาก: {free:.1f}GB < {min:.1f}GB",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "เว้นว่างไว้เพื่อค้นหา requirements.txt ในไดเรกทอรีปัจจุบันอัตโนมัติ",
   "Legacy macOS Compatible": "เข้ากันได้กับ macOS รุ่นเก่า",
   "Lite Mode (Smaller size)": "โหมดไลต์ (ขนาดเล็กลง)",
+  "Loaded Project: {name} | Entry: {entry}": "โหลดโปรเจกต์: {name} | Entry: {entry}",
   "Loaded: {filename}": "โหลดแล้ว: {filename}",
   "Locally Detected Pythons": "Python ที่ตรวจพบในเครื่อง",
   "Lock Core Dependencies": "ล็อก Core Dependencies",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "โหลดสคริปต์แล้ว คุณสามารถลากโฟลเดอร์ทรัพยากรหรือไฟล์ข้อมูลมาที่นี่เพื่อรวมเข้าด้วยกัน",
   "Select .pfx / .p12 certificate file": "เลือกไฟล์ใบรับรอง .pfx / .p12",
   "Select All": "เลือกทั้งหมด",
+  "Select Main Entry Script": "เลือกสคริปต์ Entry หลัก",
   "Select Python Version to Download:": "เลือกเวอร์ชัน Python ที่จะดาวน์โหลด:",
   "Select shared directory...": "เลือกไดเรกทอรีที่ใช้ร่วมกัน...",
   "Self-Signed Certificate (*.pfx)": "ใบรับรองที่เซ็นชื่อเอง (*.pfx)",
@@ -375,6 +378,7 @@
   "[SUCCESS] Compilation completed, output path: {path}": "[SUCCESS] การคอมไพล์เสร็จสมบูรณ์ พาธเอาต์พุต: {path}",
   "[SUCCESS] Digital signature applied successfully!": "[SUCCESS] ใช้ลายเซ็นดิจิทัลสำเร็จ!",
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] ซอร์สโค้ดมีข้อผิดพลาดทางไวยากรณ์ การคอมไพล์ถูกยกเลิก:\n  - ไฟล์: {file}\n  - ประเภท: {type}\n  - บรรทัด: บรรทัดที่ {line}\n  - รายละเอียด: {desc}\n\nเคล็ดลับ: โปรดตรวจสอบให้แน่ใจว่าซอร์สโค้ดทำงานได้ในเครื่องก่อนแพ็กเกจ",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] สคริปต์นำเข้าโมดูลหลัก '{mod}' หากการสร้างล้มเหลว ให้ลองลากโฟลเดอร์โปรเจกต์ทั้งหมดมาที่นี่",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] ตรวจพบโมดูล 'multiprocessing' โปรดตรวจสอบให้แน่ใจว่าได้เรียก 'multiprocessing.freeze_support()' ภายใต้ 'if __name__ == \"__main__\":' เพื่อป้องกันการวนซ้ำของกระบวนการไม่รู้จบ (fork bombs)",
   "[WARN] AST Analysis Exception: {error}": "[WARN] ข้อยกเว้นการวิเคราะห์ AST: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] คำสั่งหมดเวลา (> {timeout} วินาที)",
@@ -403,5 +407,8 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] โปรเจกต์เป้าหมายอยู่ในไดเรกทอรี Cloud Sync (เช่น OneDrive/Dropbox) การซิงก์คลาวด์อาจล็อกไฟล์ build ชั่วคราว",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] การเชื่อมต่อกับเซิร์ฟเวอร์ timestamp หมดเวลา กำลังลงนามแบบเร็วในเครื่อง...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] ตรวจพบการใช้ '__file__' ในโหมด One-File ของ PyInstaller ควรใช้ 'sys._MEIPASS' เพื่อค้นหาไฟล์ทรัพยากรที่รวมอยู่ได้อย่างน่าเชื่อถือ!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nการทำงานของโปรแกรมเสร็จสิ้น กด Enter เพื่อออก..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nการทำงานของโปรแกรมเสร็จสิ้น กด Enter เพื่อออก...",
+  "Package Mapping & Remediation": "การจับคู่แพ็กเกจและการแก้ไข",
+  "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.",
+  "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version."
 }

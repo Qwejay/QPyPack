@@ -87,6 +87,7 @@
   "Description:": "Description :",
   "Desktop Application": "Application de bureau",
   "Detailed Mode": "Mode détaillé",
+  "Detected multiple entry scripts in project. Please select one to build:": "Plusieurs scripts d'entrée détectés dans le projet. Veuillez en sélectionner un à compiler :",
   "Directory": "Répertoire",
   "Discovered via scanner ({count}): {pkgs}": "Découvert via le scanner ({count}) : {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "Espace disque critique : {free:.1f} Go < {min:.1f} Go",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "Laisser vide pour rechercher automatiquement requirements.txt dans le répertoire courant",
   "Legacy macOS Compatible": "Compatible macOS hérité",
   "Lite Mode (Smaller size)": "Mode léger (taille réduite)",
+  "Loaded Project: {name} | Entry: {entry}": "Projet chargé : {name} | Entrée : {entry}",
   "Loaded: {filename}": "Chargé : {filename}",
   "Locally Detected Pythons": "Pythons détectés localement",
   "Lock Core Dependencies": "Verrouiller les dépendances principales",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "Script chargé. Vous pouvez glisser des dossiers d'actifs ou des fichiers de données directement ici pour les regrouper.",
   "Select .pfx / .p12 certificate file": "Sélectionner le fichier de certificat .pfx / .p12",
   "Select All": "Tout sélectionner",
+  "Select Main Entry Script": "Sélectionner le script d'entrée principal",
   "Select Python Version to Download:": "Sélectionner la version de Python à télécharger :",
   "Select shared directory...": "Sélectionner le répertoire partagé...",
   "Self-Signed Certificate (*.pfx)": "Certificat auto-signé (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] Le code source contient des erreurs de syntaxe, compilation interrompue :\n  - Fichier : {file}\n  - Type : {type}\n  - Ligne : Ligne {line}\n  - Détail : {desc}\n\nAstuce : Veuillez vous assurer que le code source s'exécute localement avant l'empaquetage.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] L'analyse syntaxique du code source a échoué, build interrompu :\n  - Fichier : {file}\n  - Détail : {desc}\n\nAstuce : Ce n'est généralement pas une faute de l'outil d'empaquetage.\nAssurez-vous que la [Version Python de build] sélectionnée correspond à celle utilisée pour [Écrire/Tester le code].\nL'utilisation d'une syntaxe plus récente (par exemple, opérateur morse :=, unions de types |, match-case) dans un environnement Python plus ancien déclenchera cette erreur.\nNous recommandons d'aller dans [Paramètres de build] -> [Moteur] pour passer à la version Python correcte.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] L'analyse syntaxique du code source a échoué, construction interrompue :\n  - Fichier : {file}\n  - Ligne : Ligne {line}\n  - Détail : {desc}\n\nAstuce : Ce n'est généralement PAS une faute de l'outil d'empaquetage.\nVeuillez vous assurer que la [Version Python de construction] que vous avez sélectionnée correspond à celle utilisée pour [Écrire/Tester le code].\nL'utilisation d'une syntaxe plus récente (par exemple, l'opérateur morse :=, les unions de types |, match-case) dans un environnement Python plus ancien déclenchera cette erreur.\nNous recommandons d'aller dans [Paramètres de construction] -> [Moteur] pour passer à la version Python correcte.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] Le script importe le module parent '{mod}'. Si la compilation échoue, essayez de glisser le dossier du projet entier ici.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] Module 'multiprocessing' détecté. Assurez-vous que 'multiprocessing.freeze_support()' est appelé sous 'if __name__ == \"__main__\":' pour éviter les boucles de processus infinies (bombes de fork).",
   "[WARN] AST Analysis Exception: {error}": "[WARN] Exception d'analyse AST : {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] Délai d'attente de la commande dépassé (>{timeout}s)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] Le projet cible se trouve dans un répertoire de synchronisation cloud (par ex. OneDrive/Dropbox). La synchronisation cloud peut temporairement verrouiller les fichiers de construction.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] Délai d'attente dépassé pour le serveur d'horodatage, signature rapide locale en cours...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] Utilisation de '__file__' détectée. En mode fichier unique PyInstaller, utilisez 'sys._MEIPASS' pour localiser de manière fiable les fichiers de ressources inclus !",
-  "\\nProgram execution completed, press Enter to exit...": "\\nExécution du programme terminée, appuyez sur Entrée pour quitter..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nExécution du programme terminée, appuyez sur Entrée pour quitter...",
+  "Package Mapping & Remediation": "Mappage de paquets et correction"
 }

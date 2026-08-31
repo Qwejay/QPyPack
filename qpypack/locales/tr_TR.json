@@ -87,6 +87,7 @@
   "Description:": "Açıklama:",
   "Desktop Application": "Masaüstü Uygulaması",
   "Detailed Mode": "Ayrıntılı Mod",
+  "Detected multiple entry scripts in project. Please select one to build:": "Projede birden fazla giriş betiği algılandı. Lütfen derlemek için birini seçin:",
   "Directory": "Dizin",
   "Discovered via scanner ({count}): {pkgs}": "Tarayıcıyla keşfedildi ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "Disk alanı kritik düzeyde düşük: {free:.1f}GB < {min:.1f}GB",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "Geçerli dizinde requirements.txt dosyasını otomatik aramak için boş bırakın",
   "Legacy macOS Compatible": "Eski macOS Uyumlu",
   "Lite Mode (Smaller size)": "Hafif Mod (Daha küçük boyut)",
+  "Loaded Project: {name} | Entry: {entry}": "Yüklenen Proje: {name} | Giriş: {entry}",
   "Loaded: {filename}": "Yüklendi: {filename}",
   "Locally Detected Pythons": "Yerel Olarak Algılanan Python'lar",
   "Lock Core Dependencies": "Çekirdek Bağımlılıkları Kilitle",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "Betik yüklendi. Varlık klasörlerini veya veri dosyalarını doğrudan buraya sürükleyerek paketleyebilirsiniz.",
   "Select .pfx / .p12 certificate file": ".pfx / .p12 sertifika dosyası seçin",
   "Select All": "Tümünü Seç",
+  "Select Main Entry Script": "Ana Giriş Betiğini Seçin",
   "Select Python Version to Download:": "İndirilecek Python Sürümünü Seçin:",
   "Select shared directory...": "Paylaşılan dizini seç...",
   "Self-Signed Certificate (*.pfx)": "Kendi Kendine İmzalı Sertifika (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] Kaynak kod sözdizimi hataları içeriyor, derleme iptal edildi:\n  - Dosya: {file}\n  - Tür: {type}\n  - Satır: {line}. satır\n  - Ayrıntı: {desc}\n\nİpucu: Paketlemeden önce kaynak kodun yerel olarak çalıştığından emin olun.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Kaynak kod sözdizimi ayrıştırması başarısız oldu, derleme iptal edildi:\n  - Dosya: {file}\n  - Ayrıntı: {desc}\n\nİpucu: Bu genellikle paketleme aracının hatası değildir.\nSeçtiğiniz [Derleme Python Sürümü]'nün, kodu [Yazarken/Test Ederken] kullandığınız sürümle eşleştiğinden emin olun.\nDaha yeni sözdizimi (ör. walrus operatörü :=, tip birleşimleri |, match-case) daha eski bir Python ortamında kullanılırsa bu hata tetiklenir.\n[Derleme Ayarları] -> [Motor] bölümünden doğru Python sürümüne geçmenizi öneririz.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Kaynak kod sözdizimi ayrıştırılamadı, derleme iptal edildi:\n  - Dosya: {file}\n  - Satır: {line}. satır\n  - Ayrıntı: {desc}\n\nİpucu: Bu genellikle paketleme aracının hatası DEĞİLDİR.\nSeçtiğiniz [Derleme Python Sürümü] ile [Kodu Yazarken/Test Ederken] kullandığınız sürümün eşleştiğinden emin olun.\nDaha yeni sözdizimi (ör. mors operatörü :=, tür birleşimleri |, match-case) kullanmak eski bir Python ortamında bu hatayı tetikler.\n[Derleme Ayarları] -> [Motor] bölümünden doğru Python sürümüne geçmenizi öneririz.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] Betik üst modülü '{mod}' içe aktarıyor. Derleme başarısız olursa, tüm proje klasörünü buraya sürüklemeyi deneyin.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] 'multiprocessing' modülü algılandı. Sonsuz işlem döngülerini (fork bombaları) önlemek için 'multiprocessing.freeze_support()' çağrısının 'if __name__ == \"__main__\":' altında yapıldığından emin olun.",
   "[WARN] AST Analysis Exception: {error}": "[WARN] AST Analiz İstisnası: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] Komut zaman aşımı (>{timeout}s)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] Hedef proje bir Bulut Senkronizasyon dizininde (örn. OneDrive/Dropbox). Bulut senkronizasyonu derleme dosyalarını geçici olarak kilitleyebilir.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] Zaman damgası sunucusu bağlantısı zaman aşımına uğradı, yerel hızlı imzalama yapılıyor...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] '__file__' kullanımı algılandı. PyInstaller Tek Dosya modunda, paketlenmiş kaynak dosyalarını güvenilir şekilde bulmak için 'sys._MEIPASS' kullanın!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nProgram yürütme tamamlandı, çıkmak için Enter'a basın..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nProgram yürütme tamamlandı, çıkmak için Enter'a basın...",
+  "Package Mapping & Remediation": "Paket Eşleme ve Düzeltme"
 }

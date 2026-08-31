@@ -87,6 +87,7 @@
   "Description:": "Mô tả:",
   "Desktop Application": "Ứng dụng máy tính để bàn",
   "Detailed Mode": "Chế độ chi tiết",
+  "Detected multiple entry scripts in project. Please select one to build:": "Phát hiện nhiều script khởi chạy trong dự án. Vui lòng chọn một để xây dựng:",
   "Directory": "Thư mục",
   "Discovered via scanner ({count}): {pkgs}": "Được phát hiện qua máy quét ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "Dung lượng đĩa cực thấp: {free:.1f}GB < {min:.1f}GB",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "Để trống để tự động tìm kiếm requirements.txt trong thư mục hiện tại",
   "Legacy macOS Compatible": "Tương Thích macOS Cũ",
   "Lite Mode (Smaller size)": "Chế Độ Gọn Nhẹ (Kích thước nhỏ hơn)",
+  "Loaded Project: {name} | Entry: {entry}": "Đã tải dự án: {name} | Điểm vào: {entry}",
   "Loaded: {filename}": "Đã tải: {filename}",
   "Locally Detected Pythons": "Python Được Phát Hiện Cục Bộ",
   "Lock Core Dependencies": "Khóa Các Phụ Thuộc Cốt Lõi",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "Tập lệnh đã được tải. Bạn có thể kéo trực tiếp các thư mục tài sản hoặc tệp dữ liệu vào đây để đóng gói.",
   "Select .pfx / .p12 certificate file": "Chọn tệp chứng chỉ .pfx / .p12",
   "Select All": "Chọn tất cả",
+  "Select Main Entry Script": "Chọn Script Khởi Chạy Chính",
   "Select Python Version to Download:": "Chọn phiên bản Python để tải xuống:",
   "Select shared directory...": "Chọn thư mục dùng chung...",
   "Self-Signed Certificate (*.pfx)": "Chứng chỉ tự ký (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] Mã nguồn chứa lỗi cú pháp, biên dịch bị hủy:\n  - Tệp: {file}\n  - Loại: {type}\n  - Dòng: Dòng {line}\n  - Chi tiết: {desc}\n\nMẹo: Vui lòng đảm bảo mã nguồn chạy cục bộ trước khi đóng gói.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Phân tích cú pháp mã nguồn thất bại, hủy xây dựng:\n  - Tệp: {file}\n  - Chi tiết: {desc}\n\nMẹo: Đây thường KHÔNG phải lỗi của công cụ đóng gói.\nVui lòng đảm bảo [Phiên bản Python xây dựng] bạn chọn khớp với phiên bản bạn đã dùng để [Viết/Kiểm tra mã].\nSử dụng cú pháp mới hơn (ví dụ: toán tử walrus :=, union type |, match-case) trong môi trường Python cũ sẽ gây ra lỗi này.\nChúng tôi khuyên bạn nên đến [Cài đặt xây dựng] -> [Công cụ] để chuyển sang phiên bản Python chính xác.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Phân tích cú pháp mã nguồn thất bại, xây dựng bị hủy:\n  - Tệp: {file}\n  - Dòng: Dòng {line}\n  - Chi tiết: {desc}\n\nMẹo: Đây thường KHÔNG phải lỗi của công cụ đóng gói.\nVui lòng đảm bảo [Phiên bản Python xây dựng] bạn chọn khớp với phiên bản bạn đã dùng để [Viết/Kiểm tra mã].\nSử dụng cú pháp mới hơn (ví dụ: toán tử hải mã :=, union kiểu |, match-case) trong môi trường Python cũ hơn sẽ gây ra lỗi này.\nChúng tôi khuyên bạn nên đến [Cài đặt xây dựng] -> [Công cụ] để chuyển sang phiên bản Python chính xác.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] Script nhập mô-đun cha '{mod}'. Nếu xây dựng thất bại, hãy thử kéo toàn bộ thư mục dự án vào đây.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] Đã phát hiện mô-đun 'multiprocessing'. Đảm bảo gọi 'multiprocessing.freeze_support()' trong 'if __name__ == \"__main__\":' để tránh vòng lặp tiến trình vô hạn (fork bombs).",
   "[WARN] AST Analysis Exception: {error}": "[WARN] Ngoại lệ phân tích AST: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] Hết thời gian chờ lệnh (>{timeout}s)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] Dự án mục tiêu nằm trong thư mục Đồng bộ đám mây (ví dụ: OneDrive/Dropbox). Đồng bộ đám mây có thể tạm thời khóa các tệp xây dựng.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] Kết nối máy chủ dấu thời gian hết thời gian chờ, thực hiện ký nhanh cục bộ...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] Phát hiện việc sử dụng '__file__'. Trong chế độ Một tệp PyInstaller, hãy sử dụng 'sys._MEIPASS' để định vị đáng tin cậy các tệp tài nguyên được đóng gói!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nChương trình đã thực thi xong, nhấn Enter để thoát..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nChương trình đã thực thi xong, nhấn Enter để thoát...",
+  "Package Mapping & Remediation": "Ánh xạ gói & Khắc phục"
 }
