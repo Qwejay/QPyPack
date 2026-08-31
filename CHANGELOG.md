@@ -2,10 +2,27 @@
 
 QPyPack 项目的所有重要变更都将记录在此文件中。
 
-本日志格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范，
-且本项目严格遵循 [语义化版本 (Semantic Versioning)](https://semver.org/lang/zh-CN/) 规范。
-
 [English Version](./CHANGELOG_EN.md) | **中文**
+
+---
+
+## [2.8.0] - 2026-08-31
+
+### 新增
+- 支持直接拖入项目文件夹，自动识别工作区路径并关联根目录 `requirements.txt`。
+- 增加多入口脚本匹配机制，并在检测到多个候选入口文件时提供选择对话框供用户指定。
+- 增加跨层级模块引用检测，在单独载入脚本引用上级目录模块时输出工作区配置与项目导入建议。
+
+### 变更
+- 扩展 AST 依赖分析范围至整个项目工作区，提升对子模块内部依赖的识别能力。
+- 引入本地模块与附加资源白名单机制，避免将项目内部模块识别为 PyPI 依赖并执行 pip 安装。
+- 扩充默认包名映射表与 Auto-Hooks 规则库，为 `pycryptodome`、`nacl`、`soundfile`、`pynput`、`keyring`、`pydantic_core` 等库补充自动收录参数。
+- 调整构建搜索路径配置，自动为 PyInstaller 传递 `--paths`（包含工作区与 `src` 目录）并为 Nuitka 设置 `PYTHONPATH`。
+- 调整 `requirements.txt` 解析逻辑，支持处理行内注释（`#`）及环境标记（`;`）等语法。
+
+### 修复
+- 修复控制台暂停代码插入位置位于 `from __future__` 语句之前导致的 `SyntaxError` 语法错误。
+- 修复 `os.walk` 迭代变量名冲突覆盖全局翻译函数引发的 `TypeError: 'list' object is not callable` 异常。
 
 ---
 
@@ -451,7 +468,12 @@ QPyPack 项目的所有重要变更都将记录在此文件中。
 
 ---
 
+本项目向以下规范靠拢。
+[Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范，
+[语义化版本 (Semantic Versioning)](https://semver.org/lang/zh-CN/) 规范。
+
 ## 📄 License
+---
 
 Copyright (C) 2026 QwejayHuang.
 Licensed under the [GNU General Public License v3.0](LICENSE).

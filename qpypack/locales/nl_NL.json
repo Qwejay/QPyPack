@@ -87,6 +87,7 @@
   "Description:": "Beschrijving:",
   "Desktop Application": "Desktoptoepassing",
   "Detailed Mode": "Gedetailleerde modus",
+  "Detected multiple entry scripts in project. Please select one to build:": "Meerdere entry-scripts gedetecteerd in het project. Selecteer er een om te bouwen:",
   "Directory": "Map",
   "Discovered via scanner ({count}): {pkgs}": "Gevonden via scanner ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "Schijfruimte kritiek laag: {free:.1f}GB < {min:.1f}GB",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "Laat leeg om automatisch requirements.txt in de huidige map te zoeken",
   "Legacy macOS Compatible": "Legacy macOS-compatibel",
   "Lite Mode (Smaller size)": "Lite-modus (kleiner formaat)",
+  "Loaded Project: {name} | Entry: {entry}": "Project geladen: {name} | Entry: {entry}",
   "Loaded: {filename}": "Geladen: {filename}",
   "Locally Detected Pythons": "Lokaal gedetecteerde Pythons",
   "Lock Core Dependencies": "Kernafhankelijkheden vergrendelen",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "Script geladen. U kunt assetmappen of gegevensbestanden hier direct naartoe slepen om ze te bundelen.",
   "Select .pfx / .p12 certificate file": "Selecteer .pfx / .p12 certificaatbestand",
   "Select All": "Alles selecteren",
+  "Select Main Entry Script": "Selecteer hoofd-entry-script",
   "Select Python Version to Download:": "Selecteer Python-versie om te downloaden:",
   "Select shared directory...": "Selecteer gedeelde map...",
   "Self-Signed Certificate (*.pfx)": "Zelfondertekend certificaat (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] Broncode bevat syntaxfouten, compilatie afgebroken:\n  - Bestand: {file}\n  - Type: {type}\n  - Regel: Regel {line}\n  - Detail: {desc}\n\nTip: Zorg ervoor dat de broncode lokaal werkt voordat u deze verpakt.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Broncode-syntaxparsing mislukt, bouwen afgebroken:\n  - Bestand: {file}\n  - Detail: {desc}\n\nTip: Dit is meestal GEEN fout van het verpakkingsprogramma.\nZorg ervoor dat de [Bouw Python-versie] die u selecteert overeenkomt met de versie die u gebruikte om de code te [schrijven/testen].\nHet gebruik van nieuwere syntax (bijv. walrus-operator :=, type-unies |, match-case) in een oudere Python-omgeving zal deze fout veroorzaken.\nWe raden aan om naar [Bouwinstellingen] -> [Engine] te gaan om over te schakelen naar de juiste Python-versie.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Parsen van broncodesyntax mislukt, build afgebroken:\n  - Bestand: {file}\n  - Regel: Regel {line}\n  - Detail: {desc}\n\nTip: Dit is meestal GEEN fout van het verpakkingsprogramma.\nZorg ervoor dat de [Build Python-versie] die u selecteert overeenkomt met de versie die u gebruikte om de code te [schrijven/testen].\nHet gebruik van nieuwere syntax (bijv. walrus-operator :=, type-unies |, match-case) in een oudere Python-omgeving veroorzaakt deze fout.\nWe raden aan om naar [Build-instellingen] -> [Engine] te gaan om over te schakelen naar de juiste Python-versie.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] Het script importeert de bovenliggende module '{mod}'. Als de build mislukt, probeer dan de hele projectmap hierheen te slepen.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] 'multiprocessing'-module gedetecteerd. Zorg ervoor dat 'multiprocessing.freeze_support()' wordt aangeroepen onder 'if __name__ == \"__main__\":' om oneindige processlussen (fork-bommen) te voorkomen.",
   "[WARN] AST Analysis Exception: {error}": "[WARN] AST-analyse-uitzondering: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] Commandotime-out (>{timeout}s)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] Doelproject bevindt zich in een Cloud Sync-map (bijv. OneDrive/Dropbox). Cloud sync kan buildbestanden tijdelijk vergrendelen.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] Tijdstempelserververbinding is verlopen, lokale snelle ondertekening wordt uitgevoerd...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] Gebruik van '__file__' gedetecteerd. In PyInstaller One-File modus, gebruik 'sys._MEIPASS' om gebundelde bronbestanden betrouwbaar te lokaliseren!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nProgramma-uitvoering voltooid, druk op Enter om af te sluiten..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nProgramma-uitvoering voltooid, druk op Enter om af te sluiten...",
+  "Package Mapping & Remediation": "Pakkettoewijzing & Herstel"
 }

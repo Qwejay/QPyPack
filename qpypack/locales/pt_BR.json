@@ -87,6 +87,7 @@
   "Description:": "Descrição:",
   "Desktop Application": "Aplicativo de Desktop",
   "Detailed Mode": "Modo Detalhado",
+  "Detected multiple entry scripts in project. Please select one to build:": "Detectados múltiplos scripts de entrada no projeto. Selecione um para compilar:",
   "Directory": "Diretório",
   "Discovered via scanner ({count}): {pkgs}": "Descoberto via scanner ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "Espaço em disco criticamente baixo: {free:.1f}GB < {min:.1f}GB",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "Deixe em branco para procurar automaticamente requirements.txt no diretório atual",
   "Legacy macOS Compatible": "Compatível com macOS Legado",
   "Lite Mode (Smaller size)": "Modo Leve (Tamanho menor)",
+  "Loaded Project: {name} | Entry: {entry}": "Projeto carregado: {name} | Entrada: {entry}",
   "Loaded: {filename}": "Carregado: {filename}",
   "Locally Detected Pythons": "Pythons Detectados Localmente",
   "Lock Core Dependencies": "Bloquear Dependências Principais",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "Script carregado. Você pode arrastar pastas de assets ou arquivos de dados diretamente aqui para empacotá-los.",
   "Select .pfx / .p12 certificate file": "Selecionar arquivo de certificado .pfx / .p12",
   "Select All": "Selecionar Tudo",
+  "Select Main Entry Script": "Selecionar Script de Entrada Principal",
   "Select Python Version to Download:": "Selecione a Versão do Python para Baixar:",
   "Select shared directory...": "Selecionar diretório compartilhado...",
   "Self-Signed Certificate (*.pfx)": "Certificado Autoassinado (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] O código-fonte contém erros de sintaxe, compilação abortada:\n  - Arquivo: {file}\n  - Tipo: {type}\n  - Linha: Linha {line}\n  - Detalhe: {desc}\n\nDica: Certifique-se de que o código-fonte seja executado localmente antes de empacotar.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Falha na análise de sintaxe do código-fonte, build abortado:\n  - Arquivo: {file}\n  - Detalhe: {desc}\n\nDica: Isso geralmente NÃO é um defeito da ferramenta de empacotamento.\nCertifique-se de que a [Versão do Python de Build] selecionada corresponde à versão usada para [Escrever/Testar o Código].\nUsar sintaxe mais nova (ex.: operador walrus :=, uniões de tipos |, match-case) em um ambiente Python mais antigo acionará este erro.\nRecomendamos ir para [Configurações de Build] -> [Mecanismo] para mudar para a versão correta do Python.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Falha na análise de sintaxe do código-fonte, compilação abortada:\n  - Arquivo: {file}\n  - Linha: Linha {line}\n  - Detalhe: {desc}\n\nDica: Isso geralmente NÃO é uma falha da ferramenta de empacotamento.\nCertifique-se de que a [Versão do Python de Compilação] selecionada corresponda à versão usada para [Escrever/Testar o Código].\nO uso de sintaxe mais recente (por exemplo, operador walrus :=, uniões de tipos |, match-case) em um ambiente Python mais antigo acionará este erro.\nRecomendamos ir para [Configurações de Compilação] -> [Mecanismo] para alternar para a versão correta do Python.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] O script importa o módulo pai '{mod}'. Se a compilação falhar, tente arrastar a pasta inteira do projeto para cá.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] Módulo 'multiprocessing' detectado. Certifique-se de que 'multiprocessing.freeze_support()' seja chamado sob 'if __name__ == \"__main__\":' para evitar loops infinitos de processos (fork bombs).",
   "[WARN] AST Analysis Exception: {error}": "[WARN] Exceção na análise AST: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] Tempo limite do comando excedido (>{timeout}s)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] O projeto alvo está em um diretório de sincronização em nuvem (ex.: OneDrive/Dropbox). A sincronização em nuvem pode bloquear temporariamente os arquivos de compilação.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] O servidor de carimbo de tempo expirou, realizando assinatura local rápida...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] Uso de '__file__' detectado. No modo One-File do PyInstaller, use 'sys._MEIPASS' para localizar com confiabilidade os arquivos de recursos empacotados!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nExecução do programa concluída, pressione Enter para sair..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nExecução do programa concluída, pressione Enter para sair...",
+  "Package Mapping & Remediation": "Mapeamento de pacotes e correção"
 }

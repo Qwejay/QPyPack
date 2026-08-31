@@ -2,10 +2,27 @@
 
 All notable changes to the **QPyPack** project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 **English** | [中文版](./CHANGELOG.md)
+
+---
+
+## [2.8.0] - 2026-08-31
+
+### Added
+- Direct project directory drag-and-drop support, automatically recognizing workspace paths and associating the root `requirements.txt`.
+- Multi-entry script matching mechanism with an entry selection dialog when multiple candidate entry files are detected.
+- Cross-hierarchy module reference detection, providing workspace configuration and project import suggestions in the log when a standalone script references parent modules.
+
+### Changed
+- Expanded the AST dependency analysis scope across the entire project workspace, improving detection of internal submodules and dynamic dependencies.
+- Introduced a local module and additional resource whitelist mechanism to prevent project-internal packages from being misidentified as PyPI dependencies during pip install.
+- Expanded the default package mapping table and Auto-Hooks rules to add automatic collection parameters for `pycryptodome`, `nacl`, `soundfile`, `pynput`, `keyring`, `pydantic_core`, and other libraries.
+- Updated build search path configurations to automatically supply `--paths` (including workspace and `src` directories) to PyInstaller and configure `PYTHONPATH` for Nuitka.
+- Refined `requirements.txt` parsing logic to support inline comments (`#`) and environment markers (`;`).
+
+### Fixed
+- Fixed a `SyntaxError` caused by console pause code injection occurring prior to `from __future__` statements.
+- Fixed a `TypeError: 'list' object is not callable` crash caused by an `os.walk` iteration variable shadowing the global translation function.
 
 ---
 
@@ -447,6 +464,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Custom PIP Mirror Support**: Added PIP mirror configuration defaulting to Tsinghua University mirrors, with immediate UI application and `QSettings` persistence.
 * **Unified Build Logic**: Virtual environment initialization and dependency resolution now strictly adhere to user-configured PIP mirrors.
 
+---
+Strictly following the **[Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.0.0/)** and **[Semantic Versioning 2.0.0](https://semver.org/)** specifications.
 ---
 
 ## 📄 License

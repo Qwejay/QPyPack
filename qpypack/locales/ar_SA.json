@@ -87,6 +87,7 @@
   "Description:": "الوصف:",
   "Desktop Application": "تطبيق سطح المكتب",
   "Detailed Mode": "الوضع المفصل",
+  "Detected multiple entry scripts in project. Please select one to build:": "تم اكتشاف عدة سكربتات إدخال في المشروع. يرجى تحديد واحد للبناء:",
   "Directory": "الدليل",
   "Discovered via scanner ({count}): {pkgs}": "تم اكتشافه عبر الماسح ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "مساحة القرص منخفضة بشكل حرج: {free:.1f}GB < {min:.1f}GB",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "اتركه فارغًا للبحث التلقائي عن requirements.txt في الدليل الحالي",
   "Legacy macOS Compatible": "متوافق مع macOS القديم",
   "Lite Mode (Smaller size)": "الوضع الخفيف (حجم أصغر)",
+  "Loaded Project: {name} | Entry: {entry}": "تم تحميل المشروع: {name} | الإدخال: {entry}",
   "Loaded: {filename}": "تم التحميل: {filename}",
   "Locally Detected Pythons": "إصدارات بايثون المكتشفة محليًا",
   "Lock Core Dependencies": "قفل التبعيات الأساسية",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "تم تحميل البرنامج النصي. يمكنك سحب مجلدات الأصول أو ملفات البيانات مباشرة هنا لتجميعها.",
   "Select .pfx / .p12 certificate file": "حدد ملف الشهادة .pfx / .p12",
   "Select All": "تحديد الكل",
+  "Select Main Entry Script": "حدد سكربت الإدخال الرئيسي",
   "Select Python Version to Download:": "حدد إصدار Python للتنزيل:",
   "Select shared directory...": "تحديد الدليل المشترك...",
   "Self-Signed Certificate (*.pfx)": "شهادة موقعة ذاتيًا (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] يحتوي الكود المصدري على أخطاء نحوية، تم إحباط التجميع:\n  - الملف: {file}\n  - النوع: {type}\n  - السطر: السطر {line}\n  - التفاصيل: {desc}\n\nنصيحة: يرجى التأكد من أن الكود المصدري يعمل محليًا قبل التعبئة.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] فشل تحليل بناء جملة الكود المصدري، تم إحباط البناء:\n  - الملف: {file}\n  - التفاصيل: {desc}\n\nنصيحة: هذا عادة ليس خطأ من أداة التعبئة.\nيرجى التأكد من أن [إصدار بايثون للبناء] الذي حددته يطابق الإصدار الذي استخدمته لـ [كتابة/اختبار الكود].\nاستخدام بناء جملة أحدث (مثل عامل الفظ :=، اتحادات الأنواع |، match-case) في بيئة بايثون أقدم سيؤدي إلى هذا الخطأ.\nنوصي بالانتقال إلى [إعدادات البناء] -> [المحرك] للتبديل إلى إصدار بايثون الصحيح.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] فشل تحليل بناء جملة الكود المصدري، تم إحباط البناء:\n  - الملف: {file}\n  - السطر: السطر {line}\n  - التفاصيل: {desc}\n\nنصيحة: هذا عادة ليس خطأ من أداة التعبئة.\nيرجى التأكد من أن [إصدار بايثون للبناء] الذي اخترته يطابق الإصدار الذي استخدمته [لكتابة/اختبار الكود].\nاستخدام بناء جملة أحدث (مثل عامل الفظ :=، اتحادات الأنواع |، match-case) في بيئة بايثون أقدم سيؤدي إلى هذا الخطأ.\nنوصي بالانتقال إلى [إعدادات البناء] -> [المحرك] لتبديل إصدار بايثون الصحيح.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] يستورد السكربت الوحدة الأصلية '{mod}'. إذا فشل البناء، حاول سحب مجلد المشروع بأكمله هنا.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] تم اكتشاف وحدة 'multiprocessing'. تأكد من استدعاء 'multiprocessing.freeze_support()' تحت 'if __name__ == \"__main__\":' لمنع حلقات العمليات اللانهائية (قنابل الشوكة).",
   "[WARN] AST Analysis Exception: {error}": "[WARN] استثناء تحليل AST: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] انتهت مهلة الأمر (>{timeout} ثانية)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] المشروع الهدف موجود في دليل مزامنة سحابية (مثل OneDrive/Dropbox). قد تؤدي المزامنة السحابية إلى قفل ملفات البناء مؤقتًا.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] انتهت مهلة الاتصال بخادم الطابع الزمني، يتم التوقيع السريع محليًا...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] تم اكتشاف استخدام '__file__'. في وضع الملف الواحد لـ PyInstaller، استخدم 'sys._MEIPASS' لتحديد موقع ملفات الموارد المضمنة بشكل موثوق!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nاكتمل تنفيذ البرنامج، اضغط Enter للخروج..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nاكتمل تنفيذ البرنامج، اضغط Enter للخروج...",
+  "Package Mapping & Remediation": "تعيين الحزم والإصلاح"
 }

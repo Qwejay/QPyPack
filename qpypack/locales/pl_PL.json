@@ -87,6 +87,7 @@
   "Description:": "Opis:",
   "Desktop Application": "Aplikacja desktopowa",
   "Detailed Mode": "Tryb szczegółowy",
+  "Detected multiple entry scripts in project. Please select one to build:": "Wykryto wiele skryptów wejściowych w projekcie. Wybierz jeden do zbudowania:",
   "Directory": "Katalog",
   "Discovered via scanner ({count}): {pkgs}": "Wykryto przez skaner ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "Krytycznie mało miejsca na dysku: {free:.1f}GB < {min:.1f}GB",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "Pozostaw puste, aby automatycznie wyszukać requirements.txt w bieżącym katalogu",
   "Legacy macOS Compatible": "Zgodność z legacy macOS",
   "Lite Mode (Smaller size)": "Tryb lekki (mniejszy rozmiar)",
+  "Loaded Project: {name} | Entry: {entry}": "Załadowano projekt: {name} | Wejście: {entry}",
   "Loaded: {filename}": "Załadowano: {filename}",
   "Locally Detected Pythons": "Lokalnie wykryte Pythony",
   "Lock Core Dependencies": "Zablokuj podstawowe zależności",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "Skrypt załadowany. Możesz przeciągnąć foldery zasobów lub pliki danych bezpośrednio tutaj, aby je spakować.",
   "Select .pfx / .p12 certificate file": "Wybierz plik certyfikatu .pfx / .p12",
   "Select All": "Zaznacz wszystko",
+  "Select Main Entry Script": "Wybierz główny skrypt wejściowy",
   "Select Python Version to Download:": "Wybierz wersję Pythona do pobrania:",
   "Select shared directory...": "Wybierz katalog współdzielony...",
   "Self-Signed Certificate (*.pfx)": "Certyfikat self-signed (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] Kod źródłowy zawiera błędy składni, kompilacja przerwana:\n  - Plik: {file}\n  - Typ: {type}\n  - Linia: Linia {line}\n  - Szczegóły: {desc}\n\nWskazówka: Upewnij się, że kod źródłowy działa lokalnie przed pakowaniem.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Analiza składni kodu źródłowego nie powiodła się, budowanie przerwane:\n  - Plik: {file}\n  - Szczegóły: {desc}\n\nWskazówka: To zwykle NIE jest wina narzędzia do pakowania.\nUpewnij się, że wybrana [Wersja Pythona do budowania] odpowiada wersji, której używasz do [Pisania/Testowania kodu].\nUżycie nowszej składni (np. operator morsa :=, unie typów |, match-case) w starszym środowisku Pythona spowoduje ten błąd.\nZalecamy przejście do [Ustawienia budowania] -> [Silnik], aby przełączyć na właściwą wersję Pythona.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Analiza składni kodu źródłowego nie powiodła się, budowanie przerwane:\n  - Plik: {file}\n  - Linia: Linia {line}\n  - Szczegóły: {desc}\n\nWskazówka: To zwykle NIE jest wina narzędzia do pakowania.\nUpewnij się, że wybrana [Wersja Pythona do budowania] odpowiada wersji użytej do [Pisania/Testowania kodu].\nUżycie nowszej składni (np. operator morsa :=, unie typów |, match-case) w starszym środowisku Python spowoduje ten błąd.\nZalecamy przejście do [Ustawienia budowania] -> [Silnik], aby przełączyć się na właściwą wersję Pythona.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] Skrypt importuje moduł nadrzędny '{mod}'. Jeśli budowanie nie powiedzie się, spróbuj przeciągnąć cały folder projektu tutaj.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] Wykryto moduł 'multiprocessing'. Upewnij się, że 'multiprocessing.freeze_support()' jest wywoływane w bloku 'if __name__ == \"__main__\":', aby zapobiec nieskończonym pętlom procesów (bomby fork).",
   "[WARN] AST Analysis Exception: {error}": "[WARN] Wyjątek analizy AST: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] Przekroczono limit czasu polecenia (>{timeout}s)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] Projekt docelowy znajduje się w katalogu synchronizacji chmurowej (np. OneDrive/Dropbox). Synchronizacja chmurowa może tymczasowo blokować pliki budowania.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] Przekroczono limit czasu połączenia z serwerem znaczników czasu, wykonywanie lokalnego szybkiego podpisywania...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] Wykryto użycie '__file__'. W trybie jednego pliku PyInstaller, użyj 'sys._MEIPASS', aby niezawodnie zlokalizować dołączone pliki zasobów!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nWykonywanie programu zakończone, naciśnij Enter, aby wyjść..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nWykonywanie programu zakończone, naciśnij Enter, aby wyjść...",
+  "Package Mapping & Remediation": "Mapowanie pakietów i naprawa"
 }

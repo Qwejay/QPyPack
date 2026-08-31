@@ -86,6 +86,7 @@
   "Description:": "描述：:",
   "Desktop Application": "桌面應用程式",
   "Detailed Mode": "詳細模式",
+  "Detected multiple entry scripts in project. Please select one to build:": "偵測到專案中有多個進入點腳本。請選擇一個來建置：:",
   "Directory": "目錄",
   "Discovered via scanner ({count}): {pkgs}": "透過掃描器發現（{count}）：{pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "磁碟空間嚴重不足：{free:.1f}GB < {min:.1f}GB",
@@ -147,6 +148,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "留空以在目前目錄自動搜尋 requirements.txt",
   "Legacy macOS Compatible": "舊版 macOS 相容",
   "Lite Mode (Smaller size)": "精簡模式（較小體積）",
+  "Loaded Project: {name} | Entry: {entry}": "已載入專案：{name} | 進入點：{entry}",
   "Loaded: {filename}": "已載入：{filename}",
   "Locally Detected Pythons": "本機偵測到的 Python",
   "Lock Core Dependencies": "鎖定核心依賴項",
@@ -249,6 +251,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "腳本已載入。您可以將資產資料夾或資料檔案直接拖曳到這裡以進行捆綁。",
   "Select .pfx / .p12 certificate file": "選擇 .pfx / .p12 憑證檔案",
   "Select All": "全選",
+  "Select Main Entry Script": "選擇主要進入點腳本",
   "Select Python Version to Download:": "選擇要下載的 Python 版本：:",
   "Select shared directory...": "選擇共用目錄...",
   "Self-Signed Certificate (*.pfx)": "自簽憑證 (*.pfx)",
@@ -375,6 +378,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] 原始碼包含語法錯誤，編譯已中止：\n  - 檔案：{file}\n  - 類型：{type}\n  - 行號：第 {line} 行\n  - 詳細資訊：{desc}\n\n提示：請確保原始碼在打包前可於本機正常執行。",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] 原始碼語法解析失敗，建置已中止：\n  - 檔案：{file}\n  - 詳細資訊：{desc}\n\n提示：這通常不是打包工具的錯誤。\n請確保您選擇的 [建置 Python 版本] 與您用來 [撰寫/測試程式碼] 的版本相符。\n在較舊的 Python 環境中使用較新的語法（例如海象運算子 :=、型別聯集 |、match-case）會觸發此錯誤。\n我們建議前往 [建置設定] -> [引擎] 切換到正確的 Python 版本。",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] 原始碼語法剖析失敗，建置已中止：\n  - 檔案：{file}\n  - 行號：第 {line} 行\n  - 詳細資訊：{desc}\n\n提示：這通常不是打包工具的錯誤。\n請確保您選擇的 [建置 Python 版本] 與您 [撰寫/測試程式碼] 時使用的版本相符。\n在較舊的 Python 環境中使用較新的語法（例如海象運算子 :=、型別聯集 |、match-case）會觸發此錯誤。\n我們建議前往 [建置設定] -> [引擎] 切換至正確的 Python 版本。",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] 腳本匯入了父模組「{mod}」。如果建置失敗，請嘗試將整個專案資料夾拖曳到此處。",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] 偵測到 'multiprocessing' 模組。請確保在 'if __name__ == \"__main__\":' 下呼叫 'multiprocessing.freeze_support()'，以防止無限程序迴圈（fork 炸彈）。",
   "[WARN] AST Analysis Exception: {error}": "[WARN] AST 分析例外狀況：{error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] 命令逾時（>{timeout} 秒）",
@@ -403,5 +407,8 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] 目標專案位於雲端同步目錄（例如 OneDrive/Dropbox）。雲端同步可能暫時鎖定建置檔案。",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] 時間戳伺服器連線逾時，執行本機快速簽章...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] 偵測到 '__file__' 的使用。在 PyInstaller 單一檔案模式中，請使用 'sys._MEIPASS' 以可靠地定位捆綁的資源檔案！",
-  "\\nProgram execution completed, press Enter to exit...": "\\n程式執行完成，按 Enter 鍵退出..."
+  "\\nProgram execution completed, press Enter to exit...": "\\n程式執行完成，按 Enter 鍵退出...",
+  "Cancel": "取消",
+  "Package Mapping & Remediation": "套件對應與修復",
+  "Unknown": "未知"
 }

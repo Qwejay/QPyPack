@@ -87,6 +87,7 @@
   "Description:": "Описание:",
   "Desktop Application": "Настольное приложение",
   "Detailed Mode": "Подробный режим",
+  "Detected multiple entry scripts in project. Please select one to build:": "В проекте обнаружено несколько входных скриптов. Выберите один для сборки:",
   "Directory": "Каталог",
   "Discovered via scanner ({count}): {pkgs}": "Обнаружено сканером ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "Критически мало места на диске: {free:.1f}ГБ < {min:.1f}ГБ",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "Оставьте пустым для автоматического поиска requirements.txt в текущем каталоге",
   "Legacy macOS Compatible": "Совместимость с устаревшими macOS",
   "Lite Mode (Smaller size)": "Облегченный режим (меньший размер)",
+  "Loaded Project: {name} | Entry: {entry}": "Загружен проект: {name} | Вход: {entry}",
   "Loaded: {filename}": "Загружено: {filename}",
   "Locally Detected Pythons": "Локально обнаруженные Python",
   "Lock Core Dependencies": "Заблокировать основные зависимости",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "Скрипт загружен. Вы можете перетащить папки с ресурсами или файлы данных прямо сюда, чтобы включить их в пакет.",
   "Select .pfx / .p12 certificate file": "Выберите файл сертификата .pfx / .p12",
   "Select All": "Выбрать все",
+  "Select Main Entry Script": "Выберите основной входной скрипт",
   "Select Python Version to Download:": "Выберите версию Python для загрузки:",
   "Select shared directory...": "Выберите общий каталог...",
   "Self-Signed Certificate (*.pfx)": "Самозаверяющий сертификат (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] Исходный код содержит синтаксические ошибки, компиляция прервана:\n  - Файл: {file}\n  - Тип: {type}\n  - Строка: строка {line}\n  - Подробности: {desc}\n\nСовет. Убедитесь, что исходный код запускается локально перед упаковкой.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Не удалось выполнить синтаксический анализ исходного кода, сборка прервана:\n  - Файл: {file}\n  - Подробности: {desc}\n\nСовет: Обычно это не вина инструмента упаковки.\nУбедитесь, что выбранная [Версия Python для сборки] соответствует версии, которую вы использовали для [Написания/Тестирования кода].\nИспользование нового синтаксиса (например, оператора моржа :=, объединения типов |, match-case) в более старой среде Python вызовет эту ошибку.\nРекомендуем перейти в [Настройки сборки] -> [Движок], чтобы переключиться на правильную версию Python.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] Не удалось выполнить синтаксический анализ исходного кода, сборка прервана:\n  - Файл: {file}\n  - Строка: строка {line}\n  - Подробности: {desc}\n\nСовет. Обычно это НЕ ошибка инструмента упаковки.\nУбедитесь, что выбранная [Версия Python для сборки] соответствует версии, которую вы использовали для [Написания/Тестирования кода].\nИспользование нового синтаксиса (например, оператор моржа :=, объединение типов |, match-case) в более старой среде Python вызовет эту ошибку.\nРекомендуем перейти в [Настройки сборки] -> [Движок], чтобы переключиться на правильную версию Python.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] Скрипт импортирует родительский модуль '{mod}'. Если сборка не удается, попробуйте перетащить сюда всю папку проекта.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] Обнаружен модуль 'multiprocessing'. Убедитесь, что 'multiprocessing.freeze_support()' вызывается внутри 'if __name__ == \"__main__\":', чтобы предотвратить бесконечные циклы процессов (форк-бомбы).",
   "[WARN] AST Analysis Exception: {error}": "[WARN] Исключение при анализе AST: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] Тайм-аут команды (>{timeout}с)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] Целевой проект находится в каталоге облачной синхронизации (например, OneDrive/Dropbox). Облачная синхронизация может временно блокировать файлы сборки.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] Истекло время ожидания соединения с сервером меток времени, выполняется локальная быстрая подпись...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] Обнаружено использование '__file__'. В однофайловом режиме PyInstaller используйте 'sys._MEIPASS' для надежного поиска встроенных файлов ресурсов!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nВыполнение программы завершено, нажмите Enter для выхода..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nВыполнение программы завершено, нажмите Enter для выхода...",
+  "Package Mapping & Remediation": "Сопоставление пакетов и исправление"
 }

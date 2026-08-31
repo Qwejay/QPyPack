@@ -87,6 +87,7 @@
   "Description:": "説明：:",
   "Desktop Application": "デスクトップアプリケーション",
   "Detailed Mode": "詳細モード",
+  "Detected multiple entry scripts in project. Please select one to build:": "プロジェクト内に複数のエントリスクリプトが検出されました。ビルドするものを選択してください:",
   "Directory": "ディレクトリ",
   "Discovered via scanner ({count}): {pkgs}": "スキャナーで検出（{count}）：{pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "ディスク容量が不足しています: {free:.1f}GB < {min:.1f}GB",
@@ -147,6 +148,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "空白のままにすると現在のディレクトリの requirements.txt を自動検索します",
   "Legacy macOS Compatible": "レガシー macOS 互換",
   "Lite Mode (Smaller size)": "ライトモード（サイズ小）",
+  "Loaded Project: {name} | Entry: {entry}": "プロジェクトを読み込みました: {name} | エントリ: {entry}",
   "Loaded: {filename}": "読み込み済み: {filename}",
   "Locally Detected Pythons": "ローカルで検出された Python",
   "Lock Core Dependencies": "コア依存関係をロック",
@@ -249,6 +251,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "スクリプトが読み込まれました。アセットフォルダやデータファイルをここに直接ドラッグしてバンドルできます。",
   "Select .pfx / .p12 certificate file": ".pfx / .p12 証明書ファイルを選択",
   "Select All": "すべて選択",
+  "Select Main Entry Script": "メインエントリスクリプトを選択",
   "Select Python Version to Download:": "ダウンロードする Python バージョンを選択:",
   "Select shared directory...": "共有ディレクトリを選択...",
   "Self-Signed Certificate (*.pfx)": "自己署名証明書 (*.pfx)",
@@ -376,6 +379,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] ソースコードに構文エラーが含まれているため、コンパイルを中止しました:\n  - ファイル: {file}\n  - 種類: {type}\n  - 行: {line}行目\n  - 詳細: {desc}\n\nヒント: パッケージ化する前に、ソースコードがローカルで実行できることを確認してください。",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] ソースコードの構文解析に失敗しました。ビルドを中止します:\n  - ファイル: {file}\n  - 詳細: {desc}\n\nヒント: これは通常、パッケージングツールの欠陥ではありません。\n選択した[ビルドPythonバージョン]が、コードの[記述/テスト]に使用したバージョンと一致していることを確認してください。\n新しい構文（例: セイウチ演算子 :=、型ユニオン |、match-case）を古いPython環境で使用すると、このエラーが発生します。\n[ビルド設定] -> [エンジン]で正しいPythonバージョンに切り替えることをお勧めします。",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] ソースコードの構文解析に失敗したため、ビルドを中止しました:\n  - ファイル: {file}\n  - 行: {line}行目\n  - 詳細: {desc}\n\nヒント: これは通常、パッケージ化ツールの欠陥ではありません。\n選択した[ビルドPythonバージョン]が、コードの[作成/テスト]に使用したバージョンと一致していることを確認してください。\n古いPython環境で新しい構文（例: セイウチ演算子 :=、型ユニオン |、match-case）を使用すると、このエラーが発生します。\n[ビルド設定] -> [エンジン]で正しいPythonバージョンに切り替えることをお勧めします。",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] スクリプトが親モジュール '{mod}' をインポートしています。ビルドに失敗する場合は、プロジェクトフォルダ全体をここにドラッグしてみてください。",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] 'multiprocessing'モジュールが検出されました。無限プロセスループ（フォーク爆弾）を防ぐために、'if __name__ == \"__main__\":'の下で'multiprocessing.freeze_support()'を呼び出してください。",
   "[WARN] AST Analysis Exception: {error}": "[WARN] AST解析例外: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] コマンドがタイムアウトしました (> {timeout}秒)",
@@ -404,5 +408,7 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] ターゲットプロジェクトはクラウド同期ディレクトリ (例: OneDrive/Dropbox) にあります。クラウド同期によりビルドファイルが一時的にロックされる可能性があります。",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] タイムスタンプサーバーへの接続がタイムアウトしました。ローカル高速署名を実行します...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] '__file__' の使用が検出されました。PyInstallerのワンファイルモードでは、バンドルされたリソースファイルを確実に特定するために 'sys._MEIPASS' を使用してください!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nプログラムの実行が完了しました。終了するにはEnterキーを押してください..."
+  "\\nProgram execution completed, press Enter to exit...": "\\nプログラムの実行が完了しました。終了するにはEnterキーを押してください...",
+  "Generate": "生成",
+  "Package Mapping & Remediation": "パッケージマッピングと修復"
 }

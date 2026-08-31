@@ -87,6 +87,7 @@
   "Description:": "설명:",
   "Desktop Application": "데스크톱 애플리케이션",
   "Detailed Mode": "상세 모드",
+  "Detected multiple entry scripts in project. Please select one to build:": "프로젝트에서 여러 진입 스크립트가 감지되었습니다. 빌드할 항목을 선택하세요:",
   "Directory": "디렉터리",
   "Discovered via scanner ({count}): {pkgs}": "스캐너를 통해 발견됨 ({count}): {pkgs}",
   "Disk space critically low: {free:.1f}GB < {min:.1f}GB": "디스크 공간이 매우 부족합니다: {free:.1f}GB < {min:.1f}GB",
@@ -148,6 +149,7 @@
   "Leave blank to auto-search requirements.txt in current directory": "비워 두면 현재 디렉터리에서 requirements.txt 자동 검색",
   "Legacy macOS Compatible": "레거시 macOS 호환",
   "Lite Mode (Smaller size)": "라이트 모드 (더 작은 크기)",
+  "Loaded Project: {name} | Entry: {entry}": "로드된 프로젝트: {name} | 진입점: {entry}",
   "Loaded: {filename}": "로드됨: {filename}",
   "Locally Detected Pythons": "로컬에서 감지된 Python",
   "Lock Core Dependencies": "핵심 종속성 잠금",
@@ -250,6 +252,7 @@
   "Script loaded. You can drag asset folders or data files directly here to bundle them.": "스크립트가 로드되었습니다. 에셋 폴더나 데이터 파일을 여기에 직접 끌어다 놓아 번들할 수 있습니다.",
   "Select .pfx / .p12 certificate file": ".pfx / .p12 인증서 파일 선택",
   "Select All": "모두 선택",
+  "Select Main Entry Script": "메인 진입 스크립트 선택",
   "Select Python Version to Download:": "다운로드할 Python 버전 선택:",
   "Select shared directory...": "공유 디렉터리 선택...",
   "Self-Signed Certificate (*.pfx)": "자체 서명 인증서 (*.pfx)",
@@ -377,6 +380,7 @@
   "[Syntax Error] Source code contains syntax errors, compilation aborted:\n  - File: {file}\n  - Type: {type}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: Please ensure the source code runs locally before packaging.": "[Syntax Error] 소스 코드에 구문 오류가 있어 컴파일이 중단되었습니다:\n  - 파일: {file}\n  - 유형: {type}\n  - 줄: {line}번째 줄\n  - 세부 정보: {desc}\n\n팁: 패키징 전에 소스 코드가 로컬에서 실행되는지 확인하세요.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] 소스 코드 구문 분석에 실패하여 빌드가 중단되었습니다:\n  - 파일: {file}\n  - 세부 정보: {desc}\n\n팁: 이는 일반적으로 패키징 도구의 문제가 아닙니다.\n선택한 [빌드 Python 버전]이 코드를 [작성/테스트]할 때 사용한 버전과 일치하는지 확인하세요.\n이전 Python 환경에서 최신 구문(예: 바다코끼리 연산자 :=, 타입 유니온 |, match-case)을 사용하면 이 오류가 발생합니다.\n[빌드 설정] -> [엔진]으로 이동하여 올바른 Python 버전으로 전환하는 것이 좋습니다.",
   "[Syntax Error] Source code syntax parsing failed, build aborted:\n  - File: {file}\n  - Line: Line {line}\n  - Detail: {desc}\n\nTip: This is usually NOT a fault of the packaging tool.\nPlease ensure the [Build Python Version] you selected matches the version you used to [Write/Test the Code].\nUsing newer syntax (e.g., walrus operator :=, type unions |, match-case) in an older Python environment will trigger this error.\nWe recommend going to [Build Settings] -> [Engine] to switch to the correct Python version.": "[Syntax Error] 소스 코드 구문 분석에 실패하여 빌드가 중단되었습니다:\n  - 파일: {file}\n  - 줄: {line}번째 줄\n  - 세부 정보: {desc}\n\n팁: 이는 일반적으로 패키징 도구의 문제가 아닙니다.\n선택한 [빌드 Python 버전]이 코드를 [작성/테스트]할 때 사용한 버전과 일치하는지 확인하세요.\n이전 Python 환경에서 최신 구문(예: 바다코끼리 연산자 :=, 타입 유니온 |, match-case)을 사용하면 이 오류가 발생합니다.\n[빌드 설정] -> [엔진]에서 올바른 Python 버전으로 전환하는 것을 권장합니다.",
+  "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[TIP] 스크립트가 상위 모듈 '{mod}'을(를) 가져옵니다. 빌드가 실패하면 전체 프로젝트 폴더를 여기로 끌어다 놓으세요.",
   "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs).": "[WARN] 'multiprocessing' 모듈이 감지되었습니다. 무한 프로세스 루프(포크 폭탄)를 방지하려면 'if __name__ == \"__main__\":' 아래에서 'multiprocessing.freeze_support()'를 호출하세요.",
   "[WARN] AST Analysis Exception: {error}": "[WARN] AST 분석 예외: {error}",
   "[WARN] Command timeout (>{timeout}s)": "[WARN] 명령 시간 초과(>{timeout}초)",
@@ -405,5 +409,6 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] 대상 프로젝트가 클라우드 동기화 디렉터리(예: OneDrive/Dropbox)에 있습니다. 클라우드 동기화로 인해 빌드 파일이 일시적으로 잠길 수 있습니다.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] 타임스탬프 서버 연결 시간이 초과되어 로컬 빠른 서명을 수행합니다...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] '__file__' 사용이 감지되었습니다. PyInstaller 원파일 모드에서는 'sys._MEIPASS'를 사용하여 번들 리소스 파일을 안정적으로 찾으십시오!",
-  "\\nProgram execution completed, press Enter to exit...": "\\n프로그램 실행이 완료되었습니다. 종료하려면 Enter를 누르십시오..."
+  "\\nProgram execution completed, press Enter to exit...": "\\n프로그램 실행이 완료되었습니다. 종료하려면 Enter를 누르십시오...",
+  "Package Mapping & Remediation": "패키지 매핑 및 수정"
 }

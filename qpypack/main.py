@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.7.14"
+__version__ = "2.8.0"
 __author__ = "QwejayHuang"
 __company__ = "QwejayHuang"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -587,6 +587,10 @@ ZH_CN_DICT = {
     "Nuitka  Compiles source code into native C/C++ binary. Produces smaller package size, faster execution, and deep anti-decompilation protection (requires C compiler).": "Nuitka  将源代码编译为原生C/C++二进制文件。生成包体积更小，执行速度更快，并具有深度反反编译保护（需要C编译器）。",
     "PyInstaller  Bundles Python interpreter and bytecode. Fast build speed, zero configuration (no C compiler needed), and excellent compatibility.": "PyInstaller  打包Python解释器和字节码。构建速度快，零配置（无需C编译器），兼容性极佳。",
     "Use Custom Commercial Cert (Optional) ": "使用自定义商业证书（可选）",
+    "Select Main Entry Script": "选择项目主入口脚本",
+    "Detected multiple entry scripts in project. Please select one to build:": "在项目目录下检测到多个 Python 脚本，请选择主程序入口：",
+    "Loaded Project: {name} | Entry: {entry}": "已载入项目: {name} | 入口: {entry}",
+    "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[提示] 脚本引用了上级模块 '{mod}'。如构建报错，可直接将项目总文件夹拖入软件打包。",
     "Unknown": "未知"
 }
 
@@ -774,27 +778,34 @@ PYPI_MIRRORS_GLOBAL = [
 ]
 
 DEFAULT_MAPPINGS = {
-    "acoustid": "pyacoustid",
+    "crypto": "pycryptodome",
+    "Crypto": "pycryptodome",
+    "cryptodome": "pycryptodome",
+    "Cryptodome": "pycryptodome",
+    "nacl": "pynacl",
+    "jwt": "PyJWT",
+    "OpenSSL": "pyOpenSSL",
+    
     "cv2": "opencv-python",
     "PIL": "pillow",
     "Pillow": "pillow",
     "skimage": "scikit-image",
-    "vlc": "python-vlc",
-    "pyzbar": "pyzbar",
-    "OpenGL": "PyOpenGL",
-    "pyside6_addons": "PySide6",
-    "pyside6_essentials": "PySide6",
-    "pyside6-addons": "PySide6",
-    "pyside6-essentials": "PySide6",
-    "pyqt5-plugins": "PyQt5",
-    "pyqt5-tools": "PyQt5",
-    "pyqt5_plugins": "PyQt5",
     "fitz": "pymupdf",
     "docx": "python-docx",
     "pptx": "python-pptx",
-    "bs4": "beautifulsoup4",
-    "barcode": "python-barcode",
     "pdfplumber": "pdfplumber",
+    "barcode": "python-barcode",
+    "soundfile": "soundfile",
+    "mutagen": "mutagen",
+    "vlc": "python-vlc",
+    "pyzbar": "pyzbar",
+    "OpenGL": "PyOpenGL",
+    
+    "serial": "pyserial",
+    "usb": "pyusb",
+    "bluetooth": "pybluez",
+    "pynput": "pynput",
+    "magic": "python-magic",
     "win32com": "pywin32",
     "win32api": "pywin32",
     "win32con": "pywin32",
@@ -811,33 +822,26 @@ DEFAULT_MAPPINGS = {
     "win32crypt": "pywin32",
     "pythoncom": "pywin32",
     "pywintypes": "pywin32",
-    "serial": "pyserial",
-    "usb": "pyusb",
-    "bluetooth": "pybluez",
+    
+    "bs4": "beautifulsoup4",
     "dns": "dnspython",
     "websocket": "websocket-client",
     "paho": "paho-mqtt",
     "socketio": "python-socketio",
     "engineio": "python-engineio",
     "kafka": "kafka-python",
-    "sklearn": "scikit-learn",
-    "yaml": "pyyaml",
-    "dateutil": "python-dateutil",
-    "jwt": "PyJWT",
-    "Crypto": "pycryptodome",
-    "wx": "wxPython",
-    "desktop_notifier": "desktop-notifier",
     "dotenv": "python-dotenv",
     "telegram": "python-telegram-bot",
     "git": "GitPython",
     "github": "PyGithub",
     "gitlab": "python-gitlab",
     "discord": "discord.py",
-    "OpenSSL": "pyOpenSSL",
     "ldap": "python-ldap",
-    "magic": "python-magic",
-    "slugify": "python-slugify",
-    "snappy": "python-snappy",
+    
+    "yaml": "pyyaml",
+    "dateutil": "python-dateutil",
+    "sklearn": "scikit-learn",
+    "wx": "wxPython",
     "attr": "attrs",
     "psycopg2": "psycopg2-binary",
     "pkg_resources": "setuptools",
@@ -845,6 +849,9 @@ DEFAULT_MAPPINGS = {
     "cx_Oracle": "cx-Oracle",
     "mysql": "mysql-connector-python",
     "pydantic_core": "pydantic-core",
+    "slugify": "python-slugify",
+    "snappy": "python-snappy",
+    "acoustid": "pyacoustid",
 }
 
 DEFAULT_BACKPORT_RULES = {
@@ -1180,7 +1187,6 @@ def is_cloud_sync_path(path_obj: Path) -> bool:
     ]
     return any(kw in path_str for kw in cloud_keywords)
 
-
 def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
     imports = set()
     target_path = Path(target_path)
@@ -1189,9 +1195,9 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
         files_to_scan = [target_path] if target_path.is_file() else []
     else:
         files_to_scan = []
-        for root, _, files in os.walk(target_path):
+        for root, _dirs, files in os.walk(target_path):
             path_parts = set(Path(root).parts)
-            if path_parts & {"__pycache__", ".qpypack_build", ".qpypack_venv", ".venv", "venv", "build", "dist", "env", ".env"}:
+            if path_parts & {"__pycache__", ".qpypack_build", ".qpypack_venv", ".venv", "venv", "build", "dist", "env", ".env", ".git"}:
                 continue
             for file in files:
                 if file.endswith((".py", ".pyw")):
@@ -1200,16 +1206,23 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
     for file_p in files_to_scan:
         try:
             code = safe_read_text(file_p)
+            if not code.strip():
+                continue
             tree = ast.parse(code, filename=file_p.as_posix())
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
-                    imports.update(n.name.split(".")[0] for n in node.names)
-                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                    imports.add(node.module.split(".")[0])
+                    for n in node.names:
+                        top_pkg = n.name.split(".")[0].strip()
+                        if top_pkg:
+                            imports.add(top_pkg)
+                elif isinstance(node, ast.ImportFrom):
+                    if node.level == 0 and node.module:
+                        top_pkg = node.module.split(".")[0].strip()
+                        if top_pkg:
+                            imports.add(top_pkg)
         except Exception:
             pass
     return imports
-
 
 def query_target_env_packages(python_exe: str) -> dict:
     if not python_exe or not os.path.exists(python_exe):
@@ -1917,6 +1930,69 @@ def get_python_executable():
     return find_system_python()
 
 
+def get_all_local_modules(project_root: Path, script_dir: Path) -> set:
+    """全面扫描项目工作区与脚本目录内的所有本地模块/包名，防止被误判为 PyPI 第三方包去执行 pip install"""
+    local_modules = set()
+    scan_dirs = {project_root, script_dir}
+    if (project_root / "src").exists() and (project_root / "src").is_dir():
+        scan_dirs.add(project_root / "src")
+
+    for s_dir in scan_dirs:
+        try:
+            for p in s_dir.iterdir():
+                if p.name.startswith((".", "__pycache__", "build", "dist", "venv", "env")):
+                    continue
+                if p.is_file() and p.suffix.lower() in (".py", ".pyw", ".pyd", ".so"):
+                    local_modules.add(p.stem.lower())
+                elif p.is_dir():
+                    if (p / "__init__.py").exists() or any(p.glob("*.py")):
+                        local_modules.add(p.name.lower())
+        except Exception:
+            pass
+    return local_modules
+
+
+class EntrySelectDialog(QDialog):
+    """当用户拖入文件夹且包含多个候选入口脚本时弹出的极简选择框"""
+    def __init__(self, parent, folder_path, py_files):
+        super().__init__(parent)
+        self.setWindowTitle(_("Select Main Entry Script"))
+        self.setMinimumWidth(420)
+        self.setStyleSheet("""
+            QDialog { background-color: #ffffff; }
+            QLabel { font-size: 13px; color: #111827; font-weight: bold; }
+            QListWidget { border: 1px solid #d1d5db; border-radius: 6px; padding: 4px; font-family: Consolas, monospace; font-size: 12px; }
+            QListWidget::item { padding: 6px 10px; border-radius: 4px; }
+            QListWidget::item:selected { background-color: #2563eb; color: #ffffff; }
+            QPushButton { background-color: #2563eb; color: #ffffff; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; padding: 6px 16px; min-width: 70px; }
+            QPushButton:hover { background-color: #1d4ed8; }
+        """)
+        lay = QVBoxLayout(self)
+        lay.setSpacing(10)
+        lay.setContentsMargins(20, 20, 20, 20)
+
+        lay.addWidget(QLabel(_("Detected multiple entry scripts in project. Please select one to build:")))
+        self.list_widget = QListWidget()
+        for f in py_files:
+            rel = f.relative_to(folder_path).as_posix()
+            item = QListWidgetItem(f"📄 {rel}")
+            item.setData(Qt.ItemDataRole.UserRole, f.as_posix())
+            self.list_widget.addItem(item)
+        self.list_widget.setCurrentRow(0)
+        lay.addWidget(self.list_widget)
+
+        btn_lay = QHBoxLayout()
+        btn_lay.addStretch()
+        btn_ok = QPushButton(_("OK"))
+        btn_ok.clicked.connect(self.accept)
+        btn_lay.addWidget(btn_ok)
+        lay.addLayout(btn_lay)
+
+    def get_selected_script(self):
+        item = self.list_widget.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None
+
+
 def safe_read_text(path: Path) -> str:
     try:
         raw = path.read_bytes()
@@ -2383,12 +2459,20 @@ class DropArea(QFrame):
         if not paths:
             return
 
-        py_files = [p for p in paths if p.lower().endswith((".py", ".pyw"))]
+        parent_win = self.window()
 
+        # 1. 优先判断是否直接拖入了项目主文件夹
+        first_path = Path(paths[0])
+        if len(paths) == 1 and first_path.is_dir():
+            if hasattr(parent_win, "on_project_folder_selected"):
+                parent_win.on_project_folder_selected(first_path)
+                return
+
+        # 2. 如果拖入的是单脚本文件
+        py_files = [p for p in paths if p.lower().endswith((".py", ".pyw"))]
         if py_files:
             self.fileDropped.emit(py_files[0])
         else:
-            parent_win = self.window()
             if hasattr(parent_win, "on_main_resources_dropped"):
                 parent_win.on_main_resources_dropped(paths)
 
@@ -4961,6 +5045,10 @@ class PackingThread(QThread):
         if extra_env:
             clean_env.update(extra_env)
 
+        proj_folder = self.params.get("project_folder")
+        if proj_folder and os.path.exists(proj_folder):
+            clean_env["PYTHONPATH"] = proj_folder + (os.pathsep + clean_env["PYTHONPATH"] if "PYTHONPATH" in clean_env else "")
+
         try:
             kwargs = {
                 "stdout": subprocess.PIPE,
@@ -5115,12 +5203,31 @@ class PackingThread(QThread):
                     "# -------------------------------------------\n\n"
                 )
 
+                try:
+                    tree = ast.parse(code, filename=orig_path.as_posix())
+                    last_future_lineno = 0
+                    for node in tree.body:
+                        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+                            last_future_lineno = max(last_future_lineno, getattr(node, "end_lineno", node.lineno))
+                        elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                            last_future_lineno = max(last_future_lineno, getattr(node, "end_lineno", node.lineno))
+                        else:
+                            break
+
+                    lines = code.splitlines(keepends=True)
+                    if last_future_lineno > 0:
+                        injected_code = "".join(lines[:last_future_lineno]) + "\n" + pause_code + "".join(lines[last_future_lineno:])
+                    else:
+                        injected_code = pause_code + code
+                except Exception:
+                    injected_code = pause_code + code
+
                 temp_file = orig_path.parent / f"_qpypack_temp_{orig_path.name}"
                 try:
-                    temp_file.write_text(pause_code + code, encoding="utf-8")
+                    temp_file.write_text(injected_code, encoding="utf-8")
                 except PermissionError:
                     temp_file = Path(tempfile.gettempdir()) / f"_qpypack_temp_{orig_path.name}"
-                    temp_file.write_text(pause_code + code, encoding="utf-8")
+                    temp_file.write_text(injected_code, encoding="utf-8")
                     os.environ["PYTHONPATH"] = orig_path.parent.as_posix() + os.pathsep + os.environ.get("PYTHONPATH", "")
 
                 return temp_file, True, ""
@@ -5502,19 +5609,20 @@ class PackingThread(QThread):
                 pass
 
             def parse_req_line(line):
-                line = line.strip()
-                if not line or line.startswith(("#", "-")):
+                line = line.split("#")[0].strip()
+                if not line or line.startswith(("-", "@")):
                     return None, None
-                m = re.match(r"^([a-zA-Z0-9_\-\.]+)(.*)$", line)
+                line_no_marker = line.split(";")[0].strip()
+                m = re.match(r"^([a-zA-Z0-9_\-\.]+)(.*)$", line_no_marker)
                 if m:
-                    pkg_raw = m.group(1)
+                    pkg_raw = m.group(1).strip()
                     canon_name = get_canonical_pypi_name(pkg_raw)
                     if canon_name.lower() in target_std_libs:
                         return None, None
                     if canon_name.lower() != pkg_raw.lower():
-                        full_spec = canon_name
+                        full_spec = canon_name + m.group(2).strip()
                     else:
-                        full_spec = line
+                        full_spec = line_no_marker
                     return canon_name, full_spec
                 return None, None
 
@@ -5541,11 +5649,12 @@ class PackingThread(QThread):
                     except Exception as e:
                         self.progress.emit(_("[WARN] Read requirements.txt warning: {error}", error=str(e)))
 
-            local_modules = {
-                p.stem.lower()
-                for p in script_dir.iterdir()
-                if (p.is_file() and p.suffix.lower() in (".py", ".pyw", ".pyd", ".so")) or (p.is_dir() and (p / "__init__.py").exists())
-            }
+            proj_folder = self.params.get("project_folder")
+            project_root = Path(proj_folder).resolve() if (proj_folder and Path(proj_folder).exists()) else script_dir
+
+            local_modules = get_all_local_modules(project_root, script_dir)
+            user_added_dirs = {Path(dst).parts[0].lower() for _r_type, src, dst in (self.params.get("add_data_list") or [])}
+            local_modules.update(user_added_dirs)
 
             for m in script_imports:
                 if m.lower() in target_std_libs or m.lower() in local_modules:
@@ -5697,19 +5806,17 @@ class PackingThread(QThread):
 
             self.progress.emit(_("[INFO] Scanning project source code via AST engine..."))
 
-            scan_dir_mode = self.params.get("use_pipreqs_dir", False)
-            if scan_dir_mode:
-                ast_discovered_imports = extract_project_imports_via_ast(script_dir, scan_dir=True)
-            else:
-                ast_discovered_imports = script_imports
+            scan_target = project_root if (project_root and project_root.exists()) else script_dir
+            ast_discovered_imports = extract_project_imports_via_ast(scan_target, scan_dir=True)
 
             env_pkg_map = query_target_env_packages(system_python_exe)
 
             for m in ast_discovered_imports:
-                if m.lower() in target_std_libs or m.lower() in local_modules:
+                m_lower = m.lower()
+                if m_lower in target_std_libs or m_lower in local_modules:
                     continue
-                canon_name = (env_pkg_map.get(m) or get_canonical_pypi_name(m)).lower()
-                if canon_name not in target_std_libs:
+                canon_name = (env_pkg_map.get(m) or env_pkg_map.get(m_lower) or get_canonical_pypi_name(m)).lower()
+                if canon_name not in target_std_libs and canon_name not in local_modules:
                     auto_detected_pkgs.add(canon_name)
                     if canon_name not in final_dependencies:
                         final_dependencies[canon_name] = canon_name
@@ -5972,6 +6079,12 @@ class PackingThread(QThread):
                     f"--name={app_name}",
                 ]
 
+                cmd.append(f"--paths={project_root.as_posix()}")
+                if project_root != script_dir:
+                    cmd.append(f"--paths={script_dir.as_posix()}")
+                if (project_root / "src").exists():
+                    cmd.append(f"--paths={(project_root / 'src').as_posix()}")
+
                 if self.params["onefile"]:
                     cmd.append("--onefile")
                 else:
@@ -6054,28 +6167,43 @@ class PackingThread(QThread):
                 hidden_list = [i.strip().lower() for i in (self.params.get("hidden_imports") or "").split(",") if i.strip()]
                 all_imports_lower = imports_lower | set(hidden_list)
 
+                if any(k in all_imports_lower for k in ("crypto", "pycryptodome", "cryptography", "nacl", "pynacl")):
+                    cmd.extend(["--collect-all", "Crypto"])
+                    cmd.extend(["--collect-all", "pycryptodome"])
+                    cmd.extend(["--collect-all", "cryptography"])
+                    cmd.extend(["--collect-all", "nacl"])
+
+                if "pynput" in all_imports_lower:
+                    cmd.extend(["--collect-all", "pynput"])
+                if "keyring" in all_imports_lower:
+                    cmd.extend(["--collect-all", "keyring"])
+                if "soundfile" in all_imports_lower:
+                    cmd.extend(["--collect-all", "soundfile"])
+
                 if "ttkbootstrap" in all_imports_lower:
                     cmd.extend(["--collect-all", "ttkbootstrap"])
                 if "customtkinter" in all_imports_lower:
                     cmd.extend(["--collect-all", "customtkinter"])
+                if "gradio" in all_imports_lower:
+                    cmd.extend(["--collect-all", "gradio"])
+                if "matplotlib" in all_imports_lower or "seaborn" in all_imports_lower:
+                    cmd.extend(["--collect-data", "matplotlib"])
+
                 if "playwright" in all_imports_lower or has_playwright_pkg:
                     cmd.extend(["--collect-all", "playwright"])
                 if "moviepy" in all_imports_lower:
                     cmd.extend(["--collect-data", "moviepy"])
-                if "gradio" in all_imports_lower:
-                    cmd.extend(["--collect-all", "gradio"])
+
                 if "pydantic" in all_imports_lower:
                     cmd.extend(["--collect-submodules", "pydantic"])
-                if "matplotlib" in all_imports_lower or "seaborn" in all_imports_lower:
-                    cmd.extend(["--collect-data", "matplotlib"])
-
-                if any(lib in all_imports_lower for lib in ("requests", "httpx", "urllib3", "aiohttp")):
+                    cmd.extend(["--collect-submodules", "pydantic_core"])
+                if any(lib in all_imports_lower for lib in ("requests", "httpx", "urllib3", "aiohttp", "urllib")):
                     cmd.extend(["--collect-data", "certifi"])
                     self.progress.emit(
                         _("[WARN] Detected 'requests' or 'httpx'. Auto-bundling 'certifi' certificates to prevent SSL errors.")
                     )
 
-                for web_fw in ("fastapi", "uvicorn", "flask", "streamlit", "pywebio", "dash", "pyecharts", "pyppeteer"):
+                for web_fw in ("fastapi", "uvicorn", "flask", "starlette", "sqlalchemy", "tortoise", "streamlit", "pywebio", "dash", "pyecharts", "pyppeteer"):
                     if web_fw in all_imports_lower:
                         cmd.extend(["--collect-all", web_fw])
 
@@ -6090,6 +6218,10 @@ class PackingThread(QThread):
                     f"--output-dir={self.temp_out_dir.as_posix()}",
                     f"--output-filename={app_name}{ext}",
                 ]
+
+                for mod_name in local_modules:
+                    if (project_root / mod_name).is_dir():
+                        cmd.append(f"--include-package={mod_name}")
 
                 base_nuitka_excludes = ["unittest", "doctest", "pdb", "pydoc", "test", "pytest", "IPython", "setuptools"]
                 for ex in base_nuitka_excludes:
@@ -6325,13 +6457,21 @@ class PackingThread(QThread):
                         cmd.append("--include-package=playwright")
                     cmd.append("--include-package-data=playwright")
 
-                if any(lib in imports_lower for lib in ("requests", "httpx", "urllib3", "aiohttp")):
+                if any(k in imports_lower for k in ("crypto", "pycryptodome", "cryptography", "nacl", "pynacl")):
+                    cmd.append("--include-package=Crypto")
+                    cmd.append("--include-package=cryptography")
+                if "pynput" in imports_lower:
+                    cmd.append("--include-package=pynput")
+                if "soundfile" in imports_lower:
+                    cmd.append("--include-package=soundfile")
+
+                if any(lib in imports_lower for lib in ("requests", "httpx", "urllib3", "aiohttp", "urllib")):
                     cmd.append("--include-package-data=certifi")
                     self.progress.emit(
                         _("[WARN] Detected 'requests' or 'httpx'. Auto-bundling 'certifi' certificates to prevent SSL errors.")
                     )
 
-                for web_fw in ("fastapi", "uvicorn", "flask", "streamlit", "pywebio", "dash", "pyecharts", "pyppeteer"):
+                for web_fw in ("fastapi", "uvicorn", "flask", "starlette", "sqlalchemy", "tortoise", "streamlit", "pywebio", "dash", "pyecharts", "pyppeteer"):
                     if web_fw in imports_lower:
                         if not is_lite:
                             cmd.append(f"--include-package={web_fw}")
@@ -6358,7 +6498,7 @@ class PackingThread(QThread):
 
                 for excl in (self.params.get("exclude_modules") or "").split(","):
                     if excl.strip():
-                        cmd.append(f"--nofollow-import-to={excl.strip()}")
+                        cmd.extend(["--nofollow-import-to={excl.strip()}"])
 
             if self.params.get("lite_mode"):
                 self.progress.emit(_("[INFO] Lite mode enabled, applying bytecode optimization (-OO) and stripping dev modules..."))
@@ -6972,6 +7112,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.script_path = ""
+        self.project_folder = None
         self.thread = None
         self.analysis_thread = None
         self.current_state = "idle"
@@ -7492,11 +7633,57 @@ class MainWindow(QMainWindow):
         else:
             self.show_notification(_("[INFO] Added {count} resource item(s) to Additional Resources.", count=count))
 
+    def on_project_folder_selected(self, folder_path: Path):
+        folder_path = folder_path.resolve()
+        candidates = []
+        for root, _dirs, files in os.walk(folder_path):
+            parts = set(Path(root).parts)
+            if parts & {"__pycache__", ".git", ".venv", "venv", "build", "dist", ".qpypack_build", ".qpypack_venv"}:
+                continue
+            for f in files:
+                if f.endswith((".py", ".pyw")):
+                    candidates.append(Path(root) / f)
+
+        if not candidates:
+            self.show_error_log(_("[ERROR] Please load a valid Python source file first!"))
+            return
+
+        priority_names = ["main.py", "app.py", "server.py", "run.py", "start.py", "unlocker.py", "gui.py", "cli.py"]
+        selected_script = None
+
+        for p_name in priority_names:
+            matched = [c for c in candidates if c.name.lower() == p_name]
+            if matched:
+                selected_script = matched[0].as_posix()
+                break
+
+        if not selected_script:
+            if len(candidates) == 1:
+                selected_script = candidates[0].as_posix()
+            else:
+                dlg = EntrySelectDialog(self, folder_path, candidates)
+                if dlg.exec() == QDialog.DialogCode.Accepted:
+                    selected_script = dlg.get_selected_script()
+                else:
+                    return
+
+        if selected_script:
+            self.project_folder = folder_path.as_posix()
+            root_reqs = folder_path / "requirements.txt"
+            if root_reqs.exists():
+                self.settings_panel.reqs_file_edit.setText(root_reqs.as_posix())
+
+            self.on_script_selected(selected_script)
+            self.show_notification(_("Loaded Project: {name} | Entry: {entry}", name=folder_path.name, entry=Path(selected_script).name), 6000)
+
     def on_script_selected(self, path):
         path = Path(path).resolve().as_posix()
         if is_cloud_locked(path):
             self.show_error_log(_("[ERROR] Target file is locked or encrypted by cloud drive. Please decrypt and try again."))
             return
+
+        if not getattr(self, "project_folder", None) or Path(self.project_folder) not in Path(path).parents:
+            self.project_folder = None
 
         if self.script_path != path:
             self.settings_panel.icon_edit.clear()
@@ -7633,6 +7820,18 @@ class MainWindow(QMainWindow):
         self.log_concise.clear()
         self.log_detailed.clear()
         self.append_log(_("Loaded: {filename}", filename=path))
+
+        if not self.project_folder:
+            script_path_obj = Path(path).resolve()
+            parent_dir = script_path_obj.parent.parent
+            if parent_dir and parent_dir != script_path_obj.parent:
+                for imp in script_imports:
+                    top_m = imp.split(".")[0]
+                    if (parent_dir / top_m).exists() or (parent_dir / f"{top_m}.py").exists():
+                        tip_text = _("[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.", mod=top_m)
+                        self.append_log(tip_text)
+                        break
+
         self.show_notification(_("Script loaded. You can drag asset folders or data files directly here to bundle them."), 6000)
         self.btn_main.setEnabled(True)
         self.update_ui_state("ready")
@@ -7823,6 +8022,7 @@ class MainWindow(QMainWindow):
             "engine": engine,
             "python_exe": raw_py,
             "script_path": self.script_path,
+            "project_folder": self.project_folder,
             "enable_sign": sp.enable_sign_check.isChecked(),
             "cert_path": sp.cert_path_edit.text().strip(),
             "cert_pass": sp.cert_pass_edit.text().strip(),
@@ -7966,6 +8166,7 @@ class MainWindow(QMainWindow):
 
     def reset_all(self):
         self.script_path = ""
+        self.project_folder = None
         self.settings_panel.name_edit.clear()
         self.settings_panel.icon_edit.clear()
         self.settings_panel.hidden_edit.clear()
