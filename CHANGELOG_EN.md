@@ -6,6 +6,17 @@ All notable changes to the **QPyPack** project will be documented in this file.
 
 ---
 
+## [2.8.1] - 2026-09-03
+
+### Fixed
+- Resolved the exception during backport rule evaluation and environment analysis.
+- Adjusted aggressive flags (`--lto=auto`, `-O`) and removed unintended blocking of foundational modules to prevent build failures.
+- Corrected parameter syntax for module exclusions under PyInstaller engine.
+- Protected PEP 263 file encodings and Shebang lines when injecting console pause routines.
+- Improved extraction for complex package specifications (e.g. `@`, `[extras]`).
+
+---
+
 ## [2.8.0] - 2026-08-31
 
 ### Added

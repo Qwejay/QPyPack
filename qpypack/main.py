@@ -125,9 +125,9 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.8.0"
+__version__ = "2.8.1"
 __author__ = "QwejayHuang"
-__company__ = "QwejayHuang"
+__company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
 
 DISK_SPACE_MIN_GB = 0.5
@@ -4099,8 +4099,8 @@ class SettingsPanel(QWidget):
                 kw["creationflags"] = subprocess.CREATE_NO_WINDOW
             res = subprocess.run([raw_py, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], **kw)
             if res.returncode == 0 and res.stdout.strip():
-                parts = res.stdout.strip().split(".")
-                return raw_py, (int(parts[0]), int(parts[1]))
+                parts = [int(x) for x in re.findall(r"\d+", res.stdout.strip())]
+                return raw_py, (parts[0], parts[1]) if len(parts) >= 2 else ((parts[0], 0) if parts else (3, 8))
         except Exception:
             pass
         return raw_py, (3, 8)
@@ -5204,6 +5204,12 @@ class PackingThread(QThread):
                 )
 
                 try:
+                    lines = code.splitlines(keepends=True)
+                    header_line_count = 0
+                    for i, l in enumerate(lines[:3]):
+                        if l.startswith("#!") or "coding" in l:
+                            header_line_count = i + 1
+
                     tree = ast.parse(code, filename=orig_path.as_posix())
                     last_future_lineno = 0
                     for node in tree.body:
@@ -5214,9 +5220,9 @@ class PackingThread(QThread):
                         else:
                             break
 
-                    lines = code.splitlines(keepends=True)
-                    if last_future_lineno > 0:
-                        injected_code = "".join(lines[:last_future_lineno]) + "\n" + pause_code + "".join(lines[last_future_lineno:])
+                    insert_idx = max(header_line_count, last_future_lineno)
+                    if insert_idx > 0:
+                        injected_code = "".join(lines[:insert_idx]) + "\n" + pause_code + "".join(lines[insert_idx:])
                     else:
                         injected_code = pause_code + code
                 except Exception:
@@ -5906,8 +5912,8 @@ class PackingThread(QThread):
                     [system_python_exe, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], **kw_v
                 )
                 if res_v.returncode == 0 and res_v.stdout.strip():
-                    pv = res_v.stdout.strip().split(".")
-                    target_py_ver = (int(pv[0]), int(pv[1]))
+                    pv = [int(x) for x in re.findall(r"\d+", res_v.stdout.strip())]
+                    target_py_ver = (pv[0], pv[1]) if len(pv) >= 2 else (pv[0] if pv else 3, 0)
             except Exception:
                 pass
 
@@ -5918,8 +5924,13 @@ class PackingThread(QThread):
                         min_ver_tup = (int(min_ver_raw[0]), int(min_ver_raw[1])) if len(min_ver_raw) >= 2 else (int(min_ver_raw[0]), 0)
                     elif isinstance(min_ver_raw, str):
                         try:
-                            parts = [int(x) for x in min_ver_raw.strip().split(".")]
-                            min_ver_tup = (parts[0], parts[1]) if len(parts) >= 2 else (parts[0], 0)
+                            parts = [int(x) for x in re.findall(r"\d+", str(min_ver_raw))]
+                            if len(parts) >= 2:
+                                min_ver_tup = (parts[0], parts[1])
+                            elif len(parts) == 1:
+                                min_ver_tup = (parts[0], 0)
+                            else:
+                                min_ver_tup = (3, 4)
                         except Exception:
                             min_ver_tup = (3, 4)
                     else:
@@ -5971,7 +5982,11 @@ class PackingThread(QThread):
                     _("[WARN] Specified versions failed to install. Stripping version constraints for automatic compatibility match...")
                 )
 
-                flex_install_list = [re.split(r"[=><!~]", pkg)[0].strip() for pkg in dedup_install_list]
+                def extract_pure_pkg_name(pkg_str):
+                    m = re.match(r"^([a-zA-Z0-9_\-\.]+)", pkg_str.strip())
+                    return m.group(1).lower() if m else pkg_str.strip().lower()
+
+                flex_install_list = [re.split(r"[=><!~@;\[]", pkg)[0].strip() for pkg in dedup_install_list if re.split(r"[=><!~@;\[]", pkg)[0].strip()]
 
                 installed_any = False
                 for pkg in flex_install_list:
@@ -6511,27 +6526,10 @@ class PackingThread(QThread):
                     for ex in safe_dev_excludes:
                         cmd.append(f"--exclude-module={ex}")
                 elif engine == "Nuitka":
-                    cmd.append("--python-flag=-OO")
-                    cmd.append("--lto=yes")
-
+                    cmd.append("--python-flag=-O")
+                    cmd.append("--lto=auto")
                     nuitka_dev_excludes = [
-                        "binder",
-                        "tkinter.test",
-                        "pip",
-                        "wheel",
-                        "distutils",
-                        "pkg_resources",
-                        "jupyter",
-                        "notebook",
-                        "IPython",
-                        "pytest",
-                        "_pytest",
-                        "unittest",
-                        "setuptools",
-                        "pydoc",
-                        "doctest",
-                        "test",
-                        "tests",
+                        "unittest", "doctest", "pdb", "pydoc", "test", "pytest", "IPython", "jupyter"
                     ]
 
                     if any(q in imports_lower for q in ("pyside6", "pyqt6", "pyside2", "pyqt5")):
