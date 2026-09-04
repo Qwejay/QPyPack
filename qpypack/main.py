@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.8.1"
+__version__ = "2.8.2"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -2461,14 +2461,12 @@ class DropArea(QFrame):
 
         parent_win = self.window()
 
-        # 1. 优先判断是否直接拖入了项目主文件夹
         first_path = Path(paths[0])
         if len(paths) == 1 and first_path.is_dir():
             if hasattr(parent_win, "on_project_folder_selected"):
                 parent_win.on_project_folder_selected(first_path)
                 return
 
-        # 2. 如果拖入的是单脚本文件
         py_files = [p for p in paths if p.lower().endswith((".py", ".pyw"))]
         if py_files:
             self.fileDropped.emit(py_files[0])
@@ -2967,7 +2965,7 @@ class SettingsPanel(QWidget):
         self.btn_reset.setIcon(get_svg_icon("refresh", "#5F6368"))
         self.btn_reset.setToolTip(_("Reset to Default Config"))
         self.btn_reset.setStyleSheet(self.parent_win.icon_btn_style)
-        self.btn_reset.clicked.connect(self.parent_win.reset_all)
+        self.btn_reset.clicked.connect(self.reset_global_config)
         btn_lay.addWidget(self.btn_reset)
 
         self.btn_save = AnimatedButton(_("Save & Return"))
@@ -3712,7 +3710,7 @@ class SettingsPanel(QWidget):
 
         p_github = "M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"
         p_issue = "M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"
-        p_pypi = "M12.06,1.48c-3.14,0-3.52,0.67-3.52,0.67l-0.01,2.44h3.63v0.52H7.43C5.12,5.11,4.5,6.58,4.5,8.81c0,2.34,0.38,3.48,2.3,3.48 h1.14v-1.62c0-1.48,1.23-2.65,2.7-2.65h3.69c1.47,0,2.66-1.19,2.66-2.65V3.88C16.99,1.83,14.67,1.48,12.06,1.48z M10.22,2.83 c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74C9.49,3.16,9.82,2.83,10.22,2.83z M16.71,9.89 v1.62c0,1.48-1.23,2.65-2.7,2.65H10.3c-1.47,0-2.66,1.19-2.66,2.65v1.49c0,2.05,2.32,2.41,4.92,2.41c3.14,0,3.52-0.67,3.52-0.67 l0.01-2.44h-3.63v-0.52h4.73c2.31,0,2.93-1.47,2.93-3.7c0-2.34-0.38-3.48-2.3-3.48H16.71z M13.88,18.96c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C13.15,19.29,13.48,18.96,13.88,18.96z"
+        p_pypi = "M12.06,1.48c-3.14,0-3.52,0.67-3.52,0.67l-0.01,2.44h3.63v0.52H7.43C5.12,5.11,4.5,6.58,4.5,8.81c0,2.34,0.38,3.48,2.3,3.48 h1.14v-1.62c0-1.48,1.23-2.65,2.7-2.65h3.69c1.47,0,2.66-1.19,2.66-2.65V3.88C16.99,1.83,14.67,1.48,12.06,1.48z M10.22,2.83 c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C9.49,3.16,9.82,2.83,10.22,2.83z M16.71,9.89 v1.62c0,1.48-1.23,2.65-2.7,2.65H10.3c-1.47,0-2.66,1.19-2.66,2.65v1.49c0,2.05,2.32,2.41,4.92,2.41c3.14,0,3.52-0.67,3.52-0.67 l0.01-2.44h-3.63v-0.52h4.73c2.31,0,2.93-1.47,2.93-3.7c0-2.34-0.38-3.48-2.3-3.48H16.71z M13.88,18.96c0.41,0,0.73,0.33,0.73,0.74c0,0.41-0.33,0.74-0.73,0.74c-0.4,0-0.73-0.33-0.73-0.74C13.15,19.29,13.48,18.96,13.88,18.96z"
         p_heart = "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
 
         self.btn_github = create_link_btn(
@@ -4100,7 +4098,10 @@ class SettingsPanel(QWidget):
             res = subprocess.run([raw_py, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], **kw)
             if res.returncode == 0 and res.stdout.strip():
                 parts = [int(x) for x in re.findall(r"\d+", res.stdout.strip())]
-                return raw_py, (parts[0], parts[1]) if len(parts) >= 2 else ((parts[0], 0) if parts else (3, 8))
+                if len(parts) >= 2:
+                    return raw_py, (parts[0], parts[1])
+                elif len(parts) == 1:
+                    return raw_py, (parts[0], 0)
         except Exception:
             pass
         return raw_py, (3, 8)
@@ -4672,7 +4673,6 @@ class SettingsPanel(QWidget):
             return
 
         count = len(venvs_to_remove)
-        freed_bytes / (1024 * 1024)
         paths_html = "<br>".join([f"• {v.name}" for v in venvs_to_remove])
 
         msg_box = QMessageBox(self)
@@ -5659,7 +5659,11 @@ class PackingThread(QThread):
             project_root = Path(proj_folder).resolve() if (proj_folder and Path(proj_folder).exists()) else script_dir
 
             local_modules = get_all_local_modules(project_root, script_dir)
-            user_added_dirs = {Path(dst).parts[0].lower() for _r_type, src, dst in (self.params.get("add_data_list") or [])}
+            user_added_dirs = set()
+            for _r_type, _src, dst in (self.params.get("add_data_list") or []):
+                parts = Path(dst).parts
+                if parts and parts[0] not in (".", "/"):
+                    user_added_dirs.add(parts[0].lower())
             local_modules.update(user_added_dirs)
 
             for m in script_imports:
@@ -5738,7 +5742,7 @@ class PackingThread(QThread):
                         if os.name == "nt":
                             kw_val["creationflags"] = subprocess.CREATE_NO_WINDOW
 
-                        code_val = "import sys, pip; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"
+                        code_val = "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"
                         check_proc = subprocess.run([python_exe_in_venv, "-c", code_val], **kw_val)
 
                         if check_proc.returncode == 0 and check_proc.stdout.strip() == target_py_ver:
@@ -5921,7 +5925,7 @@ class PackingThread(QThread):
             if enable_shield:
                 for pkg_name, min_ver_raw in user_backport_rules.items():
                     if isinstance(min_ver_raw, (tuple, list)):
-                        min_ver_tup = (int(min_ver_raw[0]), int(min_ver_raw[1])) if len(min_ver_raw) >= 2 else (int(min_ver_raw[0]), 0)
+                        min_ver_tup = (int(min_ver_raw[0]), int(min_ver_raw[1])) if len(min_ver_raw) >= 2 else ((int(min_ver_raw[0]), 0) if min_ver_raw else (3, 4))
                     elif isinstance(min_ver_raw, str):
                         try:
                             parts = [int(x) for x in re.findall(r"\d+", str(min_ver_raw))]
@@ -5981,10 +5985,6 @@ class PackingThread(QThread):
                 self.progress.emit(
                     _("[WARN] Specified versions failed to install. Stripping version constraints for automatic compatibility match...")
                 )
-
-                def extract_pure_pkg_name(pkg_str):
-                    m = re.match(r"^([a-zA-Z0-9_\-\.]+)", pkg_str.strip())
-                    return m.group(1).lower() if m else pkg_str.strip().lower()
 
                 flex_install_list = [re.split(r"[=><!~@;\[]", pkg)[0].strip() for pkg in dedup_install_list if re.split(r"[=><!~@;\[]", pkg)[0].strip()]
 
@@ -6259,10 +6259,13 @@ class PackingThread(QThread):
                         )
                         ver_str = check_ver.stdout.strip()
                         if ver_str and "|" in ver_str:
-                            v_part, arch_part = ver_str.split("|")
-                            parts = v_part.split(".")
-                            py_ver_num = (int(parts[0]), int(parts[1]))
-                            is_64bit = arch_part.lower() == "true"
+                            v_part, arch_part = ver_str.split("|", 1)
+                            parts = re.findall(r"\d+", v_part)
+                            if len(parts) >= 2:
+                                py_ver_num = (int(parts[0]), int(parts[1]))
+                            elif len(parts) == 1:
+                                py_ver_num = (int(parts[0]), 0)
+                            is_64bit = "64" in arch_part or arch_part.lower() == "true"
                     except Exception:
                         pass
 

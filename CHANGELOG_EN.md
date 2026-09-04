@@ -6,6 +6,17 @@ All notable changes to the **QPyPack** project will be documented in this file.
 
 ---
 
+## [2.8.2] - 2026-09-04
+
+### Fixed
+- Strengthen Python version and architecture detection logic with fallback handling
+- Fix settings panel reset button binding to reset global config properly
+- Remove redundant pip import during venv Python validation checks
+- Sanitize add-data destination paths and harden backport rule parsing
+- Clean up unused helper functions and dead code
+
+---
+
 ## [2.8.1] - 2026-09-03
 
 ### Fixed
