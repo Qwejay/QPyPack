@@ -6,6 +6,15 @@ All notable changes to the **QPyPack** project will be documented in this file.
 
 ---
 
+## [2.8.3] - 2026-09-05
+
+### Fixed
+- Fixed a startup crash (`configparser.DuplicateOptionError`) caused by case-insensitive duplicate keys in `DEFAULT_MAPPINGS` (Special thanks to @zxinyun from 52pojie).
+- Optimized configuration initialization and saving logic to automatically normalize mapping keys to lowercase and handle deduplication.
+- Enhanced robustness of configuration error fallback and missing-key auto-remediation.
+
+---
+
 ## [2.8.2] - 2026-09-04
 
 ### Fixed

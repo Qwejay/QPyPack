@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.8.2"
+__version__ = "2.8.3"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -779,9 +779,7 @@ PYPI_MIRRORS_GLOBAL = [
 
 DEFAULT_MAPPINGS = {
     "crypto": "pycryptodome",
-    "Crypto": "pycryptodome",
     "cryptodome": "pycryptodome",
-    "Cryptodome": "pycryptodome",
     "nacl": "pynacl",
     "jwt": "PyJWT",
     "OpenSSL": "pyOpenSSL",
@@ -900,7 +898,7 @@ def load_config(retry=True):
         default_backup = "https://mirrors.aliyun.com/pypi/simple/"
 
     if not os.path.exists(CONFIG_FILE):
-        config["Mappings"] = DEFAULT_MAPPINGS
+        config["Mappings"] = {k.lower(): v for k, v in DEFAULT_MAPPINGS.items()}
         config["Settings"] = {
             "language": "auto",
             "engine": "PyInstaller",
@@ -950,14 +948,14 @@ def load_config(retry=True):
                 return load_config(retry=False)
             else:
                 if "Mappings" not in config:
-                    config["Mappings"] = DEFAULT_MAPPINGS
+                    config["Mappings"] = {k.lower(): v for k, v in DEFAULT_MAPPINGS.items()}
                 if "Settings" not in config:
                     config["Settings"] = {}
                 if "BackportRules" not in config:
                     config["BackportRules"] = DEFAULT_BACKPORT_RULES
 
         if "Mappings" not in config:
-            config["Mappings"] = DEFAULT_MAPPINGS
+            config["Mappings"] = {k.lower(): v for k, v in DEFAULT_MAPPINGS.items()}
         else:
             updated_map = False
             for k, v in DEFAULT_MAPPINGS.items():
