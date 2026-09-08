@@ -409,6 +409,5 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] Dự án mục tiêu nằm trong thư mục Đồng bộ đám mây (ví dụ: OneDrive/Dropbox). Đồng bộ đám mây có thể tạm thời khóa các tệp xây dựng.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] Kết nối máy chủ dấu thời gian hết thời gian chờ, thực hiện ký nhanh cục bộ...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] Phát hiện việc sử dụng '__file__'. Trong chế độ Một tệp PyInstaller, hãy sử dụng 'sys._MEIPASS' để định vị đáng tin cậy các tệp tài nguyên được đóng gói!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nChương trình đã thực thi xong, nhấn Enter để thoát...",
-  "Package Mapping & Remediation": "Ánh xạ gói & Khắc phục"
+  "\\nProgram execution completed, press Enter to exit...": "\\nChương trình đã thực thi xong, nhấn Enter để thoát..."
 }

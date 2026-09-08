@@ -314,6 +314,10 @@ def run_e2e_mock_build(engine_name: str, tmp_dir: Path, is_onefile: bool = True)
 
     thread = main.PackingThread(params)
     results = []
+    logs = []
+
+    # 实时捕获日志
+    thread.progress.connect(lambda msg: logs.append(msg))
 
     def on_finished(success, msg, failed_pkgs):
         results.append((success, msg))
@@ -323,28 +327,30 @@ def run_e2e_mock_build(engine_name: str, tmp_dir: Path, is_onefile: bool = True)
 
     assert len(results) > 0, "构建线程未返回结果"
     success, msg = results[0]
+
+    if not success:
+        print("\n" + "!" * 30 + " NUITKA ERROR LOGS " + "!" * 30)
+        print("\n".join(logs))
+        print("!" * 79 + "\n")
+
     assert success, f"{engine_name} 构建失败: {msg}"
 
     ext = ".exe" if os.name == "nt" else ""
     if is_onefile:
-        built_exe = app_dir / f"app_main{ext}"
+        out_bin = app_dir / f"app_main{ext}"
     else:
-        # 针对 文件夹模式 (onedir / standalone) 全面兼容查找路径
-        candidates = [
-            app_dir / "app_main" / f"app_main{ext}",
-            app_dir / "app_main.dist" / f"app_main{ext}",
-            app_dir / f"app_main{ext}",
-        ]
-        built_exe = next((p for p in candidates if p.exists()), None)
+        out_bin = app_dir / "app_main" / f"app_main{ext}"
 
-    assert built_exe is not None and built_exe.exists(), f"找不到构建产物，搜索路径: {candidates if not is_onefile else built_exe}"
+    assert out_bin.exists(), f"未找到生成的二进制可执行文件: {out_bin}"
 
-    # 实机拉起产物验证
-    proc = subprocess.run([built_exe.as_posix()], capture_output=True, text=True, timeout=10)
-    assert proc.returncode == 0
-    assert "BOOT_SUCCESS_OK" in proc.stdout
-    log_pass(f"{engine_name} (Lite Mode) 产物实机拉起验证成功！")
+    # 实机运行验证
+    kw = {"capture_output": True, "text": True, "timeout": 10, "errors": "ignore"}
+    if os.name == "nt":
+        kw["creationflags"] = subprocess.CREATE_NO_WINDOW
 
+    proc = subprocess.run([out_bin.as_posix()], **kw)
+    assert proc.returncode == 0, f"构建产物启动异常退出，ReturnCode: {proc.returncode}"
+    assert "BOOT_SUCCESS_OK" in proc.stdout, f"产物输出未匹配到预期签名，标准输出: {proc.stdout}"
 
 def test_07_pyinstaller_real_build(init_qapp):
     """测试 7: PyInstaller 真实构建与产物执行测试"""

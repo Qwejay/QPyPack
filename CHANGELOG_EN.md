@@ -6,6 +6,19 @@ All notable changes to the **QPyPack** project will be documented in this file.
 
 ---
 
+## [2.8.4] - 2026-09-08
+
+### Fixed
+- Fixed AST dependency scanner traversing into virtual environments and `site-packages`, preventing phantom dependencies and installation hangs.
+- Fixed packaging workflow to respect the "Scan Entire Folder" option (`use_pipreqs_dir`), defaulting to single-script analysis.
+- Fixed project entry script detection to prevent picking internal scripts from virtual environments or vendor directories when dragging a folder.
+
+### Improved
+- Improved AST scanning and project traversal performance via in-place directory pruning.
+- Enforced lowercase keys when incrementally synchronizing default package mappings in configuration.
+
+---
+
 ## [2.8.3] - 2026-09-05
 
 ### Fixed

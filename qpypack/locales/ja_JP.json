@@ -118,6 +118,7 @@
   "File": "ファイル",
   "Folder Mode (--onedir)": "フォルダモード（--onedir）",
   "Full backward compatibility": "完全な後方互換性",
+  "Generate": "生成する",
   "GitHub Repository": "GitHubリポジトリ",
   "Global configuration has been reset.": "グローバル設定がリセットされました。",
   "Hidden Imports:": "隠しインポート:",
@@ -408,7 +409,5 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] ターゲットプロジェクトはクラウド同期ディレクトリ (例: OneDrive/Dropbox) にあります。クラウド同期によりビルドファイルが一時的にロックされる可能性があります。",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] タイムスタンプサーバーへの接続がタイムアウトしました。ローカル高速署名を実行します...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] '__file__' の使用が検出されました。PyInstallerのワンファイルモードでは、バンドルされたリソースファイルを確実に特定するために 'sys._MEIPASS' を使用してください!",
-  "\\nProgram execution completed, press Enter to exit...": "\\nプログラムの実行が完了しました。終了するにはEnterキーを押してください...",
-  "Generate": "生成",
-  "Package Mapping & Remediation": "パッケージマッピングと修復"
+  "\\nProgram execution completed, press Enter to exit...": "\\nプログラムの実行が完了しました。終了するにはEnterキーを押してください..."
 }

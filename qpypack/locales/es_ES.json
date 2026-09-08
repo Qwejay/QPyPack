@@ -409,6 +409,5 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] El proyecto objetivo está en un directorio de sincronización en la nube (por ejemplo, OneDrive/Dropbox). La sincronización en la nube puede bloquear temporalmente los archivos de compilación.",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] Tiempo de espera agotado en la conexión al servidor de marcas de tiempo, realizando firma rápida local...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] Se detectó el uso de '__file__'. En el modo de un solo archivo de PyInstaller, use 'sys._MEIPASS' para localizar de manera confiable los archivos de recursos empaquetados.",
-  "\\nProgram execution completed, press Enter to exit...": "\\nEjecución del programa completada, presione Enter para salir...",
-  "Package Mapping & Remediation": "Mapeo de paquetes y corrección"
+  "\\nProgram execution completed, press Enter to exit...": "\\nEjecución del programa completada, presione Enter para salir..."
 }

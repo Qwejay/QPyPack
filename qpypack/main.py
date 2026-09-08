@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.8.3"
+__version__ = "2.8.4"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -960,7 +960,7 @@ def load_config(retry=True):
             updated_map = False
             for k, v in DEFAULT_MAPPINGS.items():
                 if k not in config["Mappings"]:
-                    config["Mappings"][k] = v
+                    config["Mappings"][k.lower()] = v
                     updated_map = True
             if updated_map:
                 try:
@@ -1193,13 +1193,27 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
         files_to_scan = [target_path] if target_path.is_file() else []
     else:
         files_to_scan = []
-        for root, _dirs, files in os.walk(target_path):
-            path_parts = set(Path(root).parts)
-            if path_parts & {"__pycache__", ".qpypack_build", ".qpypack_venv", ".venv", "venv", "build", "dist", "env", ".env", ".git"}:
+        EXCLUDE_DIR_NAMES = {
+            "__pycache__", ".git", ".hg", ".svn", "build", "dist",
+            ".venv", "venv", "env", ".env", ".conda", "envs",
+            "site-packages", "dist-info", "egg-info", "Lib", "lib",
+            "node_modules", ".tox", ".nox", ".pytest_cache", ".mypy_cache"
+        }
+        for root, dirs, files in os.walk(target_path):
+            dirs[:] = [
+                d for d in dirs
+                if not d.startswith((".qpypack", "qpypack")) and d not in EXCLUDE_DIR_NAMES
+            ]
+
+            path_obj = Path(root)
+            if any(p.startswith((".qpypack", "qpypack")) for p in path_obj.parts):
                 continue
+            if any(part in EXCLUDE_DIR_NAMES for part in path_obj.parts):
+                continue
+
             for file in files:
                 if file.endswith((".py", ".pyw")):
-                    files_to_scan.append(Path(root) / file)
+                    files_to_scan.append(path_obj / file)
 
     for file_p in files_to_scan:
         try:
@@ -1211,17 +1225,17 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
                 if isinstance(node, ast.Import):
                     for n in node.names:
                         top_pkg = n.name.split(".")[0].strip()
-                        if top_pkg:
+                        if top_pkg and not top_pkg.startswith(("-", "_")):
                             imports.add(top_pkg)
                 elif isinstance(node, ast.ImportFrom):
                     if node.level == 0 and node.module:
                         top_pkg = node.module.split(".")[0].strip()
-                        if top_pkg:
+                        if top_pkg and not top_pkg.startswith(("-", "_")):
                             imports.add(top_pkg)
         except Exception:
             pass
     return imports
-
+    
 def query_target_env_packages(python_exe: str) -> dict:
     if not python_exe or not os.path.exists(python_exe):
         return {}
@@ -5814,8 +5828,13 @@ class PackingThread(QThread):
 
             self.progress.emit(_("[INFO] Scanning project source code via AST engine..."))
 
-            scan_target = project_root if (project_root and project_root.exists()) else script_dir
-            ast_discovered_imports = extract_project_imports_via_ast(scan_target, scan_dir=True)
+            should_scan_dir = self.params.get("use_pipreqs_dir", False)
+            if should_scan_dir and project_root and project_root.exists():
+                scan_target = project_root
+            else:
+                scan_target = build_script_path
+
+            ast_discovered_imports = extract_project_imports_via_ast(scan_target, scan_dir=should_scan_dir)
 
             env_pkg_map = query_target_env_packages(system_python_exe)
 
@@ -7635,13 +7654,26 @@ class MainWindow(QMainWindow):
     def on_project_folder_selected(self, folder_path: Path):
         folder_path = folder_path.resolve()
         candidates = []
-        for root, _dirs, files in os.walk(folder_path):
-            parts = set(Path(root).parts)
-            if parts & {"__pycache__", ".git", ".venv", "venv", "build", "dist", ".qpypack_build", ".qpypack_venv"}:
+        EXCLUDE_DIR_NAMES = {
+            "__pycache__", ".git", ".hg", ".svn", "build", "dist",
+            ".venv", "venv", "env", ".env", ".conda", "envs",
+            "site-packages", "dist-info", "egg-info", "Lib", "lib",
+            "node_modules", ".tox", ".nox", ".pytest_cache", ".mypy_cache"
+        }
+        for root, dirs, files in os.walk(folder_path):
+            dirs[:] = [
+                d for d in dirs
+                if not d.startswith((".qpypack", "qpypack")) and d not in EXCLUDE_DIR_NAMES
+            ]
+            path_obj = Path(root)
+            if any(p.startswith((".qpypack", "qpypack")) for p in path_obj.parts):
                 continue
+            if any(part in EXCLUDE_DIR_NAMES for part in path_obj.parts):
+                continue
+
             for f in files:
                 if f.endswith((".py", ".pyw")):
-                    candidates.append(Path(root) / f)
+                    candidates.append(path_obj / f)
 
         if not candidates:
             self.show_error_log(_("[ERROR] Please load a valid Python source file first!"))
@@ -8102,6 +8134,14 @@ class MainWindow(QMainWindow):
                     + _(
                         "Solution:\n1. In Build Settings, switch to [PyInstaller] engine (Recommended).\n2. Or install Visual Studio 2022 with C++ support."
                     )
+                )
+            elif "Problem with the downloaded zip file" in log_content or ("WinError 32" in log_content and "mingw" in log_content.lower()):
+                msg = (
+                    "[Environment Error] Nuitka compiler download/extraction failed (WinError 32: File locked by system or antivirus).\n\n"
+                    "Solutions:\n"
+                    "1. Clean damaged cache directory: %LOCALAPPDATA%\\Nuitka\\Nuitka\\Cache\\downloads\n"
+                    "2. Ensure Windows Defender or third-party antivirus is not blocking gcc.exe / zip extraction.\n"
+                    "3. Or switch the build engine to [PyInstaller] in Build Settings."
                 )
 
         if not success and self.thread and self.thread.params.get("lite_mode") and not getattr(self.thread, "_is_cancelled", False):

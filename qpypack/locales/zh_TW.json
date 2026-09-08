@@ -46,6 +46,7 @@
   "Build Successful": "建置成功",
   "Build engine packages ({count}): {pkgs}": "建置引擎套件（{count}）：{pkgs}",
   "CPU Cores:": "CPU 核心數：:",
+  "Cancel": "取消",
   "Cancel & Return": "取消並返回",
   "Cert Password:": "憑證密碼：:",
   "Certificate Subject (e.g. My Company):": "憑證主體（例如：我的公司）：:",
@@ -291,6 +292,7 @@
   "UPX Path:": "UPX 路徑：:",
   "USTC (China)": "中國科學技術大學（中國）",
   "Undo": "復原",
+  "Unknown": "未知",
   "Use Custom Commercial Cert (Optional) ": "使用自訂商業憑證（選用）",
   "Use Custom Commercial Cert (Optional) ▸": "使用自訂商業憑證（選用）▸",
   "Use Installed Version Directly": "直接使用已安裝版本",
@@ -407,8 +409,5 @@
   "[WARN] Target project is in a Cloud Sync directory (e.g. OneDrive/Dropbox). Cloud sync may temporarily lock build files.": "[WARN] 目標專案位於雲端同步目錄（例如 OneDrive/Dropbox）。雲端同步可能暫時鎖定建置檔案。",
   "[WARN] Timestamp server connection timed out, performing local fast signing...": "[WARN] 時間戳伺服器連線逾時，執行本機快速簽章...",
   "[WARN] Usage of '__file__' detected. In PyInstaller One-File mode, use 'sys._MEIPASS' to reliably locate bundled resource files!": "[WARN] 偵測到 '__file__' 的使用。在 PyInstaller 單一檔案模式中，請使用 'sys._MEIPASS' 以可靠地定位捆綁的資源檔案！",
-  "\\nProgram execution completed, press Enter to exit...": "\\n程式執行完成，按 Enter 鍵退出...",
-  "Cancel": "取消",
-  "Package Mapping & Remediation": "套件對應與修復",
-  "Unknown": "未知"
+  "\\nProgram execution completed, press Enter to exit...": "\\n程式執行完成，按 Enter 鍵退出..."
 }
