@@ -6,6 +6,20 @@ All notable changes to the **QPyPack** project will be documented in this file.
 
 ---
 
+## [2.8.6] - 2026-09-11
+
+### Fixed
+- Fixed case-sensitive directory matching in AST scanner that allowed traversal into virtual environments (`.venv/Lib`).
+- Fixed phantom/stub packages (e.g. `--main--`, `-winreg`, `android`, `org`) being passed to pip as invalid flags, preventing `no such option` errors.
+- Refactored `load_config` initialization and updates to use standard `configparser` APIs (`has_section`, `has_option`, `set`), eliminating dict assignment issues.
+
+### Improved
+- Implemented identifier regex validation (`VALID_IDENTIFIER_REGEX`) across AST analysis and pip installation stages to block parameter injection.
+- Added blacklist for legacy and cross-platform pseudo-modules (`PSEUDO_AND_LEGACY_MODULES`).
+- Hardened configuration file handling with normalized lowercase key synchronization and fallback handling.
+
+---
+
 ## [2.8.5] - 2026-09-10
 
 ### Fixed

@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.8.5"
+__version__ = "2.8.6"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -897,13 +897,15 @@ def load_config(retry=True):
         default_mirror = "https://pypi.tuna.tsinghua.edu.cn/simple"
         default_backup = "https://mirrors.aliyun.com/pypi/simple/"
 
-    clean_default_mappings = {}
-    for k, v in DEFAULT_MAPPINGS.items():
-        clean_default_mappings[k.lower()] = v
+    clean_default_mappings = {k.lower(): v for k, v in DEFAULT_MAPPINGS.items()}
 
     if not os.path.exists(CONFIG_FILE):
-        config["Mappings"] = clean_default_mappings
-        config["Settings"] = {
+        config.add_section("Mappings")
+        for k, v in clean_default_mappings.items():
+            config.set("Mappings", k, v)
+            
+        config.add_section("Settings")
+        settings_defaults = {
             "language": "auto",
             "engine": "PyInstaller",
             "pip_index": default_mirror,
@@ -934,6 +936,13 @@ def load_config(retry=True):
             "enable_backport_shield": "True",
             "lite_mode": "False",
         }
+        for k, v in settings_defaults.items():
+            config.set("Settings", k, v)
+            
+        config.add_section("BackportRules")
+        for k, v in DEFAULT_BACKPORT_RULES.items():
+            config.set("BackportRules", k, str(v))
+            
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 config.write(f)
@@ -950,32 +959,22 @@ def load_config(retry=True):
                 except Exception:
                     pass
                 return load_config(retry=False)
-            else:
-                if "Mappings" not in config:
-                    config["Mappings"] = clean_default_mappings
-                if "Settings" not in config:
-                    config["Settings"] = {}
-                if "BackportRules" not in config:
-                    config["BackportRules"] = DEFAULT_BACKPORT_RULES
 
-        if "Mappings" not in config:
-            config["Mappings"] = clean_default_mappings
-        else:
-            updated_map = False
-            for k, v in clean_default_mappings.items():
-                if k not in config["Mappings"]:
-                    config["Mappings"][k] = v
-                    updated_map = True
-            if updated_map:
-                try:
-                    save_config(config)
-                except Exception:
-                    pass
+        updated_any = False
+        
+        if not config.has_section("Mappings"):
+            config.add_section("Mappings")
+            updated_any = True
+            
+        for k, v in clean_default_mappings.items():
+            if not config.has_option("Mappings", k):
+                config.set("Mappings", k, v)
+                updated_any = True
 
-        if "Settings" not in config:
-            config["Settings"] = {}
+        if not config.has_section("Settings"):
+            config.add_section("Settings")
+            updated_any = True
 
-        updated = False
         default_updates = {
             "language": "auto",
             "keep_venv": "False",
@@ -1003,33 +1002,28 @@ def load_config(retry=True):
             "lite_mode": "False",
         }
         for k, v in default_updates.items():
-            if k not in config["Settings"]:
-                config["Settings"][k] = v
-                updated = True
+            if not config.has_option("Settings", k):
+                config.set("Settings", k, v)
+                updated_any = True
 
-        if updated:
+        if not config.has_section("BackportRules"):
+            config.add_section("BackportRules")
+            updated_any = True
+            
+        for k, v in DEFAULT_BACKPORT_RULES.items():
+            if not config.has_option("BackportRules", k):
+                config.set("BackportRules", k, str(v))
+                updated_any = True
+
+        if updated_any:
             try:
                 save_config(config)
             except Exception:
                 pass
 
-        if "BackportRules" not in config:
-            config["BackportRules"] = DEFAULT_BACKPORT_RULES
-        else:
-            updated_rules = False
-            for k, v in DEFAULT_BACKPORT_RULES.items():
-                if k not in config["BackportRules"]:
-                    config["BackportRules"][k] = v
-                    updated_rules = True
-            if updated_rules:
-                try:
-                    save_config(config)
-                except Exception:
-                    pass
-    lang_pref = config["Settings"].get("language", "auto")
+    lang_pref = config.get("Settings", "language", fallback="auto")
     I18N.set_language(lang_pref)
     return config
-
 
 def save_config(config):
     import time
@@ -1189,6 +1183,14 @@ def is_cloud_sync_path(path_obj: Path) -> bool:
     ]
     return any(kw in path_str for kw in cloud_keywords)
 
+PSEUDO_AND_LEGACY_MODULES = {
+    "__builtin__", "__main__", "java", "android", "org", "com", "dl",
+    "thread", "dummy_thread", "htmlentitydefs", "htmlparser", "httplib",
+    "urllib2", "urlparse", "xmlrpclib", "stringio", "cstringio",
+    "exceptions", "commands", "ntlm", "typeshed"
+}
+VALID_IDENTIFIER_REGEX = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")
+
 def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
     imports = set()
     target_path = Path(target_path)
@@ -1200,19 +1202,21 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
         EXCLUDE_DIR_NAMES = {
             "__pycache__", ".git", ".hg", ".svn", "build", "dist",
             ".venv", "venv", "env", ".env", ".conda", "envs",
-            "site-packages", "dist-info", "egg-info", "Lib", "lib",
+            "site-packages", "dist-info", "egg-info", "lib", "libs",
             "node_modules", ".tox", ".nox", ".pytest_cache", ".mypy_cache"
         }
         for root, dirs, files in os.walk(target_path):
             dirs[:] = [
                 d for d in dirs
-                if not d.startswith((".qpypack", "qpypack")) and d not in EXCLUDE_DIR_NAMES
+                if not d.lower().startswith((".qpypack", "qpypack")) 
+                and d.lower() not in EXCLUDE_DIR_NAMES
             ]
 
             path_obj = Path(root)
-            if any(p.startswith((".qpypack", "qpypack")) for p in path_obj.parts):
+            path_parts_lower = {p.lower() for p in path_obj.parts}
+            if any(p.startswith((".qpypack", "qpypack")) for p in path_parts_lower):
                 continue
-            if any(part in EXCLUDE_DIR_NAMES for part in path_obj.parts):
+            if path_parts_lower & EXCLUDE_DIR_NAMES:
                 continue
 
             for file in files:
@@ -1226,20 +1230,24 @@ def extract_project_imports_via_ast(target_path, scan_dir: bool = False) -> set:
                 continue
             tree = ast.parse(code, filename=file_p.as_posix())
             for node in ast.walk(tree):
+                names_to_check = []
                 if isinstance(node, ast.Import):
-                    for n in node.names:
-                        top_pkg = n.name.split(".")[0].strip()
-                        if top_pkg and not top_pkg.startswith(("-", "_")):
-                            imports.add(top_pkg)
+                    names_to_check = [n.name for n in node.names]
                 elif isinstance(node, ast.ImportFrom):
                     if node.level == 0 and node.module:
-                        top_pkg = node.module.split(".")[0].strip()
-                        if top_pkg and not top_pkg.startswith(("-", "_")):
-                            imports.add(top_pkg)
+                        names_to_check = [node.module]
+
+                for raw_name in names_to_check:
+                    top_pkg = raw_name.split(".")[0].strip()
+                    if not top_pkg or not VALID_IDENTIFIER_REGEX.match(top_pkg):
+                        continue
+                    if top_pkg.lower() in PSEUDO_AND_LEGACY_MODULES:
+                        continue
+                    imports.add(top_pkg)
         except Exception:
             pass
     return imports
-    
+
 def query_target_env_packages(python_exe: str) -> dict:
     if not python_exe or not os.path.exists(python_exe):
         return {}
@@ -5924,7 +5932,19 @@ class PackingThread(QThread):
             dedup_install_list = [
                 pkg for pkg in list(final_install_dict.values()) if re.split(r"[=><!~]", pkg)[0].strip().lower() not in target_std_libs
             ]
+            clean_dedup_list = []
+            for pkg_spec in dedup_install_list:
+                pkg_raw = pkg_spec.strip()
+                if not pkg_raw or pkg_raw.startswith(("-", "_", ".")):
+                    continue
+                base_name = re.split(r"[=><!~@;\[]", pkg_raw)[0].strip().lower()
+                if not VALID_IDENTIFIER_REGEX.match(base_name.replace("-", "_")):
+                    continue
+                if base_name in PSEUDO_AND_LEGACY_MODULES:
+                    continue
+                clean_dedup_list.append(pkg_raw)
 
+            dedup_install_list = clean_dedup_list
             enable_shield = self.params.get("enable_backport_shield", True)
             user_backport_rules = self.params.get("backport_rules", {})
 
