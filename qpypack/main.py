@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.8.4"
+__version__ = "2.8.5"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -889,7 +889,7 @@ MATERIAL_ICONS = {
 
 
 def load_config(retry=True):
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(strict=False)
     default_mirror = "https://pypi.org/simple"
     default_backup = "https://test.pypi.org/simple"
 
@@ -897,8 +897,12 @@ def load_config(retry=True):
         default_mirror = "https://pypi.tuna.tsinghua.edu.cn/simple"
         default_backup = "https://mirrors.aliyun.com/pypi/simple/"
 
+    clean_default_mappings = {}
+    for k, v in DEFAULT_MAPPINGS.items():
+        clean_default_mappings[k.lower()] = v
+
     if not os.path.exists(CONFIG_FILE):
-        config["Mappings"] = {k.lower(): v for k, v in DEFAULT_MAPPINGS.items()}
+        config["Mappings"] = clean_default_mappings
         config["Settings"] = {
             "language": "auto",
             "engine": "PyInstaller",
@@ -948,19 +952,19 @@ def load_config(retry=True):
                 return load_config(retry=False)
             else:
                 if "Mappings" not in config:
-                    config["Mappings"] = {k.lower(): v for k, v in DEFAULT_MAPPINGS.items()}
+                    config["Mappings"] = clean_default_mappings
                 if "Settings" not in config:
                     config["Settings"] = {}
                 if "BackportRules" not in config:
                     config["BackportRules"] = DEFAULT_BACKPORT_RULES
 
         if "Mappings" not in config:
-            config["Mappings"] = {k.lower(): v for k, v in DEFAULT_MAPPINGS.items()}
+            config["Mappings"] = clean_default_mappings
         else:
             updated_map = False
-            for k, v in DEFAULT_MAPPINGS.items():
+            for k, v in clean_default_mappings.items():
                 if k not in config["Mappings"]:
-                    config["Mappings"][k.lower()] = v
+                    config["Mappings"][k] = v
                     updated_map = True
             if updated_map:
                 try:
@@ -3717,7 +3721,7 @@ class SettingsPanel(QWidget):
                 QPushButton:hover {{ background-color: {hover_bg}; color: {icon_color}; }}
                 QPushButton:pressed {{ background-color: {pressed_bg}; }}
             """)
-            btn.clicked.connect(lambda: __import__("webbrowser").open(url))
+            btn.clicked.connect(lambda checked=False, target_url=url: QDesktopServices.openUrl(QUrl(target_url)))
             return btn
 
         p_github = "M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"
@@ -4509,7 +4513,7 @@ class SettingsPanel(QWidget):
         for r in range(self.mapping_table.rowCount()):
             item_k = self.mapping_table.item(r, 0)
             item_v = self.mapping_table.item(r, 1)
-            k = item_k.text().strip() if item_k else ""
+            k = item_k.text().strip().lower() if item_k else ""
             v = item_v.text().strip() if item_v else ""
             if k and v:
                 config["Mappings"][k] = v
@@ -7935,7 +7939,7 @@ class MainWindow(QMainWindow):
                 msg.addButton(_("Cancel"), QMessageBox.ButtonRole.RejectRole)
                 msg.exec()
                 if msg.clickedButton() == btn_down:
-                    __import__("webbrowser").open("https://www.python.org/downloads/")
+                    QDesktopServices.openUrl(QUrl("https://www.python.org/downloads/"))
             return
 
         validation_errors = []

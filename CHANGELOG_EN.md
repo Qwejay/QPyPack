@@ -6,6 +6,18 @@ All notable changes to the **QPyPack** project will be documented in this file.
 
 ---
 
+## [2.8.5] - 2026-09-10
+
+### Fixed
+- Fixed crash caused by `configparser.DuplicateOptionError` when loading configurations with case-insensitive mapping keys.
+- Fixed `ModuleNotFoundError: No module named 'webbrowser'` when clicking About links or the Python download button in standalone frozen builds.
+
+### Improved
+- Enabled non-strict parsing (`strict=False`) in `configparser` and normalized mapping keys to lowercase to ensure robust configuration I/O.
+- Replaced dynamic `webbrowser` calls with native Qt `QDesktopServices.openUrl` for better cross-platform reliability and reduced binary bundle size.
+
+---
+
 ## [2.8.4] - 2026-09-08
 
 ### Fixed

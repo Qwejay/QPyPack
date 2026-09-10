@@ -4,6 +4,18 @@ QPyPack 项目的所有重要变更都将记录在此文件中。
 
 [English Version](./CHANGELOG_EN.md) | **中文**
 
+--
+
+## [2.8.5] - 2026-09-10
+
+### 修复
+- 修复配置文件读取时因键名大小写映射导致 `configparser.DuplicateOptionError` 崩溃的问题
+- 修复独立打包（Standalone）环境下点击关于页面链接及 Python 下载链接时抛出 `ModuleNotFoundError: No module named 'webbrowser'` 的问题
+
+### 优化
+- 配置解析器开启宽松容错模式（`strict=False`），并在加载与保存时统一做小写预去重，提升配置读写健壮性
+- 移除对 Python 标准库 `webbrowser` 的隐式动态依赖，全面改用 Qt 原生 `QDesktopServices.openUrl` 打开系统默认浏览器，提升跨平台兼容性并减少打包产物体积
+
 ---
 
 ## [2.8.4] - 2026-09-08
