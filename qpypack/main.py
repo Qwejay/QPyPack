@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.8.6"
+__version__ = "2.9.0"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -591,6 +591,11 @@ ZH_CN_DICT = {
     "Detected multiple entry scripts in project. Please select one to build:": "在项目目录下检测到多个 Python 脚本，请选择主程序入口：",
     "Loaded Project: {name} | Entry: {entry}": "已载入项目: {name} | 入口: {entry}",
     "[TIP] Script imports parent module '{mod}'. If build fails, try dragging the whole project folder here.": "[提示] 脚本引用了上级模块 '{mod}'。如构建报错，可直接将项目总文件夹拖入软件打包。",
+    "[INFO] Detected cloud sync directory. Redirecting build sandbox to system Temp directory to prevent file lock.": "[INFO] 检测到源码位于云同步目录，强制将构建沙箱重定向至系统 Temp 目录以防文件死锁。",
+    "[Environment Error] Compiler extraction blocked by system/antivirus. Automatically cleaning corrupted cache...": "[Environment Error] 编译器解压被系统或杀毒软件拦截。正在自动清理损坏的缓存文件...",
+    "[SUCCESS] Corrupted cache cleared. Please add Nuitka cache to antivirus whitelist, or switch to PyInstaller engine and retry.": "[SUCCESS] 损坏缓存已清空。请将 Nuitka 缓存目录加入杀软白名单，或切换至 PyInstaller 引擎后重试。",
+    "[CRITICAL] Paddle detected! Call 'multiprocessing.freeze_support()' under 'if __name__ == \"__main__\":' in your entry script, or the packaged app will spawn infinite processes and exhaust memory.":
+        "[严重警告] 检测到使用了 Paddle 库！请务必在入口脚本的 'if __name__ == \"__main__\":' 下调用 'multiprocessing.freeze_support()'，否则打包后的程序运行会导致无限弹窗派生并耗尽内存。",
     "Unknown": "未知"
 }
 
@@ -850,6 +855,11 @@ DEFAULT_MAPPINGS = {
     "slugify": "python-slugify",
     "snappy": "python-snappy",
     "acoustid": "pyacoustid",
+    "paddle": "paddlepaddle",
+    "paddleocr": "paddleocr",
+    "torch": "torch",
+    "tensorflow": "tensorflow",
+    "mediapipe": "mediapipe",
 }
 
 DEFAULT_BACKPORT_RULES = {
@@ -1176,7 +1186,6 @@ def is_cloud_sync_path(path_obj: Path) -> bool:
         "阿里云盘",
         "aliyun",
         "115",
-        "",
         "quark",
         "夸克网盘",
         "夸克",
@@ -5495,7 +5504,12 @@ class PackingThread(QThread):
         script_dir = Path(self.params["script_path"]).parent if self.params.get("script_path") else Path.cwd()
 
         sandbox_mode = int(self.params.get("temp_sandbox_mode", 0) or 0)
-        if sandbox_mode == 0:
+
+        if is_cloud_sync_path(script_dir):
+            self.progress.emit(_("[INFO] Detected cloud sync directory. Redirecting build sandbox to system Temp directory to prevent file lock."))
+            custom_temp_base = Path(tempfile.gettempdir()).resolve()
+            temp_dir_arg = None
+        elif sandbox_mode == 0:
             custom_temp_base = (script_dir / ".qpypack_build").resolve()
             custom_temp_base.mkdir(parents=True, exist_ok=True)
             temp_dir_arg = custom_temp_base.as_posix()
@@ -6000,6 +6014,12 @@ class PackingThread(QThread):
 
             final_dependencies = sanitized_dependencies
 
+            if active_exclusions:
+                dedup_install_list = [
+                    pkg for pkg in dedup_install_list
+                    if re.split(r"[=><!~@;\[]", pkg)[0].strip().lower() not in active_exclusions
+                ]
+
             temp_unified_reqs = custom_temp_base / f"qpypack_atomic_reqs_{int(time.time())}.txt"
             temp_unified_reqs.write_text("\n".join(dedup_install_list), encoding="utf-8")
 
@@ -6098,13 +6118,29 @@ class PackingThread(QThread):
 
             self.progress.emit(_("[INFO] Starting {engine} engine to compile binary files...", engine=engine))
 
-            if engine == "PyInstaller" and os.name == "nt":
-                if "multiprocessing" in {m.lower() for m in script_imports}:
-                    self.progress.emit(
-                        _(
-                            "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs)."
-                        )
+            hidden_list = [i.strip().lower() for i in (self.params.get("hidden_imports") or "").split(",") if i.strip()]
+            all_imports_lower = (
+                {m.lower() for m in script_imports}
+                | {m.lower() for m in ast_discovered_imports}
+                | {m.lower() for m in final_dependencies.keys()}
+                | set(hidden_list)
+            )
+            imports_lower = all_imports_lower
+
+            if "paddle" in all_imports_lower or "paddleocr" in all_imports_lower:
+                self.progress.emit(
+                    _(
+                        "[CRITICAL] Paddle detected! Call 'multiprocessing.freeze_support()' "
+                        "under 'if __name__ == \"__main__\":' in your entry script, "
+                        "or the packaged app will spawn infinite processes and exhaust memory."
                     )
+                )
+            elif engine == "PyInstaller" and os.name == "nt" and "multiprocessing" in all_imports_lower:
+                self.progress.emit(
+                    _(
+                        "[WARN] 'multiprocessing' module detected. Ensure 'multiprocessing.freeze_support()' is called under 'if __name__ == \"__main__\":' to prevent infinite process loops (fork bombs)."
+                    )
+                )
 
             if engine == "PyInstaller" and self.params["onefile"]:
                 try:
@@ -6156,7 +6192,6 @@ class PackingThread(QThread):
 
                 if icon_path:
                     cmd.extend(["--icon", icon_path])
-                    cmd.extend(["--add-data", f"{icon_path}{os.pathsep}."])
 
                 if self.params.get("version_file") and os.name == "nt":
                     cmd.extend(["--version-file", self.params["version_file"]])
@@ -6219,10 +6254,6 @@ class PackingThread(QThread):
                     if excl.strip():
                         cmd.extend(["--exclude-module", excl.strip()])
 
-                imports_lower = {m.lower() for m in script_imports}
-                hidden_list = [i.strip().lower() for i in (self.params.get("hidden_imports") or "").split(",") if i.strip()]
-                all_imports_lower = imports_lower | set(hidden_list)
-
                 if any(k in all_imports_lower for k in ("crypto", "pycryptodome", "cryptography", "nacl", "pynacl")):
                     cmd.extend(["--collect-all", "Crypto"])
                     cmd.extend(["--collect-all", "pycryptodome"])
@@ -6253,6 +6284,15 @@ class PackingThread(QThread):
                 if "pydantic" in all_imports_lower:
                     cmd.extend(["--collect-submodules", "pydantic"])
                     cmd.extend(["--collect-submodules", "pydantic_core"])
+                if "paddle" in all_imports_lower or "paddleocr" in all_imports_lower:
+                    cmd.extend(["--collect-all", "paddle"])
+                    cmd.extend(["--collect-all", "paddleocr"])
+                if "torch" in all_imports_lower:
+                    cmd.extend(["--collect-all", "torch"])
+                if "tensorflow" in all_imports_lower:
+                    cmd.extend(["--collect-all", "tensorflow"])
+                if "mediapipe" in all_imports_lower:
+                    cmd.extend(["--collect-all", "mediapipe"])
                 if any(lib in all_imports_lower for lib in ("requests", "httpx", "urllib3", "aiohttp", "urllib")):
                     cmd.extend(["--collect-data", "certifi"])
                     self.progress.emit(
@@ -6270,7 +6310,7 @@ class PackingThread(QThread):
                     "-m",
                     "nuitka",
                     "--assume-yes-for-downloads",
-                    "--enable-plugin=anti-bloat",
+                    # "--enable-plugin=anti-bloat",
                     f"--output-dir={self.temp_out_dir.as_posix()}",
                     f"--output-filename={app_name}{ext}",
                 ]
@@ -6480,9 +6520,6 @@ class PackingThread(QThread):
                     bundle_id = f"com.{comp or 'anonymous'}.{app_name.lower().replace(' ', '')}"
                     cmd.append(f"--macos-signed-app-name={bundle_id}")
 
-                hidden_list = [i.strip().lower() for i in (self.params.get("hidden_imports") or "").split(",") if i.strip()]
-                imports_lower = {m.lower() for m in script_imports} | set(hidden_list)
-
                 if "pyqt5" in imports_lower:
                     cmd.append("--enable-plugin=pyqt5")
                 elif "pyqt6" in imports_lower:
@@ -6523,7 +6560,11 @@ class PackingThread(QThread):
                     cmd.append("--include-package=pynput")
                 if "soundfile" in imports_lower:
                     cmd.append("--include-package=soundfile")
-
+                for ai_lib in ("paddle", "paddleocr", "torch", "tensorflow", "mediapipe"):
+                    if ai_lib in imports_lower:
+                        if not is_lite:
+                            cmd.append(f"--include-package={ai_lib}")
+                        cmd.append(f"--include-package-data={ai_lib}")
                 if any(lib in imports_lower for lib in ("requests", "httpx", "urllib3", "aiohttp", "urllib")):
                     cmd.append("--include-package-data=certifi")
                     self.progress.emit(
@@ -6535,9 +6576,6 @@ class PackingThread(QThread):
                         if not is_lite:
                             cmd.append(f"--include-package={web_fw}")
                         cmd.append(f"--include-package-data={web_fw}")
-
-                if "numpy" in imports_lower:
-                    cmd.append("--enable-plugin=numpy")
 
                 for imp in (self.params.get("hidden_imports") or "").split(","):
                     if imp.strip():
@@ -6557,8 +6595,8 @@ class PackingThread(QThread):
 
                 for excl in (self.params.get("exclude_modules") or "").split(","):
                     if excl.strip():
-                        cmd.extend(["--nofollow-import-to={excl.strip()}"])
-
+                        cmd.append(f"--nofollow-import-to={excl.strip()}")
+                        
             if self.params.get("lite_mode"):
                 self.progress.emit(_("[INFO] Lite mode enabled, applying bytecode optimization (-OO) and stripping dev modules..."))
                 if not self.params.get("use_venv"):
@@ -6612,6 +6650,13 @@ class PackingThread(QThread):
 
             if not success and not self._is_cancelled:
                 log_text = "\n".join(self.all_raw_logs)
+                if any(kw in log_text for kw in ["need 'mingw64\\bin\\gcc.exe'", "WinError 32", "Problem with the downloaded zip file"]):
+                    self.progress.emit(_("[Environment Error] Compiler extraction blocked by system/antivirus. Automatically cleaning corrupted cache..."))
+                    cache_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Nuitka" / "Nuitka" / "Cache" / "downloads"
+                    if cache_dir.exists():
+                        robust_rmtree(cache_dir)
+                    self.progress.emit(_("[SUCCESS] Corrupted cache cleared. Please add Nuitka cache to antivirus whitelist, or switch to PyInstaller engine and retry."))
+
                 if any(kw in log_text for kw in ["NoSpaceLeft", "No space left on device", "[Errno 28]"]):
                     self.progress.emit(
                         _(
@@ -6624,9 +6669,12 @@ class PackingThread(QThread):
                             "[WARN] Memory allocation exception caught (ZstdError / OOM). Triggering memory protection fallback: Retrying in single-thread mode..."
                         )
                     )
-                    clean_cmd = [arg if not arg.startswith("--jobs=") else "--jobs=1" for arg in cmd]
-                    if "--low-memory" not in clean_cmd:
-                        clean_cmd.append("--low-memory")
+                    if engine == "Nuitka":
+                        clean_cmd = [arg if not arg.startswith("--jobs=") else "--jobs=1" for arg in cmd]
+                        if "--low-memory" not in clean_cmd:
+                            clean_cmd.append("--low-memory")
+                    else:
+                        clean_cmd = list(cmd)
                     self.all_raw_logs.clear()
                     success = self.run_cmd(clean_cmd, cwd=script_dir.as_posix())
 

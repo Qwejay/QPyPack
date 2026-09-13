@@ -6,6 +6,29 @@ All notable changes to the **QPyPack** project will be documented in this file.
 
 ---
 
+## [2.9.0] - 2026-09-13
+
+### Added
+- **AI Framework Packaging Hooks**: Added automated dependency and data-file collection for major AI / Deep Learning frameworks (`paddle`, `paddleocr`, `torch`, `tensorflow`, `mediapipe`) across both PyInstaller and Nuitka engines.
+- **Paddle Safety Diagnostic Alert**: Proactively prompts users to configure `multiprocessing.freeze_support()` in their entry script upon detecting Paddle/PaddleOCR, preventing infinite process spawning (fork bombs) and memory exhaustion.
+- **Cloud Sync Sandbox Redirection**: Added automatic cloud sync directory detection (OneDrive, Dropbox, Google Drive, Baidu Netdisk, etc.) and redirects the build sandbox to the system temp directory to prevent file locks.
+- **Nuitka Cache Self-Healing**: Automatically purges corrupted compiler download caches when extraction is blocked by antivirus or file locks, providing clear whitelist guidance.
+
+### Fixed
+- **Cloud Sync False Positive**: Fixed a critical bug where an accidental empty string in `cloud_keywords` caused every project path to be falsely identified as a cloud sync directory.
+- **Backport Shield Rule Application**: Fixed an issue where computed `active_exclusions` were bypassed when writing the atomic requirements file, ensuring obsolete backport packages are reliably excluded.
+- **Nuitka Exclude Parameter Formatting**: Fixed a missing f-string prefix in Nuitka's `--nofollow-import-to` argument that resulted in passing literal string `{excl.strip()}`.
+- **OOM Retry Engine Check**: Restricted the `--low-memory` flag exclusively to Nuitka during OOM retries to prevent PyInstaller from crashing on unrecognized arguments.
+- **Multi-File Dependency Resolution**: Fixed submodule imports not being propagated to the global import set, ensuring `--collect-all` and data collection rules cover the entire project.
+- **Redundant Icon Bundling**: Removed duplicate `--add-data` icon inclusion in PyInstaller that caused resource naming collisions and broke icon strip fallback logic.
+
+### Changed
+- Hoisted unified dependency aggregation before engine dispatch, eliminating duplicate import calculations across PyInstaller and Nuitka branches.
+- Added localization dictionary entries for the newly introduced Paddle warning message.
+- Temporarily disabled Nuitka's default `--enable-plugin=anti-bloat` flag to improve compilation compatibility on complex projects.
+
+---
+
 ## [2.8.6] - 2026-09-11
 
 ### Fixed
