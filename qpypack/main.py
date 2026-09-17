@@ -125,7 +125,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.9.0"
+__version__ = "2.9.1"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -596,6 +596,8 @@ ZH_CN_DICT = {
     "[SUCCESS] Corrupted cache cleared. Please add Nuitka cache to antivirus whitelist, or switch to PyInstaller engine and retry.": "[SUCCESS] 损坏缓存已清空。请将 Nuitka 缓存目录加入杀软白名单，或切换至 PyInstaller 引擎后重试。",
     "[CRITICAL] Paddle detected! Call 'multiprocessing.freeze_support()' under 'if __name__ == \"__main__\":' in your entry script, or the packaged app will spawn infinite processes and exhaust memory.":
         "[严重警告] 检测到使用了 Paddle 库！请务必在入口脚本的 'if __name__ == \"__main__\":' 下调用 'multiprocessing.freeze_support()'，否则打包后的程序运行会导致无限弹窗派生并耗尽内存。",
+    "Compatibility Mode": "兼容模式",
+    "[INFO] No local MSVC detected. Nuitka will auto-manage and download the optimal C compiler toolchain.": "[INFO] 未检测到本地 MSVC。Nuitka 将自动管理并下载最优的 C 编译器工具链。",
     "Unknown": "未知"
 }
 
@@ -944,7 +946,7 @@ def load_config(retry=True):
             "pyi_version": "6.21.0",
             "nuitka_version": "4.1.3",
             "enable_backport_shield": "True",
-            "lite_mode": "False",
+            "lite_mode": "True",
         }
         for k, v in settings_defaults.items():
             config.set("Settings", k, v)
@@ -3137,9 +3139,9 @@ class SettingsPanel(QWidget):
         h_icon.addWidget(self.icon_preview)
         h_icon.addWidget(self.btn_icon)
 
-        self.rb_compat_mode = QRadioButton(_("Compatibility Mode (Default)"))
+        self.rb_compat_mode = QRadioButton(_("Compatibility Mode"))
         self.rb_lite_mode = QRadioButton(_("Lite Mode (Smaller size)"))
-        self.rb_compat_mode.setChecked(True)
+        self.rb_lite_mode.setChecked(True)
 
         pack_mode_cont = QWidget()
         h_pack_mode = QHBoxLayout(pack_mode_cont)
@@ -4394,7 +4396,7 @@ class SettingsPanel(QWidget):
 
             self.engine_combo.setCurrentText(s.get("engine", "PyInstaller"))
 
-            is_lite = s.getboolean("lite_mode", False)
+            is_lite = s.getboolean("lite_mode", True)
             self.rb_lite_mode.setChecked(is_lite)
             self.rb_compat_mode.setChecked(not is_lite)
 
@@ -4579,8 +4581,9 @@ class SettingsPanel(QWidget):
             )
 
         if getattr(self, "upx_check", None) is not None and getattr(self, "upx_path_container", None) is not None:
-            self.upx_check.setVisible(True)
-            self.upx_path_container.setVisible(self.upx_check.isChecked())
+            is_pyi = (engine == "PyInstaller")
+            self.upx_check.setVisible(is_pyi)
+            self.upx_path_container.setVisible(is_pyi and self.upx_check.isChecked())
 
     def on_python_path_changed(self, text=""):
         raw_text = text or self.python_path_combo.currentText().strip()
@@ -6310,7 +6313,7 @@ class PackingThread(QThread):
                     "-m",
                     "nuitka",
                     "--assume-yes-for-downloads",
-                    # "--enable-plugin=anti-bloat",
+                    "--enable-plugin=anti-bloat",
                     f"--output-dir={self.temp_out_dir.as_posix()}",
                     f"--output-filename={app_name}{ext}",
                 ]
@@ -6393,30 +6396,8 @@ class PackingThread(QThread):
                     if has_suitable_msvc and has_win_sdk:
                         cmd.append("--msvc=latest")
                         self.progress.emit(_("[INFO] Found compatible MSVC + Windows SDK environment, using native compiler."))
-
-                    elif py_ver_num >= (3, 13) and is_64bit:
-                        cmd.append("--zig")
-                        self.progress.emit(_("[INFO] Python 3.13+ detected: Using Zig compiler (--zig) as native backend."))
-
-                    elif py_ver_num <= (3, 12):
-                        cmd.append("--mingw64")
-                        if not has_suitable_msvc and py_ver_num >= (3, 11):
-                            self.progress.emit(
-                                _(
-                                    "[INFO] MSVC 14.3+ not detected. Nuitka will use/download MinGW64 toolchain (Python {v}).",
-                                    v=f"{py_ver_num[0]}.{py_ver_num[1]}",
-                                )
-                            )
-                        else:
-                            self.progress.emit(_("[INFO] Using MinGW64 compiler."))
-
                     else:
-                        cmd.append("--msvc=latest")
-                        self.progress.emit(
-                            _(
-                                "[WARN] Python 3.13+ (32-bit) requires Visual Studio 2022 with Windows SDK. Build will attempt with current environment."
-                            )
-                        )
+                        self.progress.emit(_("[INFO] No local MSVC detected. Nuitka will auto-manage and download the optimal C compiler toolchain."))
 
                 if free_disk < 3.0:
                     self.progress.emit(
@@ -6467,7 +6448,7 @@ class PackingThread(QThread):
                         cores = safe_jobs
                 cmd.append(f"--jobs={cores}")
 
-                if self.params.get("upx"):
+                if self.params.get("upx") and not self.params.get("onefile"):
                     cmd.append("--enable-plugin=upx")
                     upx_dir_custom = (self.params.get("upx_path") or "").strip()
                     if upx_dir_custom and Path(upx_dir_custom).exists():
@@ -8140,7 +8121,7 @@ class MainWindow(QMainWindow):
             "reqs_file": sp.reqs_file_edit.text().strip(),
             "hidden_imports": sp.hidden_edit.text(),
             "add_data_list": add_data_items,
-            "upx": sp.upx_check.isChecked(),
+            "upx": sp.upx_check.isChecked() if engine == "PyInstaller" else False,
             "upx_path": sp.upx_path_edit.text().strip(),
             "cpu_cores": sp.cores_spin.value(),
             "exclude_modules": sp.exclude_edit.text().strip(),

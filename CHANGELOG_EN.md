@@ -6,6 +6,19 @@ All notable changes to the **QPyPack** project will be documented in this file.
 
 ---
 
+## [2.9.1] - 2026-09-17
+
+### Fixed
+- Fixed compression failure warnings and errors when invoking UPX during Nuitka standalone builds; restored policy ensuring UPX only applies to PyInstaller
+- Fixed abnormal binary size bloat when packaging third-party libraries like Pandas caused by disabled anti-bloat mechanisms
+- Fixed build failures on systems without Visual Studio caused by incorrect compiler fallback logic enforcing MSVC
+
+### Improved
+- Relaxed C compiler restrictions to let Nuitka automatically match and download appropriate lightweight toolchains (such as Zig) when local MSVC is missing, reducing build failures and file lock issues
+- Set Lite Mode as the default packaging strategy, enabling bytecode and link-time optimizations while excluding redundant test and debug modules to significantly reduce output size
+
+---
+
 ## [2.9.0] - 2026-09-13
 
 ### Added
