@@ -55,6 +55,7 @@ from PySide6.QtCore import (
     QParallelAnimationGroup,
     QPointF,
     QPropertyAnimation,
+    QRect,
     QRectF,
     QSize,
     Qt,
@@ -84,6 +85,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QBoxLayout,
     QDialog,
     QFileDialog,
     QFileIconProvider,
@@ -125,7 +127,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.9.1"
+__version__ = "2.9.2"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -514,6 +516,11 @@ ZH_CN_DICT = {
     "[WARN] Failed to purge invalid environment, falling back to temp sandbox: {error}": "[WARN] 清理失效环境失败，降级为临时沙箱: {error}",
     "Clear Local Venvs": "清理虚拟环境",
     "Clear Virtual Environments": "清理项目虚拟环境",
+    "Status: Cancelling Build": "状态: 正在停止构建...",
+    "Build cancellation requested. Stopping child processes...": "已请求取消构建，正在停止子进程...",
+    "Invalid output name. Avoid path separators, reserved characters, and trailing spaces or periods.": "输出名称无效。请勿使用路径分隔符、系统保留字符，或以空格和句点结尾。",
+    "Certificate password is kept for this session only and is not saved to the configuration file.": "证书密码仅在本次运行期间保留，不会保存到配置文件。",
+    "Environment remediation failed: {error}": "环境修复失败: {error}",
     "No local virtual environments found to clean.": "当前项目目录下未发现可清理的虚拟环境。",
     "<b>Found {count} virtual environment(s) for the current project:</b><br><span style='color:#64748b; font-size:11px;'>{paths}</span><br><br>Are you sure you want to delete them to free up disk space?":
         "<b>在当前项目下检测到 {count} 个隔离虚拟环境：</b><br><span style='color:#64748b; font-size:11px;'>{paths}</span><br><br>确定要全部清理以释放磁盘空间吗？",
@@ -900,8 +907,51 @@ MATERIAL_ICONS = {
 }
 
 
-def load_config(retry=True):
+def _default_config(default_mirror, default_backup, clean_default_mappings):
     config = configparser.ConfigParser(strict=False)
+    config["Mappings"] = clean_default_mappings
+    config["Settings"] = {
+        "language": "auto",
+        "engine": "PyInstaller",
+        "pip_index": default_mirror,
+        "pip_index_backup": default_backup,
+        "onefile": "True",
+        "contents_dir": "_internal",
+        "noconsole": "True",
+        "clean_all": "True",
+        "auto_icon": "True",
+        "use_venv": "True",
+        "keep_venv": "False",
+        "venv_mode": "isolated",
+        "shared_venv_dir": "",
+        "use_reqs": "True",
+        "use_pipreqs": "True",
+        "use_pipreqs_dir": "False",
+        "upx": "False",
+        "concise_log": "True",
+        "cpu_cores": str(min(256, max(1, os.cpu_count() or 2))),
+        "upx_path": "",
+        "exclude_modules": "",
+        "out_mode": "0",
+        "custom_out_dir": "",
+        "temp_sandbox_mode": "0",
+        "sound_notify": "True",
+        "auto_save_log": "False",
+        "use_reqs_file": "",
+        "add_data_list": "",
+        "custom_python_path": "",
+        "pyi_version": "6.21.0",
+        "nuitka_version": "4.1.3",
+        "enable_backport_shield": "True",
+        "lite_mode": "True",
+        "enable_sign": "True" if sys.platform == "darwin" else "False",
+        "cert_path": "",
+    }
+    config["BackportRules"] = {k: str(v) for k, v in DEFAULT_BACKPORT_RULES.items()}
+    return config
+
+
+def load_config(retry=True):
     default_mirror = "https://pypi.org/simple"
     default_backup = "https://test.pypi.org/simple"
 
@@ -910,155 +960,128 @@ def load_config(retry=True):
         default_backup = "https://mirrors.aliyun.com/pypi/simple/"
 
     clean_default_mappings = {k.lower(): v for k, v in DEFAULT_MAPPINGS.items()}
+    config_path = Path(CONFIG_FILE)
+    updated = False
 
-    if not os.path.exists(CONFIG_FILE):
-        config.add_section("Mappings")
-        for k, v in clean_default_mappings.items():
-            config.set("Mappings", k, v)
-            
-        config.add_section("Settings")
-        settings_defaults = {
-            "language": "auto",
-            "engine": "PyInstaller",
-            "pip_index": default_mirror,
-            "pip_index_backup": default_backup,
-            "onefile": "True",
-            "noconsole": "True",
-            "clean_all": "True",
-            "auto_icon": "True",
-            "use_venv": "True",
-            "use_reqs": "True",
-            "use_pipreqs": "True",
-            "use_pipreqs_dir": "False",
-            "upx": "False",
-            "concise_log": "True",
-            "cpu_cores": str(os.cpu_count() or 2),
-            "upx_path": "",
-            "exclude_modules": "",
-            "out_mode": "0",
-            "custom_out_dir": "",
-            "temp_sandbox_mode": "0",
-            "sound_notify": "True",
-            "auto_save_log": "False",
-            "use_reqs_file": "",
-            "add_data_list": "",
-            "custom_python_path": "",
-            "pyi_version": "6.21.0",
-            "nuitka_version": "4.1.3",
-            "enable_backport_shield": "True",
-            "lite_mode": "True",
-        }
-        for k, v in settings_defaults.items():
-            config.set("Settings", k, v)
-            
-        config.add_section("BackportRules")
-        for k, v in DEFAULT_BACKPORT_RULES.items():
-            config.set("BackportRules", k, str(v))
-            
-        try:
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                config.write(f)
-        except Exception:
-            pass
+    if not config_path.exists():
+        config = _default_config(default_mirror, default_backup, clean_default_mappings)
+        save_config(config)
     else:
+        config = configparser.ConfigParser(strict=False)
         try:
-            config.read(CONFIG_FILE, encoding="utf-8")
-        except Exception:
-            if retry:
-                try:
-                    if os.path.exists(CONFIG_FILE):
-                        os.remove(CONFIG_FILE)
-                except Exception:
-                    pass
-                return load_config(retry=False)
-
-        updated_any = False
-        
-        if not config.has_section("Mappings"):
-            config.add_section("Mappings")
-            updated_any = True
-            
-        for k, v in clean_default_mappings.items():
-            if not config.has_option("Mappings", k):
-                config.set("Mappings", k, v)
-                updated_any = True
-
-        if not config.has_section("Settings"):
-            config.add_section("Settings")
-            updated_any = True
-
-        default_updates = {
-            "language": "auto",
-            "keep_venv": "False",
-            "enable_sign": "True" if sys.platform == "darwin" else "False",
-            "cert_path": "",
-            "cert_pass": "",
-            "pip_index": default_mirror,
-            "pip_index_backup": default_backup,
-            "concise_log": "True",
-            "cpu_cores": str(os.cpu_count() or 2),
-            "upx_path": "",
-            "exclude_modules": "",
-            "out_mode": "0",
-            "custom_out_dir": "",
-            "temp_sandbox_mode": "0",
-            "sound_notify": "True",
-            "auto_save_log": "False",
-            "use_reqs_file": "",
-            "add_data_list": "",
-            "custom_python_path": "",
-            "pyi_version": "6.21.0",
-            "nuitka_version": "4.1.3",
-            "venv_mode": "isolated",
-            "shared_venv_dir": "",
-            "lite_mode": "False",
-        }
-        for k, v in default_updates.items():
-            if not config.has_option("Settings", k):
-                config.set("Settings", k, v)
-                updated_any = True
-
-        if not config.has_section("BackportRules"):
-            config.add_section("BackportRules")
-            updated_any = True
-            
-        for k, v in DEFAULT_BACKPORT_RULES.items():
-            if not config.has_option("BackportRules", k):
-                config.set("BackportRules", k, str(v))
-                updated_any = True
-
-        if updated_any:
+            with config_path.open("r", encoding="utf-8") as stream:
+                config.read_file(stream)
+        except (configparser.Error, OSError, UnicodeError) as exc:
+            # Never delete a user's only copy of a damaged configuration file.
+            backup_path = config_path.with_name(
+                f"{config_path.stem}.corrupt-{time.strftime('%Y%m%d-%H%M%S')}{config_path.suffix}"
+            )
+            backed_up = False
             try:
+                shutil.copy2(config_path, backup_path)
+                backed_up = True
+            except OSError as backup_error:
+                logger.error("Could not back up damaged configuration %s: %s", config_path, backup_error)
+            logger.warning("Configuration is unreadable; loading defaults. Cause: %s", exc)
+            config = _default_config(default_mirror, default_backup, clean_default_mappings)
+            if backed_up:
                 save_config(config)
-            except Exception:
-                pass
+        else:
+            for section in ("Mappings", "Settings", "BackportRules"):
+                if not config.has_section(section):
+                    config.add_section(section)
+                    updated = True
 
-    lang_pref = config.get("Settings", "language", fallback="auto")
-    I18N.set_language(lang_pref)
+            for key, value in clean_default_mappings.items():
+                if not config.has_option("Mappings", key):
+                    config.set("Mappings", key, value)
+                    updated = True
+
+            default_settings = _default_config(
+                default_mirror, default_backup, clean_default_mappings
+            )["Settings"]
+            for key, value in default_settings.items():
+                if not config.has_option("Settings", key):
+                    config.set("Settings", key, value)
+                    updated = True
+
+            for key, value in DEFAULT_BACKPORT_RULES.items():
+                if not config.has_option("BackportRules", key):
+                    config.set("BackportRules", key, str(value))
+                    updated = True
+
+            # A PFX password must not be retained in a plaintext INI file.
+            if config.remove_option("Settings", "cert_pass"):
+                updated = True
+
+            # Repair invalid scalar values before widgets consume them.
+            boolean_defaults = {
+                "onefile": True, "noconsole": True, "clean_all": True,
+                "auto_icon": True, "use_venv": True, "keep_venv": False,
+                "use_reqs": True, "use_pipreqs": True, "use_pipreqs_dir": False,
+                "upx": False, "concise_log": True, "sound_notify": True,
+                "auto_save_log": False, "lite_mode": True,
+                "enable_backport_shield": True,
+                "enable_sign": sys.platform == "darwin",
+            }
+            for key, fallback in boolean_defaults.items():
+                try:
+                    config.getboolean("Settings", key)
+                except ValueError:
+                    config.set("Settings", key, str(fallback))
+                    updated = True
+
+            integer_defaults = {"cpu_cores": min(256, max(1, os.cpu_count() or 2)), "out_mode": 0, "temp_sandbox_mode": 0}
+            integer_limits = {"cpu_cores": (1, 256), "out_mode": (0, 1), "temp_sandbox_mode": (0, 1)}
+            for key, fallback in integer_defaults.items():
+                try:
+                    value = config.getint("Settings", key)
+                    lower, upper = integer_limits[key]
+                    if not lower <= value <= upper:
+                        raise ValueError("out of range")
+                except ValueError:
+                    config.set("Settings", key, str(fallback))
+                    updated = True
+
+            if updated:
+                save_config(config)
+
+    I18N.set_language(config.get("Settings", "language", fallback="auto"))
     return config
 
+
 def save_config(config):
-    import time
-
-    temp_file = CONFIG_FILE + ".tmp"
+    config_path = Path(CONFIG_FILE)
+    temp_path = None
     try:
-        with open(temp_file, "w", encoding="utf-8") as f:
-            config.write(f)
-    except Exception:
-        return
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(
+            prefix=f".{config_path.name}.", suffix=".tmp", dir=str(config_path.parent)
+        )
+        temp_path = Path(temp_name)
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+            config.write(stream)
+            stream.flush()
+            os.fsync(stream.fileno())
 
-    for _ in range(5):
-        try:
-            if os.path.exists(CONFIG_FILE):
-                os.replace(temp_file, CONFIG_FILE)
-            else:
-                os.rename(temp_file, CONFIG_FILE)
-            break
-        except PermissionError:
-            time.sleep(0.2)
-        except Exception:
-            break
-
+        for attempt in range(5):
+            try:
+                os.replace(temp_path, config_path)
+                return True
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.2)
+    except Exception as exc:
+        logger.warning("Failed to save configuration %s: %s", config_path, exc)
+        return False
+    finally:
+        if temp_path and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+    return False
 
 def create_pleasant_audio_files():
     success_wav = _CONFIG_DIR / "sound_success.wav"
@@ -1651,6 +1674,11 @@ def setup_combo_white_theme(combo: QComboBox, min_view_width: int | None = None)
     combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
 
     if min_view_width and combo.view():
+        screen = QApplication.primaryScreen()
+        if screen:
+            available_width = max(280, screen.availableGeometry().width() - 32)
+            min_view_width = min(min_view_width, available_width)
+            combo.view().setMaximumWidth(available_width)
         combo.view().setMinimumWidth(min_view_width)
         combo.view().setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
@@ -2127,6 +2155,22 @@ def convert_image_to_format(src_path, dest_path, dest_format):
             pass
 
     return False
+
+
+def test_directory_writable(path):
+    """Probe a directory without touching or replacing a user-owned filename."""
+    with tempfile.NamedTemporaryFile(prefix=".qpypack-write-test-", dir=str(path)):
+        pass
+
+
+def is_valid_output_name(name):
+    if not name or name in {".", ".."} or name != name.strip() or name.endswith((".", " ")):
+        return False
+    if any(ord(char) < 32 or char in '<>:"/\\|?*' for char in name):
+        return False
+    if os.name == "nt" and re.match(r"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)", name, re.IGNORECASE):
+        return False
+    return True
 
 
 def get_free_disk_gb(path="."):
@@ -2639,6 +2683,8 @@ class PythonScannerThread(QThread):
     def run(self):
         candidates = set()
         for name in ("python", "python3", "pythonw"):
+            if self.isInterruptionRequested():
+                return
             p = shutil.which(name)
             if p:
                 candidates.add(os.path.normpath(p))
@@ -2646,6 +2692,8 @@ class PythonScannerThread(QThread):
         if winreg is not None:
             try:
                 for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+                    if self.isInterruptionRequested():
+                        return
                     try:
                         with winreg.OpenKey(hive, r"SOFTWARE\Python\PythonCore") as core_key:
                             for i in range(winreg.QueryInfoKey(core_key)[0]):
@@ -2672,6 +2720,8 @@ class PythonScannerThread(QThread):
                 r"C:\Program Files (x86)\Python",
             ]
             for base in search_paths:
+                if self.isInterruptionRequested():
+                    return
                 if base and os.path.exists(base):
                     try:
                         for d in os.listdir(base):
@@ -2727,6 +2777,8 @@ class PythonScannerThread(QThread):
                                 pass
 
             for base in unix_bases:
+                if self.isInterruptionRequested():
+                    return
                 if os.path.exists(base):
                     try:
                         for f in os.listdir(base):
@@ -2752,6 +2804,8 @@ class PythonScannerThread(QThread):
         valid_pythons = {}
 
         def check_candidate(cand):
+            if self.isInterruptionRequested():
+                return None
             if getattr(sys, "frozen", False) or "__compiled__" in globals():
                 try:
                     if os.path.samefile(cand, sys.executable):
@@ -2792,6 +2846,8 @@ class PythonScannerThread(QThread):
         with ThreadPoolExecutor(max_workers=min(12, len(resolved_candidates) or 1)) as executor:
             results = executor.map(check_candidate, resolved_candidates)
             for res in results:
+                if self.isInterruptionRequested():
+                    return
                 if res:
                     valid_pythons[res[0]] = res[1]
 
@@ -2815,6 +2871,8 @@ class VenvCleanerTaskThread(QThread):
             if self.target_dir and self.target_dir.exists():
                 try:
                     for p in self.target_dir.iterdir():
+                        if self.isInterruptionRequested():
+                            return
                         if p.is_dir() and p.name.startswith(".qpypack_venv"):
                             venvs.append(p)
                 except Exception:
@@ -2823,6 +2881,8 @@ class VenvCleanerTaskThread(QThread):
             for venv in venvs:
                 try:
                     for f in venv.rglob("*"):
+                        if self.isInterruptionRequested():
+                            return
                         if f.is_file():
                             freed_bytes += f.stat().st_size
                 except Exception:
@@ -2856,6 +2916,10 @@ class SettingsPanel(QWidget):
         self.upx_check = None
         self.upx_path_container = None
         self.out_dir_container = None
+        self._card_layouts = []
+        self._compact_grid = None
+        self._compact_tabs = None
+        self._root_layout = None
 
         self.setStyleSheet("""
             SettingsPanel { background-color: #f9fafb; }
@@ -2915,6 +2979,7 @@ class SettingsPanel(QWidget):
         lay = QVBoxLayout(card)
         lay.setContentsMargins(20, 20, 20, 20)
         lay.setSpacing(12)
+        self._card_layouts.append(lay)
         if title_text:
             lbl = QLabel(title_text)
             lbl.setObjectName("CardTitle")
@@ -2926,10 +2991,15 @@ class SettingsPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setMinimumWidth(0)
         scroll.setStyleSheet("QScrollArea { background: transparent; }")
 
         content = QWidget()
         content.setObjectName("ScrollContent")
+        content.setMinimumWidth(0)
+        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         content.setStyleSheet("QWidget#ScrollContent { background: transparent; }")
 
         lay = QVBoxLayout(content)
@@ -2970,6 +3040,7 @@ class SettingsPanel(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
+        self._root_layout = layout
         layout.setSpacing(15)
         layout.setContentsMargins(20, 10, 20, 20)
 
@@ -2977,6 +3048,8 @@ class SettingsPanel(QWidget):
         self.tabs.setObjectName("MainTabWidget")
         self.tabs.tabBar().setObjectName("MainTabBar")
         self.tabs.tabBar().setExpanding(False)
+        self.tabs.tabBar().setUsesScrollButtons(True)
+        self.tabs.tabBar().setElideMode(Qt.TextElideMode.ElideRight)
 
         self.tab_build = QWidget()
         self.tab_pref_scroll, _cnt_pref, self.lay_pref = self._create_scroll_tab()
@@ -3020,6 +3093,7 @@ class SettingsPanel(QWidget):
         btn_lay.addWidget(self.btn_back)
 
         layout.addLayout(btn_lay)
+        self._apply_responsive_layout()
 
     def build_build_master_tab(self):
         main_lay = QVBoxLayout(self.tab_build)
@@ -3029,6 +3103,9 @@ class SettingsPanel(QWidget):
         self.sub_tabs.setObjectName("SubTabWidget")
         self.sub_tabs.tabBar().setObjectName("SubTabBar")
         self.sub_tabs.tabBar().setExpanding(False)
+        self.sub_tabs.tabBar().setUsesScrollButtons(True)
+        self.sub_tabs.tabBar().setElideMode(Qt.TextElideMode.ElideRight)
+        self.sub_tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         sub_scroll1, _cnt1, lay_sub1 = self._create_scroll_tab()
         sub_scroll2, _cnt2, lay_sub2 = self._create_scroll_tab()
@@ -3167,6 +3244,7 @@ class SettingsPanel(QWidget):
         v_mode = QVBoxLayout()
         h_radio = QHBoxLayout()
         h_radio.setSpacing(10)
+        self.mode_radio_layout = h_radio
 
         self.rb_onefile = QRadioButton(_("One-File Mode (--onefile)"))
         self.rb_onedir = QRadioButton(_("Folder Mode (--onedir)"))
@@ -3183,6 +3261,7 @@ class SettingsPanel(QWidget):
 
         self.contents_dir_container = QWidget()
         h_contents = QHBoxLayout(self.contents_dir_container)
+        self.contents_dir_layout = h_contents
         h_contents.setContentsMargins(0, 5, 0, 0)
         h_contents.addWidget(self.lbl_contents_dir)
         h_contents.addWidget(self.contents_dir_edit, 1)
@@ -3261,6 +3340,7 @@ class SettingsPanel(QWidget):
 
         c_lay_deps.addSpacing(5)
         g_dep = QGridLayout()
+        self.dep_grid = g_dep
         g_dep.setSpacing(10)
         self.venv_check = QCheckBox(_("Use Virtual Environment"))
         self.keep_venv_check = QCheckBox(_("Keep Local Venv"))
@@ -3269,6 +3349,7 @@ class SettingsPanel(QWidget):
         self.venv_mode_container = QWidget()
         self.venv_mode_container.setVisible(False)
         h_venv_mode = QHBoxLayout(self.venv_mode_container)
+        self.venv_mode_layout = h_venv_mode
         h_venv_mode.setContentsMargins(0, 0, 0, 0)
         h_venv_mode.setSpacing(8)
 
@@ -3329,6 +3410,8 @@ class SettingsPanel(QWidget):
         btn_env_lay.addWidget(self.btn_inspect_env)
         btn_env_lay.addWidget(self.btn_remediate_env)
         btn_env_lay.addStretch()
+        self.env_button_layout = btn_env_lay
+        self.env_buttons = (self.btn_inspect_env, self.btn_remediate_env)
         c_lay_env.addLayout(btn_env_lay)
         self.lbl_env_status = QLabel(_("Status: Environment inspection ready."))
         self.lbl_env_status.setStyleSheet("color: #64748b; font-size: 11px; margin-top: 4px;")
@@ -3378,6 +3461,8 @@ class SettingsPanel(QWidget):
         btn_res_lay.addWidget(self.btn_del_res)
         btn_res_lay.addWidget(self.btn_clear_res)
         btn_res_lay.addStretch()
+        self.resource_button_layout = btn_res_lay
+        self.resource_buttons = (self.btn_add_file, self.btn_add_dir, self.btn_del_res, self.btn_clear_res)
         c_lay_res.addLayout(btn_res_lay)
 
         lay_sub3.addWidget(self.card_res)
@@ -3413,6 +3498,7 @@ class SettingsPanel(QWidget):
         self.upx_path_container.setVisible(False)
 
         h_upx_row = QHBoxLayout()
+        self.upx_row_layout = h_upx_row
         h_upx_row.addWidget(self.upx_check)
         h_upx_row.addWidget(self.upx_path_container)
 
@@ -3453,6 +3539,7 @@ class SettingsPanel(QWidget):
         self.cert_pass_edit = QLineEdit()
         self.cert_pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.cert_pass_edit.setPlaceholderText(_("Certificate password"))
+        self.cert_pass_edit.setToolTip(_("Certificate password is kept for this session only and is not saved to the configuration file."))
 
         self.lbl_cert_path = QLabel(_("Commercial PFX File:"))
         self.lbl_cert_pass = QLabel(_("Cert Password:"))
@@ -3718,6 +3805,7 @@ class SettingsPanel(QWidget):
         btn_lay = QHBoxLayout()
         btn_lay.setSpacing(12)
         btn_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.about_link_layout = btn_lay
 
         def create_link_btn(text, url, svg_path, icon_color, bg_color, hover_bg, pressed_bg):
             btn = QPushButton(" " + text)
@@ -3767,6 +3855,7 @@ class SettingsPanel(QWidget):
         btn_lay.addWidget(self.btn_issue)
         btn_lay.addWidget(self.btn_pypi)
         btn_lay.addWidget(self.btn_sponsor)
+        self.about_link_buttons = (self.btn_github, self.btn_issue, self.btn_pypi, self.btn_sponsor)
 
         main_lay.addLayout(btn_lay)
         main_lay.addSpacing(20)
@@ -4183,6 +4272,10 @@ class SettingsPanel(QWidget):
 
     def remediate_environment_conflicts(self):
         py_exe, ver_tuple = self.get_selected_python_ver_tuple()
+        if not py_exe or not os.path.exists(py_exe):
+            self.lbl_env_status.setText(_("[ERROR] Python interpreter is invalid or not found: {path}", path=py_exe or "None"))
+            return
+
         installed = query_target_env_packages(py_exe)
         current_rules = self.get_current_active_backport_rules()
 
@@ -4202,7 +4295,13 @@ class SettingsPanel(QWidget):
             kw = {"capture_output": True, "text": True, "timeout": 20, "errors": "ignore"}
             if os.name == "nt":
                 kw["creationflags"] = subprocess.CREATE_NO_WINDOW
-            subprocess.run(uninst_cmd, **kw)
+            result = subprocess.run(uninst_cmd, **kw)
+            if result.returncode != 0:
+                detail = (result.stderr or result.stdout or "pip uninstall returned a non-zero exit code").strip()
+                self.lbl_env_status.setText(
+                    f"<span style='color:#d93025; font-weight:bold;'>{_('Environment remediation failed: {error}', error=detail)}</span>"
+                )
+                return
             self.inspect_current_python_env()
             if hasattr(self.parent_win, "show_notification"):
                 self.parent_win.show_notification(_("Remediation completed for packages: {pkgs}", pkgs=", ".join(conflicts_to_remove)))
@@ -4457,7 +4556,7 @@ class SettingsPanel(QWidget):
             self.enable_sign_check.setChecked(s.getboolean("enable_sign", default_sign_on_os))
 
             self.cert_path_edit.setText(s.get("cert_path", ""))
-            self.cert_pass_edit.setText(s.get("cert_pass", ""))
+            self.cert_pass_edit.clear()
             if self.cert_path_edit.text():
                 self.adv_sign_container.setVisible(True)
                 self.btn_toggle_adv_sign.setText(_("Hide Custom Cert Settings "))
@@ -4524,7 +4623,7 @@ class SettingsPanel(QWidget):
 
         s["enable_sign"] = str(self.enable_sign_check.isChecked())
         s["cert_path"] = self.cert_path_edit.text().strip()
-        s["cert_pass"] = self.cert_pass_edit.text().strip()
+        s.pop("cert_pass", None)
 
         s["add_data_list"] = ""
 
@@ -4700,6 +4799,8 @@ class SettingsPanel(QWidget):
         self.venv_worker.start()
 
     def _on_venv_scan_done(self, venvs_to_remove, freed_bytes):
+        if getattr(self.parent_win, "_shutdown_pending", False):
+            return
         self.btn_clean_venvs.setEnabled(True)
         self.btn_clean_venvs.setText(_("Clear Local Venvs"))
 
@@ -4757,6 +4858,8 @@ class SettingsPanel(QWidget):
             self.venv_worker.start()
 
     def _on_venv_delete_done(self, success_count, freed_mb):
+        if getattr(self.parent_win, "_shutdown_pending", False):
+            return
         self.btn_clean_venvs.setEnabled(True)
         self.btn_clean_venvs.setText(_("Clear Local Venvs"))
 
@@ -4946,6 +5049,144 @@ class SettingsPanel(QWidget):
                 self.parent_win.show_notification(_("Global configuration has been reset."))
 
 
+    def _apply_responsive_layout(self):
+        """Reflow settings controls when the available panel width is limited."""
+        width = max(1, self.width())
+        compact = width < 760
+        very_compact = width < 520
+
+        if self._root_layout:
+            if very_compact:
+                self._root_layout.setContentsMargins(8, 6, 8, 10)
+                self._root_layout.setSpacing(8)
+            elif compact:
+                self._root_layout.setContentsMargins(12, 8, 12, 12)
+                self._root_layout.setSpacing(10)
+            else:
+                self._root_layout.setContentsMargins(20, 10, 20, 20)
+                self._root_layout.setSpacing(15)
+
+        card_margin = 12 if very_compact else (16 if compact else 20)
+        card_spacing = 9 if compact else 12
+        for card_layout in self._card_layouts:
+            card_layout.setContentsMargins(card_margin, card_margin, card_margin, card_margin)
+            card_layout.setSpacing(card_spacing)
+
+        # Labels move above their fields only when a row no longer has enough room.
+        row_policy = (
+            QFormLayout.RowWrapPolicy.WrapLongRows
+            if compact else QFormLayout.RowWrapPolicy.DontWrapRows
+        )
+        for form in self.findChildren(QFormLayout):
+            form.setRowWrapPolicy(row_policy)
+            form.setHorizontalSpacing(10 if compact else 18)
+            form.setVerticalSpacing(10 if compact else 15)
+
+        # The three-column checkbox area becomes two columns on smaller displays.
+        compact_grid = width < 700
+        if hasattr(self, "dep_grid") and compact_grid != self._compact_grid:
+            grid = self.dep_grid
+            controls = (
+                self.venv_check, self.keep_venv_check, self.btn_clean_venvs,
+                self.venv_mode_container, self.reqs_check, self.pipreqs_check,
+                self.pipreqs_dir_check,
+            )
+            for control in controls:
+                grid.removeWidget(control)
+
+            if compact_grid:
+                grid.addWidget(self.venv_check, 0, 0)
+                grid.addWidget(self.keep_venv_check, 0, 1)
+                grid.addWidget(self.btn_clean_venvs, 1, 0, 1, 2)
+                grid.addWidget(self.venv_mode_container, 2, 0, 1, 2)
+                grid.addWidget(self.reqs_check, 3, 0)
+                grid.addWidget(self.pipreqs_check, 3, 1)
+                grid.addWidget(self.pipreqs_dir_check, 4, 0, 1, 2)
+                grid.setColumnStretch(0, 1)
+                grid.setColumnStretch(1, 1)
+                grid.setColumnStretch(2, 0)
+            else:
+                grid.addWidget(self.venv_check, 0, 0)
+                grid.addWidget(self.keep_venv_check, 0, 1)
+                grid.addWidget(self.btn_clean_venvs, 0, 2)
+                grid.addWidget(self.venv_mode_container, 1, 0, 1, 3)
+                grid.addWidget(self.reqs_check, 2, 0)
+                grid.addWidget(self.pipreqs_check, 2, 1)
+                grid.addWidget(self.pipreqs_dir_check, 3, 0)
+                grid.setColumnStretch(0, 0)
+                grid.setColumnStretch(1, 0)
+                grid.setColumnStretch(2, 0)
+            self._compact_grid = compact_grid
+
+        # Long action labels stack rather than being clipped side by side.
+        if hasattr(self, "env_button_layout"):
+            direction = (
+                QBoxLayout.Direction.TopToBottom
+                if width < 650 else QBoxLayout.Direction.LeftToRight
+            )
+            self.env_button_layout.setDirection(direction)
+            for button in self.env_buttons:
+                button.setSizePolicy(
+                    QSizePolicy.Policy.Expanding if width < 650 else QSizePolicy.Policy.Preferred,
+                    QSizePolicy.Policy.Fixed,
+                )
+
+        if hasattr(self, "resource_button_layout"):
+            direction = (
+                QBoxLayout.Direction.TopToBottom
+                if very_compact else QBoxLayout.Direction.LeftToRight
+            )
+            self.resource_button_layout.setDirection(direction)
+            for button in self.resource_buttons:
+                button.setSizePolicy(
+                    QSizePolicy.Policy.Expanding if very_compact else QSizePolicy.Policy.Preferred,
+                    QSizePolicy.Policy.Fixed,
+                )
+
+        # Reflow individual option rows whose labels/controls cannot share a line.
+        responsive_rows = (
+            (getattr(self, "mode_radio_layout", None), 620),
+            (getattr(self, "contents_dir_layout", None), 680),
+            (getattr(self, "venv_mode_layout", None), 620),
+            (getattr(self, "upx_row_layout", None), 680),
+            (getattr(self, "about_link_layout", None), 760),
+        )
+        for row_layout, threshold in responsive_rows:
+            if row_layout:
+                stacked = width < threshold
+                row_layout.setDirection(
+                    QBoxLayout.Direction.TopToBottom
+                    if stacked else QBoxLayout.Direction.LeftToRight
+                )
+
+        if hasattr(self, "about_link_buttons"):
+            for button in self.about_link_buttons:
+                button.setSizePolicy(
+                    QSizePolicy.Policy.Expanding if width < 760 else QSizePolicy.Policy.Preferred,
+                    QSizePolicy.Policy.Fixed,
+                )
+
+        # Keep all tab labels reachable; compact tabs use less horizontal padding.
+        if compact != self._compact_tabs:
+            for tab_widget in (getattr(self, "tabs", None), getattr(self, "sub_tabs", None)):
+                if not tab_widget:
+                    continue
+                bar = tab_widget.tabBar()
+                bar.setUsesScrollButtons(True)
+                if compact:
+                    bar.setStyleSheet(
+                        "QTabBar#%s::tab { padding: 7px 10px; margin: 0 4px; }"
+                        % bar.objectName()
+                    )
+                else:
+                    bar.setStyleSheet("")
+            self._compact_tabs = compact
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._apply_responsive_layout()
+
+
 class ScriptAnalysisThread(QThread):
     analysis_done = Signal(str, str, str, str, set)
 
@@ -5011,52 +5252,77 @@ class PackingThread(QThread):
         super().__init__()
         self.params = params
         self.process = None
+        self._process_lock = threading.Lock()
         self._is_cancelled = False
         self.venv_dir = None
         self.temp_workpath = None
         self.temp_out_dir = None
         self.temp_dist_dir = None
+        self.temp_requirements_file = None
         self.all_raw_logs = []
 
     def cancel(self):
-        self._is_cancelled = True
-        if not self.process:
+        if self._is_cancelled:
             return
+        self._is_cancelled = True
+        with self._process_lock:
+            process = self.process
+        if process and process.poll() is None:
+            # Process-tree termination must never block the GUI thread.
+            threading.Thread(target=self._terminate_process, args=(process,), daemon=True).start()
 
+    def _terminate_process(self, process):
+        if process.poll() is not None:
+            return
         try:
             if os.name == "nt":
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
-                    capture_output=True,
-                    timeout=3,
-                    creationflags=subprocess.CREATE_NO_WINDOW,
-                )
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                        capture_output=True,
+                        timeout=5,
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                    )
+                except Exception as e:
+                    logger.debug(f"taskkill failed; falling back to process termination: {e}")
+                    process.terminate()
             else:
                 import signal
-
                 try:
-                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
                 except ProcessLookupError:
                     pass
 
             try:
-                self.process.wait(timeout=PROCESS_KILL_TIMEOUT)
+                process.wait(timeout=PROCESS_KILL_TIMEOUT)
             except subprocess.TimeoutExpired:
-                try:
-                    self.process.kill()
-                    self.process.wait(timeout=2)
-                except Exception as e:
-                    logger.warning(f"Force kill failed: {e}")
-
+                if os.name == "nt":
+                    try:
+                        subprocess.run(
+                            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                            capture_output=True,
+                            timeout=3,
+                            creationflags=subprocess.CREATE_NO_WINDOW,
+                        )
+                    except Exception as e:
+                        logger.debug(f"Second taskkill attempt failed: {e}")
+                    if process.poll() is None:
+                        process.kill()
+                else:
+                    import signal
+                    try:
+                        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                process.wait(timeout=2)
         except Exception as e:
             logger.error(f"Process cancel failed: {e}\n{traceback.format_exc()}")
-        finally:
-            self._is_cancelled = True
 
     def run_cmd(self, cmd, cwd=None, timeout=None, silent_error=False, extra_env=None):
         if self._is_cancelled:
             return False
 
+        process = None
         timer = None
         is_timeout = [False]
 
@@ -5100,25 +5366,17 @@ class PackingThread(QThread):
             else:
                 kwargs["start_new_session"] = True
 
-            self.process = subprocess.Popen(cmd, **kwargs)
+            process = subprocess.Popen(cmd, **kwargs)
+            with self._process_lock:
+                self.process = process
+            if self._is_cancelled:
+                self._terminate_process(process)
 
             if timeout:
 
                 def kill_proc():
                     is_timeout[0] = True
-                    try:
-                        if os.name == "nt":
-                            subprocess.run(
-                                ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
-                                capture_output=True,
-                                creationflags=subprocess.CREATE_NO_WINDOW,
-                            )
-                        else:
-                            import signal
-
-                            os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
-                    except Exception:
-                        pass
+                    self._terminate_process(process)
 
                 timer = threading.Timer(timeout, kill_proc)
                 timer.start()
@@ -5126,13 +5384,9 @@ class PackingThread(QThread):
             buffer = []
             last_emit = time.time()
 
-            for line in self.process.stdout:
+            for line in process.stdout:
                 if self._is_cancelled:
-                    try:
-                        if self.process:
-                            self.process.terminate()
-                    except Exception:
-                        pass
+                    self._terminate_process(process)
                     return False
 
                 stripped = line.rstrip("\r\n")
@@ -5149,13 +5403,15 @@ class PackingThread(QThread):
 
             if buffer and not silent_error:
                 self.progress.emit("\n".join(buffer))
-            self.process.wait()
+            process.wait()
 
+            if self._is_cancelled:
+                return False
             if is_timeout[0]:
                 self.progress.emit(_("[WARN] Command timeout (>{timeout}s)", timeout=timeout))
                 return False
 
-            return self.process.returncode == 0
+            return process.returncode == 0
         except FileNotFoundError as e:
             error_msg = _("[ERROR] Process error: command or binary missing ({error})", error=str(e))
             self.progress.emit(error_msg)
@@ -5173,16 +5429,22 @@ class PackingThread(QThread):
         finally:
             if timer:
                 timer.cancel()
-            if self.process:
-                if self.process.stdout:
+            if process:
+                if process.stdout:
                     try:
-                        self.process.stdout.close()
+                        process.stdout.close()
                     except Exception as e:
                         logger.debug(f"Failed to close stdout: {e}")
                 try:
-                    self.process.wait(timeout=5)
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self._terminate_process(process)
                 except Exception as e:
                     logger.debug(f"Process wait failed: {e}")
+                finally:
+                    with self._process_lock:
+                        if self.process is process:
+                            self.process = None
 
     def run_pip_install(self, python_exe, pkgs_or_args):
         primary_idx = self.params.get("pip_index_url", "").strip()
@@ -5554,7 +5816,13 @@ class PackingThread(QThread):
                     kw_chk = {"capture_output": True, "text": True, "timeout": 5, "errors": "ignore"}
                     if os.name == "nt":
                         kw_chk["creationflags"] = subprocess.CREATE_NO_WINDOW
-                    chk_syntax = subprocess.run([system_python_exe, "-m", "py_compile", script_path.as_posix()], **kw_chk)
+                    compile_code = (
+                        "from pathlib import Path; import sys; "
+                        "compile(Path(sys.argv[1]).read_bytes(), sys.argv[1], 'exec')"
+                    )
+                    chk_syntax = subprocess.run(
+                        [system_python_exe, "-c", compile_code, script_path.as_posix()], **kw_chk
+                    )
                     if chk_syntax.returncode != 0:
                         err_desc = chk_syntax.stderr.strip() or _("Invalid syntax")
                         msg = _(
@@ -5601,9 +5869,7 @@ class PackingThread(QThread):
             target_out_dir = Path(custom_out) if (out_mode == 1 and custom_out) else script_dir
             try:
                 target_out_dir.mkdir(parents=True, exist_ok=True)
-                test_file = target_out_dir / ".qpypack_write_test"
-                test_file.write_text("test")
-                test_file.unlink()
+                test_directory_writable(target_out_dir)
             except Exception as e:
                 return self.build_finished.emit(
                     False, _("[ERROR] Output directory is missing write permissions: {error}", error=str(e)), []
@@ -5758,9 +6024,7 @@ class PackingThread(QThread):
                         shared_dir = self.params.get("shared_venv_dir", "").strip()
                         if shared_dir and Path(shared_dir).exists():
                             try:
-                                test_file = Path(shared_dir) / ".qpypack_write_test"
-                                test_file.touch()
-                                test_file.unlink()
+                                test_directory_writable(shared_dir)
                                 shared_venv_name = f".qpypack_shared_venv_py{target_py_ver}_{target_py_arch}"
                                 self.venv_dir = (Path(shared_dir) / shared_venv_name).resolve()
                             except Exception:
@@ -6023,8 +6287,13 @@ class PackingThread(QThread):
                     if re.split(r"[=><!~@;\[]", pkg)[0].strip().lower() not in active_exclusions
                 ]
 
-            temp_unified_reqs = custom_temp_base / f"qpypack_atomic_reqs_{int(time.time())}.txt"
-            temp_unified_reqs.write_text("\n".join(dedup_install_list), encoding="utf-8")
+            fd, reqs_temp_name = tempfile.mkstemp(
+                prefix="qpypack_atomic_reqs_", suffix=".txt", dir=str(custom_temp_base)
+            )
+            temp_unified_reqs = Path(reqs_temp_name)
+            self.temp_requirements_file = temp_unified_reqs
+            with os.fdopen(fd, "w", encoding="utf-8") as reqs_stream:
+                reqs_stream.write("\n".join(dedup_install_list))
 
             total_pkgs = len(dedup_install_list)
             pkg_names_str = ", ".join(sorted(dedup_install_list))
@@ -6076,6 +6345,7 @@ class PackingThread(QThread):
                     self.progress.emit(_("[WARN] Some dependencies failed to install, build will proceed with risk..."))
 
             temp_unified_reqs.unlink(missing_ok=True)
+            self.temp_requirements_file = None
 
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
@@ -6171,6 +6441,7 @@ class PackingThread(QThread):
                     "--noconfirm",
                     f"--distpath={self.temp_dist_dir.as_posix()}",
                     f"--workpath={self.temp_workpath.as_posix()}",
+                    f"--specpath={self.temp_workpath.as_posix()}",
                     f"--name={app_name}",
                 ]
 
@@ -6845,13 +7116,15 @@ class PackingThread(QThread):
             if is_temp and build_script_path and build_script_path.exists():
                 try:
                     build_script_path.unlink()
-                    pycache_dir = script_dir / "__pycache__"
-                    if pycache_dir.exists():
-                        if not robust_rmtree(pycache_dir):
-                            cleanup_errors.append(f"__pycache__: {pycache_dir}")
                 except Exception as e:
                     logger.debug(f"Failed to remove temp script: {e}")
                     cleanup_errors.append(f"temp script: {build_script_path}")
+
+            if self.temp_requirements_file and self.temp_requirements_file.exists():
+                try:
+                    self.temp_requirements_file.unlink()
+                except OSError as e:
+                    cleanup_errors.append(f"temporary requirements: {self.temp_requirements_file} ({e})")
 
             if self.params.get("version_file"):
                 try:
@@ -6880,20 +7153,6 @@ class PackingThread(QThread):
                     if dir_path and dir_path.exists():
                         if not robust_rmtree(dir_path):
                             cleanup_errors.append(f"{dir_name}: {dir_path}")
-
-                app_name = self.params.get("app_name", "app")
-                for p in ["__pycache__", f"{app_name}.build", f"{app_name}.onefile-build"]:
-                    dir_to_remove = script_dir / p
-                    if dir_to_remove.exists():
-                        if not robust_rmtree(dir_to_remove):
-                            cleanup_errors.append(f"build dir: {dir_to_remove}")
-
-                spec_file = script_dir / f"{app_name}.spec"
-                if spec_file.exists():
-                    try:
-                        spec_file.unlink()
-                    except Exception as e:
-                        logger.debug(f"Failed to remove spec file: {e}")
 
                 if sandbox_mode == 0 and custom_temp_base and custom_temp_base.exists():
                     try:
@@ -6936,8 +7195,11 @@ class PythonInstallerDialog(QDialog):
         self.current_local_target_path = None
 
         self.setWindowTitle(_("Python Environment Required") if is_missing_mode else _("Python Environment Management"))
-        self.setMinimumWidth(580)
-        self.setMinimumHeight(440)
+        screen = QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else QRect(0, 0, 1024, 768)
+        usable_width = max(320, available.width() - 24)
+        usable_height = max(300, available.height() - 24)
+        self.setMinimumSize(min(580, usable_width), min(440, usable_height))
         self.setStyleSheet("QDialog { background-color: #ffffff; }")
 
         layout = QVBoxLayout(self)
@@ -7078,6 +7340,8 @@ class PythonInstallerDialog(QDialog):
         else:
             self.tab_widget.setCurrentIndex(0)
 
+        self.resize(min(760, usable_width), min(560, usable_height))
+
     def _scan_installed_map(self):
         installed = {}
         if self.parent_win and hasattr(self.parent_win, "settings_panel"):
@@ -7187,6 +7451,9 @@ class MainWindow(QMainWindow):
         self.thread = None
         self.analysis_thread = None
         self.current_state = "idle"
+        self._pending_build_result = None
+        self._close_after_worker = False
+        self._shutdown_pending = False
 
         load_config()
 
@@ -7198,17 +7465,26 @@ class MainWindow(QMainWindow):
 
     def init_style(self):
         self.setWindowTitle(f"{__app_name__} {__version__}")
-        self.setMinimumSize(560, 460)
+
+        # Qt reports screen dimensions in logical pixels, which also accounts for
+        # Windows display scaling. Never restore a window larger than the desktop.
+        screen = QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else QRect(0, 0, 1024, 768)
+        usable_width = max(320, available.width() - 24)
+        usable_height = max(300, available.height() - 24)
+        self.setMinimumSize(min(520, usable_width), min(380, usable_height))
 
         try:
             config = load_config()
             w = int(config.get("Settings", "window_width", fallback="760"))
             h = int(config.get("Settings", "window_height", fallback="580"))
+            w = min(max(w, self.minimumWidth()), usable_width)
+            h = min(max(h, self.minimumHeight()), usable_height)
             self.resize(w, h)
             if config.get("Settings", "window_maximized", fallback="False") == "True":
                 self.setWindowState(Qt.WindowState.WindowMaximized)
         except Exception:
-            self.resize(760, 580)
+            self.resize(min(760, usable_width), min(580, usable_height))
 
         icon_path = get_resource_path("icon.ico")
         if os.path.exists(icon_path):
@@ -7238,6 +7514,7 @@ class MainWindow(QMainWindow):
 
         self.main_panel = QWidget()
         layout = QVBoxLayout(self.main_panel)
+        self.main_layout = layout
         layout.setSpacing(12)
         layout.setContentsMargins(20, 20, 20, 16)
 
@@ -7342,6 +7619,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(msg, timeout)
 
     def _on_python_install_completed(self, success):
+        if self._shutdown_pending:
+            return
         if success:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(_("Install Complete"))
@@ -7452,9 +7731,78 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        width = self.width()
+        height = self.height()
+        compact = width < 680 or height < 520
+
+        if hasattr(self, "main_layout"):
+            self.main_layout.setContentsMargins(
+                10 if compact else 20,
+                10 if height < 560 else 20,
+                10 if compact else 20,
+                10 if height < 560 else 16,
+            )
+            self.main_layout.setSpacing(8 if compact else 12)
+
+        if hasattr(self, "drop_area"):
+            icon_box = 108 if height < 430 else (128 if compact else 160)
+            self.drop_area.icon_widget.setFixedSize(icon_box, icon_box)
+            drop_layout = self.drop_area.layout()
+            if drop_layout:
+                vertical_margin = 10 if compact else 20
+                drop_layout.setContentsMargins(8, vertical_margin, 8, vertical_margin)
+
+        if hasattr(self, "log_concise") and hasattr(self, "log_detailed"):
+            min_log_height = 56 if height < 500 else 80
+            max_log_height = 104 if height < 500 else 160
+            for editor in (self.log_concise, self.log_detailed):
+                editor.setMinimumHeight(min_log_height)
+                editor.setMaximumHeight(max_log_height)
+
+        if hasattr(self, "settings_panel"):
+            self.settings_panel._apply_responsive_layout()
+
         self.adjust_status_bar()
 
+    def _active_background_threads(self):
+        workers = [self.analysis_thread]
+        if hasattr(self, "settings_panel"):
+            workers.extend((
+                getattr(self.settings_panel, "scanner_thread", None),
+                getattr(self.settings_panel, "venv_worker", None),
+            ))
+        workers.append(getattr(self, "install_monitor_thread", None))
+        return [worker for worker in workers if worker is not None and worker.isRunning()]
+
+    def _close_when_background_threads_stop(self):
+        if not self._active_background_threads():
+            self.close()
+
     def closeEvent(self, event):
+        if self.thread and self.thread.isRunning():
+            self.thread.cancel()
+            event.ignore()
+            if not self._close_after_worker:
+                self._close_after_worker = True
+                self.thread.finished.connect(self.close)
+                self.show_notification(_("Build cancellation requested. Stopping child processes..."), 6000)
+            return
+
+        active_workers = self._active_background_threads()
+        if active_workers:
+            event.ignore()
+            if not self._shutdown_pending:
+                self._shutdown_pending = True
+                self.setEnabled(False)
+                for worker in active_workers:
+                    if isinstance(worker, (ScriptAnalysisThread, PythonScannerThread)) or (
+                        isinstance(worker, VenvCleanerTaskThread) and worker.mode == "scan"
+                    ):
+                        worker.requestInterruption()
+                    worker.finished.connect(self._close_when_background_threads_stop)
+                QTimer.singleShot(0, self._close_when_background_threads_stop)
+            return
+
         try:
             config = load_config()
             if "Settings" not in config:
@@ -7467,23 +7815,11 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        if self.thread and self.thread.isRunning():
-            self.thread.cancel()
-            self.thread.wait(2000)
-
-        if self.analysis_thread and self.analysis_thread.isRunning():
-            self.analysis_thread.requestInterruption()
-            self.analysis_thread.wait(1000)
-
-        if hasattr(self, "settings_panel") and hasattr(self.settings_panel, "scanner_thread"):
-            if self.settings_panel.scanner_thread and self.settings_panel.scanner_thread.isRunning():
-                self.settings_panel.scanner_thread.requestInterruption()
-                self.settings_panel.scanner_thread.wait(1000)
-
         super().closeEvent(event)
 
     def update_ui_state(self, state):
         self.current_state = state
+        self.btn_main.setEnabled(True)
         self.btn_right.setEnabled(state != "building")
         self.drop_area.setAcceptDrops(state != "building")
 
@@ -7922,18 +8258,12 @@ class MainWindow(QMainWindow):
 
     def cancel_pack(self):
         if self.thread and self.thread.isRunning():
+            if self.thread._is_cancelled:
+                return
             self.thread.cancel()
-            self.thread.wait(1000)
-
-        self.append_log(_("[INFO] Build Cancelled."))
-        self.set_status(_("Status: Build Cancelled"))
-
-        if self.script_path and Path(self.script_path).exists():
-            self.reset_to_ready()
-        else:
-            self.reset_all()
-
-        self.show_notification(_("Build Cancelled"))
+            self.btn_main.setEnabled(False)
+            self.set_status(_("Status: Cancelling Build"))
+            self.show_notification(_("Build cancellation requested. Stopping child processes..."), 5000)
 
     def start_pack(self):
         if self.current_state == "building":
@@ -8014,9 +8344,7 @@ class MainWindow(QMainWindow):
                 try:
                     out_dir = Path(custom_out)
                     out_dir.mkdir(parents=True, exist_ok=True)
-                    test_file = out_dir / ".qpypack_write_test"
-                    test_file.touch()
-                    test_file.unlink()
+                    test_directory_writable(out_dir)
                 except Exception as e:
                     validation_errors.append(_("Output directory not writable: {error}", error=str(e)))
 
@@ -8026,6 +8354,9 @@ class MainWindow(QMainWindow):
             return
 
         app_name = sp.name_edit.text().strip() or Path(self.script_path).stem
+        if not is_valid_output_name(app_name):
+            self.show_error_log(_("Invalid output name. Avoid path separators, reserved characters, and trailing spaces or periods."))
+            return
         engine = sp.engine_combo.currentText()
 
         version_file = None
@@ -8049,17 +8380,14 @@ class MainWindow(QMainWindow):
                 orig_filename_escaped = app_name.replace("\\", "\\\\").replace("'", "\\'")
 
                 content = f"""VSVersionInfo(ffi=FixedFileInfo(filevers=({v_tuple}),prodvers=({v_tuple}),mask=0x3f,flags=0x0,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('CompanyName','{comp_escaped}'),StringStruct('FileDescription','{desc_escaped}'),StringStruct('FileVersion','{v_str_escaped}'),StringStruct('ProductVersion','{v_str_escaped}'),StringStruct('ProductName','{app_name_escaped}'),StringStruct('InternalName','{app_name_escaped}'),StringStruct('OriginalFilename','{orig_filename_escaped}.exe')])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])"""
-                version_file = Path(tempfile.gettempdir()) / f"qpypack_{app_name}_version.txt"
+                fd, version_temp_name = tempfile.mkstemp(prefix="qpypack_version_", suffix=".txt")
+                os.close(fd)
+                version_file = Path(version_temp_name)
                 version_file.write_text(content, encoding="utf-8")
             except Exception:
                 pass
 
         icon_path_str = sp.icon_edit.text().strip()
-
-        if icon_path_str and not Path(icon_path_str).exists():
-            self.show_error_log(_("[ERROR] The specified icon file does not exist: {path}", path=icon_path_str))
-            return
-
         temp_icon_file = None
         if icon_path_str:
             icon_path = Path(icon_path_str)
@@ -8078,11 +8406,14 @@ class MainWindow(QMainWindow):
             if is_valid_native_icon:
                 icon_path_str = icon_path.as_posix()
             else:
-                temp_ico = Path(tempfile.gettempdir()) / f"qpypack_sanitized_icon_{int(time.time())}.{needed_ext}"
+                fd, icon_temp_name = tempfile.mkstemp(prefix="qpypack_sanitized_icon_", suffix=f".{needed_ext}")
+                os.close(fd)
+                temp_ico = Path(icon_temp_name)
                 if convert_image_to_format(icon_path.as_posix(), temp_ico.as_posix(), needed_ext):
                     icon_path_str = temp_ico.as_posix()
                     temp_icon_file = temp_ico.as_posix()
                 else:
+                    temp_ico.unlink(missing_ok=True)
                     if needed_ext == "icns":
                         icon_path_str = ""
                         self.show_notification(_("[WARN] Icon conversion to .icns failed, building without icon."))
@@ -8157,12 +8488,26 @@ class MainWindow(QMainWindow):
 
         self.thread = PackingThread(params)
         self.thread.progress.connect(self.append_log)
-        self.thread.build_finished.connect(self.on_pack_finished)
+        self._pending_build_result = None
+        self.thread.build_finished.connect(self._store_pack_result)
+        self.thread.finished.connect(self._finalize_pack_result)
         self.thread.start()
 
         self.set_status(_("Status: Packaging ({engine}) ...", engine=engine))
         self.update_ui_state("building")
         self.drop_area.start_build_anim()
+
+    def _store_pack_result(self, success, msg, failed_pkgs=None):
+        self._pending_build_result = (success, msg, failed_pkgs or [])
+
+    def _finalize_pack_result(self):
+        result = self._pending_build_result
+        self._pending_build_result = None
+        if result is not None:
+            self.on_pack_finished(*result)
+        elif self.current_state == "building":
+            self.show_error_log("[ERROR] Build worker exited without returning a result.")
+            self.update_ui_state("failed")
 
     def on_pack_finished(self, success, msg, failed_pkgs=None):
         if not success and not (self.thread and getattr(self.thread, "_is_cancelled", False)):

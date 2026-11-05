@@ -5,7 +5,25 @@ All notable changes to the **QPyPack** project will be documented in this file.
 **English** | [中文版](./CHANGELOG.md)
 
 ---
+## [2.9.2] - 2026-11-05
 
+### Fixes
+- Fixed corrupted configuration recovery with automatic backups.
+- Fixed plaintext storage of PFX certificate passwords.
+- Prevented build cleanup from deleting source files, `.spec` files, and caches.
+- Fixed unwanted `.pyc` generation during syntax checks.
+- Fixed UI freezing during build cancellation and background thread shutdown issues.
+- Fixed premature build completion and incorrect success reports after cleanup failures.
+- Added output filename validation and fixed display geometry detection.
+
+### Improvements
+- Improved responsive layouts for low-resolution displays and smaller windows.
+- Added adaptive control layouts and scrollable tab navigation.
+- Improved configuration handling with atomic writes and automatic validation.
+- Unified Lite Mode defaults while preserving existing user preferences.
+- Improved temporary file handling to reduce naming conflicts.
+
+---
 ## [2.9.1] - 2026-09-17
 
 ### Fixed
