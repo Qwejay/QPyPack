@@ -127,7 +127,7 @@ except ImportError:
     HAS_QT_AUDIO = False
 
 __app_name__ = "QPyPack"
-__version__ = "2.9.2"
+__version__ = "2.9.3"
 __author__ = "QwejayHuang"
 __company__ = "Qwesoft"
 __description__ = "Modern Cross-Platform Python Packaging GUI Powered by PyInstaller & Nuitka"
@@ -140,6 +140,7 @@ MEMORY_MEDIUM_THRESHOLD_GB = 3.5
 MEMORY_HIGH_THRESHOLD_GB = 6.0
 BUILD_TIMEOUT_SECONDS = 3600
 COMMAND_TIMEOUT_SECONDS = 120
+NUITKA_DOWNLOAD_RETRY_DELAYS = (5, 15)
 PYTHON_CHECK_TIMEOUT = 3
 PROCESS_KILL_TIMEOUT = 5
 MAX_CLEANUP_RETRIES = 15
@@ -605,6 +606,11 @@ ZH_CN_DICT = {
         "[严重警告] 检测到使用了 Paddle 库！请务必在入口脚本的 'if __name__ == \"__main__\":' 下调用 'multiprocessing.freeze_support()'，否则打包后的程序运行会导致无限弹窗派生并耗尽内存。",
     "Compatibility Mode": "兼容模式",
     "[INFO] No local MSVC detected. Nuitka will auto-manage and download the optimal C compiler toolchain.": "[INFO] 未检测到本地 MSVC。Nuitka 将自动管理并下载最优的 C 编译器工具链。",
+    "[INFO] Nuitka compiler downloads use its persistent cache; completed downloads will be reused on later builds.": "[INFO] Nuitka 编译器使用持久化缓存；已完整下载的工具链会在后续构建中复用。",
+    "[INFO] HTTP(S) proxy environment detected; proxy settings will be passed to Nuitka.": "[INFO] 已检测到 HTTP(S) 代理环境变量，代理设置将传递给 Nuitka。",
+    "[WARN] GitHub compiler download failed. Retrying build ({attempt}/{total}) in {delay}s; completed downloads remain cached.": "[WARN] GitHub 编译器下载失败，将在 {delay} 秒后重试构建（{attempt}/{total}）；已完成的下载缓存会保留。",
+    "[WARN] GitHub compiler download is still unavailable after retries. Nuitka cache was preserved. Check GitHub access or configure HTTPS_PROXY/HTTP_PROXY; installing Visual Studio 2022 Build Tools with Windows SDK can avoid the MinGW download.": "[WARN] 多次重试后仍无法下载 GitHub 编译器。Nuitka 缓存已保留。请检查 GitHub 网络，或配置 HTTPS_PROXY/HTTP_PROXY；安装带 Windows SDK 的 Visual Studio 2022 Build Tools 可避免下载 MinGW。",
+    "[WARN] Nuitka compiler extraction failed. QPyPack kept the shared cache intact; check antivirus permissions and retry.": "[WARN] Nuitka 编译器解压失败。QPyPack 已保留共享缓存；请检查杀毒软件拦截/文件权限后重试。",
     "Unknown": "未知"
 }
 
@@ -5254,6 +5260,7 @@ class PackingThread(QThread):
         self.process = None
         self._process_lock = threading.Lock()
         self._is_cancelled = False
+        self._last_command_timed_out = False
         self.venv_dir = None
         self.temp_workpath = None
         self.temp_out_dir = None
@@ -5322,6 +5329,7 @@ class PackingThread(QThread):
         if self._is_cancelled:
             return False
 
+        self._last_command_timed_out = False
         process = None
         timer = None
         is_timeout = [False]
@@ -5404,6 +5412,7 @@ class PackingThread(QThread):
             if buffer and not silent_error:
                 self.progress.emit("\n".join(buffer))
             process.wait()
+            self._last_command_timed_out = bool(is_timeout[0])
 
             if self._is_cancelled:
                 return False
@@ -5445,6 +5454,111 @@ class PackingThread(QThread):
                     with self._process_lock:
                         if self.process is process:
                             self.process = None
+
+    @staticmethod
+    def _is_retryable_nuitka_download_failure(log_text, timed_out=False):
+        """Identify failures while Nuitka is fetching its Windows MinGW archive.
+
+        Nuitka owns the download and cache implementation. QPyPack can safely
+        retry the build after transient failures, but should not modify Nuitka's
+        private cache layout or delete shared cache directories.
+        """
+        lower = (log_text or "").lower()
+        if "github.com/brechtsanders/winlibs_mingw" not in lower:
+            return False
+
+        # These errors are generally configuration/resource problems, not
+        # transient GitHub transport failures.
+        permanent_errors = (
+            "http error 400",
+            "http error 401",
+            "http error 403",
+            "http error 404",
+            "certificate_verify_failed",
+            "no space left on device",
+            "nospaceleft",
+        )
+        if any(marker in lower for marker in permanent_errors):
+            return False
+
+        transient_errors = (
+            "failed to download",
+            "urlerror",
+            "timed out",
+            "timeout",
+            "connectionreseterror",
+            "connection reset",
+            "connection aborted",
+            "remotedisconnected",
+            "temporary failure in name resolution",
+            "network is unreachable",
+            "http error 408",
+            "http error 425",
+            "http error 429",
+            "http error 500",
+            "http error 502",
+            "http error 503",
+            "http error 504",
+            "problem with the downloaded zip file",
+        )
+        if any(marker in lower for marker in transient_errors):
+            return True
+
+        # If the outer build watchdog expires while the most recent Nuitka
+        # message is still the compiler download, treat it as a stalled fetch.
+        if timed_out:
+            download_pos = lower.rfind("downloading")
+            extract_pos = lower.rfind("extracting to")
+            compile_pos = max(
+                lower.rfind("scons"),
+                lower.rfind("compiling"),
+                lower.rfind("linking"),
+            )
+            return download_pos >= 0 and download_pos > extract_pos and download_pos > compile_pos
+
+        return False
+
+    def run_nuitka_with_retry(self, cmd, cwd=None, timeout=BUILD_TIMEOUT_SECONDS):
+        """Retry only transient GitHub MinGW download failures, never code errors."""
+        total_retries = len(NUITKA_DOWNLOAD_RETRY_DELAYS)
+
+        for attempt in range(total_retries + 1):
+            log_start = len(self.all_raw_logs)
+            success = self.run_cmd(cmd, cwd=cwd, timeout=timeout)
+            if success or self._is_cancelled:
+                return success
+
+            attempt_log = "\n".join(self.all_raw_logs[log_start:])
+            if not self._is_retryable_nuitka_download_failure(
+                attempt_log, timed_out=self._last_command_timed_out
+            ):
+                return False
+
+            if attempt >= total_retries:
+                self.progress.emit(
+                    _(
+                        "[WARN] GitHub compiler download is still unavailable after retries. Nuitka cache was preserved. Check GitHub access or configure HTTPS_PROXY/HTTP_PROXY; installing Visual Studio 2022 Build Tools with Windows SDK can avoid the MinGW download."
+                    )
+                )
+                return False
+
+            delay = NUITKA_DOWNLOAD_RETRY_DELAYS[attempt]
+            self.progress.emit(
+                _(
+                    "[WARN] GitHub compiler download failed. Retrying build ({attempt}/{total}) in {delay}s; completed downloads remain cached.",
+                    attempt=attempt + 1,
+                    total=total_retries,
+                    delay=delay,
+                )
+            )
+
+            # Keep cancellation responsive during backoff.
+            for _second in range(delay):
+                if self._is_cancelled:
+                    return False
+                time.sleep(1)
+
+        return False
 
     def run_pip_install(self, python_exe, pkgs_or_args):
         primary_idx = self.params.get("pip_index_url", "").strip()
@@ -6579,6 +6693,11 @@ class PackingThread(QThread):
 
             elif engine == "Nuitka":
                 self.temp_out_dir = Path(tempfile.mkdtemp(prefix="qpypack_nuitka_", dir=temp_dir_arg)).resolve()
+                self.progress.emit(
+                    _("[INFO] Nuitka compiler downloads use its persistent cache; completed downloads will be reused on later builds.")
+                )
+                if any(os.environ.get(k) for k in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")):
+                    self.progress.emit(_("[INFO] HTTP(S) proxy environment detected; proxy settings will be passed to Nuitka."))
                 cmd = [
                     python_exe,
                     "-m",
@@ -6898,16 +7017,25 @@ class PackingThread(QThread):
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
 
-            success = self.run_cmd(cmd, cwd=script_dir.as_posix(), timeout=3600)
+            build_log_start = len(self.all_raw_logs)
+            if engine == "Nuitka":
+                success = self.run_nuitka_with_retry(
+                    cmd, cwd=script_dir.as_posix(), timeout=BUILD_TIMEOUT_SECONDS
+                )
+            else:
+                success = self.run_cmd(
+                    cmd, cwd=script_dir.as_posix(), timeout=BUILD_TIMEOUT_SECONDS
+                )
 
             if not success and not self._is_cancelled:
-                log_text = "\n".join(self.all_raw_logs)
-                if any(kw in log_text for kw in ["need 'mingw64\\bin\\gcc.exe'", "WinError 32", "Problem with the downloaded zip file"]):
-                    self.progress.emit(_("[Environment Error] Compiler extraction blocked by system/antivirus. Automatically cleaning corrupted cache..."))
-                    cache_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Nuitka" / "Nuitka" / "Cache" / "downloads"
-                    if cache_dir.exists():
-                        robust_rmtree(cache_dir)
-                    self.progress.emit(_("[SUCCESS] Corrupted cache cleared. Please add Nuitka cache to antivirus whitelist, or switch to PyInstaller engine and retry."))
+                log_text = "\n".join(self.all_raw_logs[build_log_start:])
+                if engine == "Nuitka" and any(
+                    kw in log_text
+                    for kw in ["need 'mingw64\\bin\\gcc.exe'", "WinError 32", "Problem with the downloaded zip file"]
+                ):
+                    self.progress.emit(
+                        _("[WARN] Nuitka compiler extraction failed. QPyPack kept the shared cache intact; check antivirus permissions and retry.")
+                    )
 
                 if any(kw in log_text for kw in ["NoSpaceLeft", "No space left on device", "[Errno 28]"]):
                     self.progress.emit(
@@ -6928,7 +7056,7 @@ class PackingThread(QThread):
                     else:
                         clean_cmd = list(cmd)
                     self.all_raw_logs.clear()
-                    success = self.run_cmd(clean_cmd, cwd=script_dir.as_posix())
+                    success = self.run_cmd(clean_cmd, cwd=script_dir.as_posix(), timeout=BUILD_TIMEOUT_SECONDS)
 
             if not success and icon_path and not self._is_cancelled:
                 log_text = "\n".join(self.all_raw_logs)
@@ -6961,7 +7089,7 @@ class PackingThread(QThread):
                         clean_cmd.append(arg)
 
                     self.all_raw_logs.clear()
-                    success = self.run_cmd(clean_cmd, cwd=script_dir.as_posix())
+                    success = self.run_cmd(clean_cmd, cwd=script_dir.as_posix(), timeout=BUILD_TIMEOUT_SECONDS)
 
             if self._is_cancelled:
                 return self.build_finished.emit(False, _("[INFO] Build Cancelled."), [])
@@ -8822,12 +8950,30 @@ def global_excepthook(exctype, value, tb):
 
 def main():
     sys.excepthook = global_excepthook
+
     try:
-        QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+        QApplication.setHighDpiScaleFactorRoundingPolicy(
+            Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+        )
     except Exception:
         pass
 
     app = QApplication(sys.argv)
+
+    font = QFont()
+    font.setFamilies([
+        "Segoe UI",
+        "Microsoft YaHei",
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Noto Sans SC",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif",
+    ])
+    font.setPointSize(9)
+    app.setFont(font)
+
     app.setStyle("Fusion")
 
     palette = QPalette()
@@ -8851,6 +8997,7 @@ def main():
             border-radius: 8px;
             padding: 5px;
         }
+
         QMenu::item {
             background-color: transparent;
             color: #1e293b;
@@ -8860,15 +9007,18 @@ def main():
             font-weight: 500;
             font-family: Consolas, "Segoe UI", sans-serif;
         }
+
         QMenu::item:selected {
             background-color: #eff6ff;
             color: #2563eb;
             font-weight: 600;
         }
+
         QMenu::item:disabled {
             color: #94a3b8;
             background-color: transparent;
         }
+
         QMenu::separator {
             height: 1px;
             background-color: #f1f5f9;
@@ -8878,15 +9028,9 @@ def main():
 
     I18N.update_qt_translator(I18N.current_lang)
 
-    font = QFont()
-    font.setFamilies(
-        ["Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Helvetica Neue", "Arial", "sans-serif"]
-    )
-    font.setPointSize(9)
-    app.setFont(font)
-
     win = MainWindow()
     win.show()
+
     sys.exit(app.exec())
 
 
